@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
+      spikes: ${{ steps.filter.outputs.spikes }}
       go: ${{ steps.filter.outputs.go }}
       ts: ${{ steps.filter.outputs.ts }}
       relay: ${{ steps.filter.outputs.relay }}
@@ -43,6 +44,7 @@ jobs:
           m go    '^(cloud/|\.github/workflows/ci\.yml$)'
           m ts    '^(ui/|console/|dashboard/|package(-lock)?\.json$|tsconfig\.base\.json$|\.nvmrc$|\.github/workflows/ci\.yml$)'
           m relay '^(relay/|\.github/workflows/ci\.yml$)'
+          m spikes '^(spikes/|\.github/workflows/ci\.yml$)'
 
   rust:
     needs: changes
@@ -124,10 +126,37 @@ jobs:
       # patch does something (#46, #30).
       - run: relay/apply.sh
 
+  spikes:
+    needs: changes
+    if: needs.changes.outputs.spikes == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # Spike crates each declare their own [workspace] so the root `cargo build
+      # --workspace` does not pull iroh or Tauri into every Rust run. That also puts them
+      # outside root `cargo fmt --all`, so they get formatted here instead. Only formatting:
+      # clippy would mean a full iroh build for throwaway code that is deleted once the
+      # spike's conclusions land.
+      - name: rustfmt every spike crate and loose .rs file
+        run: |
+          shopt -s nullglob
+          found=0
+          for manifest in spikes/*/Cargo.toml; do
+            echo "== $(dirname "$manifest")"
+            (cd "$(dirname "$manifest")" && cargo fmt --all --check)
+            found=1
+          done
+          for stray in spikes/*/*.rs; do
+            echo "== $stray"
+            rustfmt --edition 2024 --check "$stray"
+            found=1
+          done
+          if [ "$found" = 0 ]; then echo "no spike crates"; fi
+
   ci-ok:
     # The one check branch protection requires. Green when every job that ran passed, and
     # when a job was skipped because nothing in its language changed.
-    needs: [changes, rust, go, ts, relay]
+    needs: [changes, rust, go, ts, relay, spikes]
     if: always()
     runs-on: ubuntu-latest
     steps:

@@ -1,5 +1,6 @@
 # rust
 /target
+/spikes/*/target/
 **/*.rs.bk
 
 # go
