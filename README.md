@@ -39,7 +39,32 @@ Test and lint the same way: `cargo test --workspace`, `cargo clippy --workspace 
 `cargo fmt --check`; `go test ./...`, `go vet ./...`, `go tool staticcheck ./...`;
 `npm run typecheck`, `npm run lint`.
 
-The relay is not built by default — see [`relay/README.md`](relay/README.md).
+The relay is not built by default. See [`relay/README.md`](relay/README.md).
+
+## Running the control plane locally
+
+`cloud/` needs PostgreSQL. `cloud/docker-compose.yml` brings one up on host port 5433.
+
+```sh
+cd cloud
+docker compose up -d
+export RFM_DATABASE_URL='postgres://rfm:rfm@localhost:5433/rfm?sslmode=disable'
+go run . migrate up          # `migrate down [n]` reverses
+go run . seed                # one workspace, two accounts, three devices
+go run . serve               # :8443, HTTP unless RFM_TLS_CERT and RFM_TLS_KEY are set
+curl -s localhost:8443/healthz
+```
+
+The Go tests that touch the schema need the same database, under a separate variable so that
+a stray `go test` cannot wipe a development one. They drop and recreate the `public` schema,
+so point it at a throwaway:
+
+```sh
+RFM_TEST_DATABASE_URL='postgres://rfm:rfm@localhost:5433/rfm?sslmode=disable' go test ./...
+```
+
+Without it those tests skip, and a skip looks like a pass. CI runs them against a PostgreSQL
+service container and fails if the concurrency test did not actually run.
 
 ## Status
 

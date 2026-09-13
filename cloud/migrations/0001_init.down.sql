@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS audit_events;
+DROP TABLE IF EXISTS transfer_requests;
+DROP TABLE IF EXISTS pairing_requests;
+DROP TABLE IF EXISTS device_authorizations;
+DROP TABLE IF EXISTS devices;
+DROP TABLE IF EXISTS workspace_members;
+DROP TABLE IF EXISTS workspace_associations;
+DROP TABLE IF EXISTS subscriptions;
+DROP TABLE IF EXISTS accounts;
