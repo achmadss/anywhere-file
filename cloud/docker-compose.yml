@@ -1,0 +1,30 @@
+# Local PostgreSQL for development and for `go test ./...`.
+#
+#   docker compose up -d
+#   export RFM_DATABASE_URL=postgres://rfm:rfm@localhost:5433/rfm?sslmode=disable
+#   go run . migrate up && go run . seed
+#
+# Port 5433 on the host, so it does not collide with a PostgreSQL someone already runs on
+# 5432. The data volume is disposable: `docker compose down -v` resets everything.
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: rfm
+      POSTGRES_PASSWORD: rfm
+      POSTGRES_DB: rfm
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rfm -d rfm"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    volumes:
+      # postgres:18 refuses to start with a volume on /var/lib/postgresql/data, which is
+      # where every older image put it. The mount goes one level up and the image picks the
+      # major-version subdirectory itself. See docker-library/postgres#1259.
+      - pgdata:/var/lib/postgresql
+
+volumes:
+  pgdata:
