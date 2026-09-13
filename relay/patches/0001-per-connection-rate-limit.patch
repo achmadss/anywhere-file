@@ -1,0 +1,557 @@
+diff --git a/iroh-relay/src/main.rs b/iroh-relay/src/main.rs
+index 2ca043d..bc077a4 100644
+--- a/iroh-relay/src/main.rs
++++ b/iroh-relay/src/main.rs
+@@ -297,10 +297,17 @@ impl AccessControl for HttpAccess {
+         debug!(url=%self.config.url, "Check relay access via HTTP POST");
+ 
+         match http_access_check_inner(&self.client, &self.config, request.endpoint_id()).await {
+-            Ok(()) => {
++            Ok(None) => {
+                 debug!("HTTP access check OK: Allow access");
+                 Access::Allow
+             }
++            Ok(Some(rate_limit)) => {
++                debug!(
++                    bytes_per_second = rate_limit.bytes_per_second,
++                    "HTTP access check OK: Allow access at a per-connection rate"
++                );
++                Access::AllowLimited { rate_limit }
++            }
+             Err(err) => {
+                 debug!("HTTP access check failed: Deny access (reason: {err:#})");
+                 Access::Deny { reason: None }
+@@ -309,11 +316,44 @@ impl AccessControl for HttpAccess {
+     }
+ }
+ 
++/// The JSON body an access endpoint may return instead of the bare text `true`.
++///
++/// `rate_bps` holds the connection to its own receive rate rather than the
++/// server-wide `limits.client.rx`. Omitting it leaves the connection on the
++/// server-wide limit.
++#[derive(Debug, Deserialize)]
++struct HttpAccessResponse {
++    allow: bool,
++    #[serde(default)]
++    rate_bps: Option<u32>,
++    #[serde(default)]
++    max_burst_bytes: Option<u32>,
++}
++
++impl HttpAccessResponse {
++    fn into_access(self) -> Result<Option<ClientRateLimit>> {
++        if !self.allow {
++            bail_any!("Access denied by the access endpoint");
++        }
++        let Some(bps) = self.rate_bps else {
++            return Ok(None);
++        };
++        let bps = NonZeroU32::new(bps).std_context("rate_bps must be non-zero")?;
++        let mut limit = ClientRateLimit::new(bps);
++        limit.max_burst_bytes = self.max_burst_bytes.and_then(NonZeroU32::new);
++        Ok(Some(limit))
++    }
++}
++
++/// Returns the rate the connection is held to, or `None` for the server-wide limit.
++///
++/// Accepts two response bodies: the bare text `true`, and a JSON object
++/// ([`HttpAccessResponse`]) which can additionally carry a per-connection rate.
+ async fn http_access_check_inner(
+     client: &reqwest::Client,
+     config: &HttpAccessConfig,
+     endpoint_id: EndpointId,
+-) -> Result<()> {
++) -> Result<Option<ClientRateLimit>> {
+     let mut request = client
+         .post(config.url.clone())
+         .header(X_IROH_ENDPOINT_ID, endpoint_id.to_string());
+@@ -327,8 +367,13 @@ async fn http_access_check_inner(
+             Err(err).std_context("Failed to fetch response")
+         }
+         Ok(res) if res.status() == StatusCode::OK => match res.text().await {
+-            Ok(text) if text == "true" => Ok(()),
+-            Ok(_) => bail_any!("Invalid response text (must be 'true')"),
++            Ok(text) if text.trim() == "true" => Ok(None),
++            Ok(text) => match serde_json::from_str::<HttpAccessResponse>(&text) {
++                Ok(parsed) => parsed.into_access(),
++                Err(err) => {
++                    bail_any!("Invalid response (must be 'true' or a JSON object): {err}")
++                }
++            },
+             Err(err) => Err(err).std_context("Failed to read response"),
+         },
+         Ok(res) => bail_any!("Received invalid status code ({})", res.status()),
+diff --git a/iroh-relay/src/protos/handshake.rs b/iroh-relay/src/protos/handshake.rs
+index 4104a10..f97c88f 100644
+--- a/iroh-relay/src/protos/handshake.rs
++++ b/iroh-relay/src/protos/handshake.rs
+@@ -46,7 +46,7 @@ use super::{
+ };
+ use crate::ExportKeyingMaterial;
+ #[cfg(feature = "server")]
+-use crate::server::{Access, ClientRequest, DynAccessControl, OnDisconnectGuard};
++use crate::server::{Access, ClientRateLimit, ClientRequest, DynAccessControl, OnDisconnectGuard};
+ 
+ /// Domain separation string for the [`ServerChallenge`] signature
+ const DOMAIN_SEP_CHALLENGE: &str = "iroh-relay handshake v1 challenge signature";
+@@ -491,15 +491,15 @@ impl SuccessfulAuthentication {
+         request: &ClientRequest,
+         access_control: &Arc<dyn DynAccessControl>,
+         io: &mut (impl BytesStreamSink + ExportKeyingMaterial),
+-    ) -> Result<OnDisconnectGuard, Error> {
+-        match access_control.on_connect(request).await {
+-            Access::Allow => {
+-                let guard = OnDisconnectGuard::for_access_control(access_control.clone(), request);
+-                self.accept(io).await?;
+-                Ok(guard)
+-            }
+-            Access::Deny { reason } => Err(self.deny(reason, io).await),
+-        }
++    ) -> Result<(OnDisconnectGuard, Option<ClientRateLimit>), Error> {
++        let rate_limit = match access_control.on_connect(request).await {
++            Access::Allow => None,
++            Access::AllowLimited { rate_limit } => Some(rate_limit),
++            Access::Deny { reason } => return Err(self.deny(reason, io).await),
++        };
++        let guard = OnDisconnectGuard::for_access_control(access_control.clone(), request);
++        self.accept(io).await?;
++        Ok((guard, rate_limit))
+     }
+     /// Completes the authorization protocol by notifying the client of success or failure.
+     ///
+@@ -520,7 +520,7 @@ impl SuccessfulAuthentication {
+         io: &mut (impl BytesStreamSink + ExportKeyingMaterial),
+     ) -> Result<PublicKey, Error> {
+         match access {
+-            Access::Allow => self.accept(io).await,
++            Access::Allow | Access::AllowLimited { .. } => self.accept(io).await,
+             Access::Deny { reason } => Err(self.deny(reason, io).await),
+         }
+     }
+diff --git a/iroh-relay/src/server.rs b/iroh-relay/src/server.rs
+index 13d947e..d4f4baf 100644
+--- a/iroh-relay/src/server.rs
++++ b/iroh-relay/src/server.rs
+@@ -350,6 +350,18 @@ impl AccessControl for AllowAll {
+ pub enum Access {
+     /// Access is allowed.
+     Allow,
++    /// Access is allowed, and this connection is subject to `rate_limit`
++    /// instead of the server-wide `limits.client_rx`.
++    ///
++    /// The limit is applied as soon as the handshake completes and can be
++    /// changed later for the live connection via
++    /// [`Clients::set_connection_rate_limit`].
++    ///
++    /// [`Clients::set_connection_rate_limit`]: crate::server::clients::Clients::set_connection_rate_limit
++    AllowLimited {
++        /// The receive rate this connection is held to.
++        rate_limit: ClientRateLimit,
++    },
+     /// Access is denied.
+     Deny {
+         /// Optional reason for denial to send back to the client.
+@@ -1492,6 +1504,139 @@ mod tests {
+         Ok(())
+     }
+ 
++    /// Two endpoints admitted by the same access control get their own receive
++    /// rates, taken from the authorization decision rather than from the
++    /// server-wide `limits.client_rx`.
++    ///
++    /// The rate itself is proven to shape by `streams::tests::test_ratelimiter`
++    /// and to be changeable on a live connection by
++    /// `streams::tests::test_ratelimiter_live_update`. What this test covers is
++    /// the wiring in between: that a per-connection channel exists, that it is
++    /// the one the access decision writes to, and that a connection admitted
++    /// with a plain `Access::Allow` is left on the server-wide limit.
++    #[tokio::test]
++    #[traced_test]
++    async fn test_relay_per_connection_rate_limit() -> Result<()> {
++        use std::num::NonZeroU32;
++
++        use super::ClientRateLimit;
++
++        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(1u64);
++        let client_config = CaTlsConfig::default()
++            .client_config(default_provider())
++            .unwrap();
++
++        let slow_secret_key = SecretKey::from_bytes(&rng.random());
++        let slow_key = slow_secret_key.public();
++        let fast_secret_key = SecretKey::from_bytes(&rng.random());
++        let fast_key = fast_secret_key.public();
++        let unlimited_secret_key = SecretKey::from_bytes(&rng.random());
++        let unlimited_key = unlimited_secret_key.public();
++
++        const SLOW_BPS: u32 = 1_000_000;
++        const FAST_BPS: u32 = 8_000_000;
++
++        let mut relay = RelayConfig::new((Ipv4Addr::LOCALHOST, 0));
++        relay.access = Arc::new(TestAccess(Box::new(move |request| {
++            let endpoint_id = request.endpoint_id();
++            let rate = if endpoint_id == slow_key {
++                SLOW_BPS
++            } else if endpoint_id == fast_key {
++                FAST_BPS
++            } else {
++                // Admitted with no rate of its own: stays on the server-wide limit.
++                return Access::Allow;
++            };
++            Access::AllowLimited {
++                rate_limit: ClientRateLimit::new(NonZeroU32::new(rate).expect("non-zero")),
++            }
++        })));
++        let server = Server::spawn(ServerConfig {
++            relay: Some(relay),
++            quic: None,
++            metrics_addr: None,
++        })
++        .await?;
++
++        let relay_url: RelayUrl = format!("http://{}", server.http_addr().unwrap()).parse()?;
++
++        let mut clients = Vec::new();
++        for secret_key in [slow_secret_key, fast_secret_key, unlimited_secret_key] {
++            clients.push(
++                ClientBuilder::new(relay_url.clone(), secret_key, dns_resolver())
++                    .tls_client_config(client_config.clone())
++                    .connect()
++                    .await?,
++            );
++        }
++
++        let registry = server
++            .relay_service()
++            .expect("relay service running")
++            .clients();
++        let bps = |id| {
++            registry
++                .connection_rate_limit(id)
++                .map(|r| r.bytes_per_second.get())
++        };
++
++        // The access decision reached each connection, and each got its own rate.
++        assert_eq!(bps(slow_key), Some(SLOW_BPS));
++        assert_eq!(bps(fast_key), Some(FAST_BPS));
++        assert_eq!(
++            bps(unlimited_key),
++            None,
++            "plain Allow means the server-wide limit"
++        );
++
++        // A server-wide change reaches only the connection without a rate of its own.
++        const SERVER_WIDE_BPS: u32 = 500_000;
++        server
++            .relay_service()
++            .expect("relay service running")
++            .set_client_rate_limit(Some(ClientRateLimit::new(
++                NonZeroU32::new(SERVER_WIDE_BPS).unwrap(),
++            )));
++        assert_eq!(bps(unlimited_key), Some(SERVER_WIDE_BPS));
++        assert_eq!(
++            bps(slow_key),
++            Some(SLOW_BPS),
++            "an overridden connection ignores it"
++        );
++        assert_eq!(
++            bps(fast_key),
++            Some(FAST_BPS),
++            "an overridden connection ignores it"
++        );
++
++        // A tier change retargets one live connection and leaves the others alone.
++        assert!(registry.set_connection_rate_limit(
++            slow_key,
++            Some(ClientRateLimit::new(NonZeroU32::new(FAST_BPS).unwrap()))
++        ));
++        assert_eq!(bps(slow_key), Some(FAST_BPS));
++        assert_eq!(bps(fast_key), Some(FAST_BPS));
++        assert_eq!(bps(unlimited_key), Some(SERVER_WIDE_BPS));
++
++        // Pinning the previously unlimited connection stops server-wide changes reaching it.
++        assert!(registry.set_connection_rate_limit(
++            unlimited_key,
++            Some(ClientRateLimit::new(NonZeroU32::new(SLOW_BPS).unwrap()))
++        ));
++        server
++            .relay_service()
++            .expect("relay service running")
++            .set_client_rate_limit(None);
++        assert_eq!(bps(unlimited_key), Some(SLOW_BPS));
++
++        // An endpoint that was never admitted has nothing to retarget.
++        let stranger = SecretKey::from_bytes(&rng.random()).public();
++        assert!(!registry.set_connection_rate_limit(stranger, None));
++
++        drop(clients);
++        Ok(())
++    }
++
+     /// Verifies that [`ClientBuilder::auth_token`] forwards a token to the
+     /// relay so the [`AccessControl::on_connect`] hook can read it via
+     /// [`ClientRequest::auth_token`].
+diff --git a/iroh-relay/src/server/client.rs b/iroh-relay/src/server/client.rs
+index 32c77f7..592205c 100644
+--- a/iroh-relay/src/server/client.rs
++++ b/iroh-relay/src/server/client.rs
+@@ -1,6 +1,13 @@
+ //! The server-side representation of an ongoing client relaying connection.
+ 
+-use std::{collections::HashSet, sync::Arc, time::Duration};
++use std::{
++    collections::HashSet,
++    sync::{
++        Arc,
++        atomic::{AtomicBool, Ordering},
++    },
++    time::Duration,
++};
+ 
+ use iroh_base::EndpointId;
+ use n0_error::{e, stack_error};
+@@ -29,7 +36,7 @@ use crate::{
+         streams::BytesStreamSink,
+     },
+     server::{
+-        ConnectionId, OnDisconnectGuard,
++        ClientRateLimit, ConnectionId, OnDisconnectGuard,
+         clients::Clients,
+         metrics::Metrics,
+         streams::{RecvError as RelayRecvError, RelayedStream, SendError as RelaySendError},
+@@ -69,6 +76,20 @@ pub struct Config<S> {
+     /// [`Status::RateLimited`] message when the rate-limited counter first
+     /// becomes non-zero.
+     pub(crate) rate_limited: Option<watch::Receiver<u64>>,
++    /// Sets this connection's receive rate, overriding the server-wide limit.
++    ///
++    /// Held for the connection's lifetime so the rate can be changed while the
++    /// connection is live, via [`Clients::set_connection_rate_limit`].
++    ///
++    /// [`Clients::set_connection_rate_limit`]: super::clients::Clients::set_connection_rate_limit
++    pub(crate) rate_limit_tx: Option<watch::Sender<Option<ClientRateLimit>>>,
++    /// Whether the access control gave this connection a rate of its own.
++    ///
++    /// An overridden connection ignores server-wide rate changes; one without an
++    /// override keeps following [`RelayService::set_client_rate_limit`].
++    ///
++    /// [`RelayService::set_client_rate_limit`]: super::http_server::RelayService::set_client_rate_limit
++    pub(crate) rate_limit_overridden: bool,
+ }
+ 
+ impl<S> Config<S> {
+@@ -87,6 +108,8 @@ impl<S> Config<S> {
+             write_timeout: SERVER_WRITE_TIMEOUT,
+             channel_capacity: PER_CLIENT_SEND_QUEUE_DEPTH,
+             rate_limited: None,
++            rate_limit_tx: None,
++            rate_limit_overridden: false,
+         }
+     }
+ }
+@@ -111,6 +134,12 @@ pub(super) struct Client {
+     message_queue: mpsc::Sender<RelayToClientMsg>,
+     /// Relay protocol version negotiated for this client.
+     protocol_version: ProtocolVersion,
++    /// Sets this connection's receive rate. `None` when the access control gave the
++    /// connection no rate of its own, leaving it on the server-wide limit.
++    rate_limit_tx: Option<watch::Sender<Option<ClientRateLimit>>>,
++    /// Set once the connection is given a rate of its own, after which it stops
++    /// following server-wide rate changes.
++    rate_limit_overridden: AtomicBool,
+ }
+ 
+ impl Client {
+@@ -132,6 +161,8 @@ impl Client {
+             channel_capacity,
+             protocol_version,
+             rate_limited,
++            rate_limit_tx,
++            rate_limit_overridden,
+         } = config;
+         let endpoint_id = guard.endpoint_id;
+         let connection_id = guard.connection_id;
+@@ -170,6 +201,39 @@ impl Client {
+             packet_queue: packet_send_queue_s,
+             message_queue: message_send_queue_s,
+             protocol_version,
++            rate_limit_tx,
++            rate_limit_overridden: AtomicBool::new(rate_limit_overridden),
++        }
++    }
++
++    /// Sets this connection's receive rate limit, effective without a reconnect.
++    ///
++    /// Marks the connection as overridden, so later server-wide rate changes leave
++    /// it alone. Returns `false` for a connection with no rate channel, which only
++    /// happens for embedders that build [`Config`] themselves.
++    pub(super) fn set_rate_limit(&self, rate_limit: Option<ClientRateLimit>) -> bool {
++        match &self.rate_limit_tx {
++            Some(tx) => {
++                tx.send_replace(rate_limit);
++                self.rate_limit_overridden.store(true, Ordering::Relaxed);
++                true
++            }
++            None => false,
++        }
++    }
++
++    /// The rate this connection is currently held to, or `None` when it is unlimited.
++    pub(super) fn current_rate_limit(&self) -> Option<ClientRateLimit> {
++        self.rate_limit_tx.as_ref().and_then(|tx| *tx.borrow())
++    }
++
++    /// Applies a server-wide rate change, unless this connection has a rate of its own.
++    pub(super) fn set_server_rate_limit(&self, rate_limit: Option<ClientRateLimit>) {
++        if self.rate_limit_overridden.load(Ordering::Relaxed) {
++            return;
++        }
++        if let Some(tx) = &self.rate_limit_tx {
++            tx.send_replace(rate_limit);
+         }
+     }
+ 
+diff --git a/iroh-relay/src/server/clients.rs b/iroh-relay/src/server/clients.rs
+index 13a9d90..9cd1d37 100644
+--- a/iroh-relay/src/server/clients.rs
++++ b/iroh-relay/src/server/clients.rs
+@@ -9,6 +9,7 @@ use n0_future::IterExt;
+ use tokio::sync::mpsc::error::TrySendError;
+ use tracing::{debug, trace};
+ 
++use super::ClientRateLimit;
+ use super::{
+     ConnectionId, OnDisconnectGuard,
+     client::{Client, Config, ForwardPacketError},
+@@ -66,6 +67,48 @@ impl Clients {
+         n0_future::join_all(clients.map(|(_, state)| state.shutdown_all())).await;
+     }
+ 
++    /// Applies a server-wide rate change to every connection that was not given a
++    /// rate of its own by the access control.
++    pub(super) fn set_server_rate_limit(&self, rate_limit: Option<ClientRateLimit>) {
++        for state in self.0.clients.iter() {
++            std::iter::once(&state.active)
++                .chain(state.inactive.iter())
++                .for_each(|client| client.set_server_rate_limit(rate_limit));
++        }
++    }
++
++    /// The rate an endpoint's active connection is currently held to.
++    ///
++    /// `None` if the endpoint is not connected or is unlimited.
++    pub fn connection_rate_limit(&self, endpoint_id: EndpointId) -> Option<ClientRateLimit> {
++        self.0
++            .clients
++            .get(&endpoint_id)
++            .and_then(|state| state.active.current_rate_limit())
++    }
++
++    /// Changes the receive rate limit of a connected endpoint without a reconnect.
++    ///
++    /// Returns `false` when the endpoint is not connected, or when it was admitted
++    /// without a rate of its own and so follows the server-wide limit.
++    pub fn set_connection_rate_limit(
++        &self,
++        endpoint_id: EndpointId,
++        rate_limit: Option<ClientRateLimit>,
++    ) -> bool {
++        // One endpoint can hold several connections. The rate belongs to the endpoint,
++        // so every one of its connections is retargeted. Note that each carries its own
++        // bucket, so N connections get N times the rate: see docs/spikes/relay-shaping-patch.md.
++        self.0.clients.get(&endpoint_id).is_some_and(|state| {
++            // Not `any`, which would stop at the first connection that took the rate.
++            let mut applied = false;
++            for client in std::iter::once(&state.active).chain(state.inactive.iter()) {
++                applied |= client.set_rate_limit(rate_limit);
++            }
++            applied
++        })
++    }
++
+     /// Builds the client handler and starts the read & write loops for the connection.
+     ///
+     /// Once the client disconnects, the [`OnDisconnectGuard`] set in `config` will be dropped,
+diff --git a/iroh-relay/src/server/http_server.rs b/iroh-relay/src/server/http_server.rs
+index a774bf6..c2a684b 100644
+--- a/iroh-relay/src/server/http_server.rs
++++ b/iroh-relay/src/server/http_server.rs
+@@ -853,7 +853,13 @@ impl Inner {
+         // Set the socket to NO_DELAY.
+         io.disable_nagle();
+ 
+-        let io = RateLimited::from_watcher(io, self.rate_limit.subscribe(), self.metrics.clone())
++        // Per-connection rate channel, seeded from the server-wide limit. The bucket is
++        // built here, before the handshake, so the endpoint id is not known yet; the
++        // access control decision below pushes the per-workspace rate into this channel
++        // once it is. `RateLimited` picks the change up on its next read poll.
++        let (conn_rate_tx, conn_rate_rx) =
++            watch::channel::<Option<ClientRateLimit>>(*self.rate_limit.borrow());
++        let io = RateLimited::from_watcher(io, conn_rate_rx, self.metrics.clone())
+             .map_err(|err| e!(AcceptError::RateLimitingMisconfigured, err))?;
+         let limited_watcher = io.limited_watcher();
+ 
+@@ -874,10 +880,18 @@ impl Inner {
+             ClientRequest::new(authentication.client_key, protocol_version, request_parts);
+ 
+         // Authorize the request against the configured `AccessControl`.
+-        let guard = authentication
++        let (guard, conn_rate_limit) = authentication
+             .authorize_with(&request, &self.access, &mut io)
+             .await?;
+ 
++        if let Some(rate_limit) = conn_rate_limit {
++            conn_rate_tx.send_replace(Some(rate_limit));
++            trace!(
++                bytes_per_second = rate_limit.bytes_per_second,
++                "accept: applied per-connection rate limit"
++            );
++        }
++
+         trace!("accept: verified authorization");
+ 
+         let io = RelayedStream {
+@@ -889,6 +903,8 @@ impl Inner {
+         let mut client_conn_builder = Config::new(guard, io, protocol_version);
+         client_conn_builder.write_timeout = self.write_timeout;
+         client_conn_builder.rate_limited = Some(limited_watcher);
++        client_conn_builder.rate_limit_tx = Some(conn_rate_tx);
++        client_conn_builder.rate_limit_overridden = conn_rate_limit.is_some();
+         trace!(endpoint_id = %request.endpoint_id().fmt_short(), "create client");
+ 
+         // build and register client, starting up read & write loops for the client
+@@ -937,8 +953,16 @@ impl RelayService {
+     ///
+     /// The new rate limit will be applied to all current and future client connections.
+     /// Passing `None` will remove rate limiting from all connections.
++    /// Connections that the access control gave a rate of their own
++    /// ([`Access::AllowLimited`]) are not affected.
++    ///
++    /// [`Access::AllowLimited`]: crate::server::Access::AllowLimited
+     pub fn set_client_rate_limit(&self, rate_limit: Option<ClientRateLimit>) {
++        // Seeds connections accepted from now on...
+         self.0.rate_limit.send_replace(rate_limit);
++        // ...and retargets the ones already connected, which each hold their own
++        // channel rather than a subscription to this one.
++        self.0.clients.set_server_rate_limit(rate_limit);
+     }
+ 
+     /// Shuts down the relay service, disconnecting all clients.
+diff --git a/iroh-relay/tests/relay_axum.rs b/iroh-relay/tests/relay_axum.rs
+index 7e6d8a4..3fa5825 100644
+--- a/iroh-relay/tests/relay_axum.rs
++++ b/iroh-relay/tests/relay_axum.rs
+@@ -192,7 +192,10 @@ async fn handle_relay_websocket(
+         ProtocolVersion::V2,
+         request_parts,
+     );
+-    let guard = authentication
++    // An embedder that frames the stream itself cannot use the internal `RateLimited`
++    // wrapper, so a per-connection rate has to be applied at the frame layer with
++    // `Bucket`. This example stays on the server-wide limit and ignores the rate.
++    let (guard, _rate_limit) = authentication
+         .authorize_with(&request, &state.access, &mut adapter)
+         .await?;
+     trace!("verified authorization");

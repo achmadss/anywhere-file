@@ -1,5 +1,6 @@
 # rust
 /target
+/spikes/*/target/
 **/*.rs.bk
 
 # go
@@ -28,5 +29,5 @@ dist/
 # claude code worktrees
 .claude/worktrees/
 
-# spike crates carry their own workspace and target dir
-spikes/*/target/
+# spike scratch builds
+/spikes/*/target/
