@@ -96,7 +96,7 @@ jobs:
       - run: go test ./...
       # A skipped test reports as a pass. Fail the job if the database tests did not run.
       - run: go test -run TestConcurrentAssociationsLeaveExactlyOneRow -v ./... | tee /tmp/race.log
-      - run: grep -q -- '--- PASS: TestConcurrentAssociationsLeaveExactlyOneRow' /tmp/race.log
+      - run: "grep -q -- '--- PASS: TestConcurrentAssociationsLeaveExactlyOneRow' /tmp/race.log"
 
   ts:
     needs: changes
