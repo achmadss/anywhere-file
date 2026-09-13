@@ -4,6 +4,7 @@
 
 # go
 /cloud/bin/
+/cloud/cloud
 
 # node
 node_modules/

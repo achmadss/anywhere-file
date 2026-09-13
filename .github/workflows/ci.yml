@@ -1,0 +1,117 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# One workflow rather than four, because branch protection needs a single check that is
+# always reported. Path-filtered workflows cannot do that: a PR touching only TypeScript
+# never reports the Rust check, so a required Rust check would block it forever. Here the
+# `changes` job always runs, the language jobs skip, and `ci-ok` is always reported.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      go: ${{ steps.filter.outputs.go }}
+      ts: ${{ steps.filter.outputs.ts }}
+      relay: ${{ steps.filter.outputs.relay }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: filter
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="origin/${{ github.base_ref }}"
+            git fetch --quiet origin "${{ github.base_ref }}"
+            files=$(git diff --name-only "$base"...HEAD)
+          else
+            files=$(git diff --name-only "${{ github.event.before }}" HEAD 2>/dev/null || git ls-files)
+          fi
+          echo "changed files:"; echo "$files"
+
+          match() { echo "$files" | grep -qE "$1"; }
+          m() { if match "$2"; then echo "$1=true"; else echo "$1=false"; fi; } >> "$GITHUB_OUTPUT"
+
+          m rust  '^(core/|agent/|Cargo\.(toml|lock)$|rustfmt\.toml$|rust-toolchain\.toml$|\.github/workflows/ci\.yml$)'
+          m go    '^(cloud/|\.github/workflows/ci\.yml$)'
+          m ts    '^(ui/|console/|dashboard/|package(-lock)?\.json$|tsconfig\.base\.json$|\.nvmrc$|\.github/workflows/ci\.yml$)'
+          m relay '^(relay/|\.github/workflows/ci\.yml$)'
+
+  rust:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # rust-toolchain.toml pins the version; rustup honours it on first cargo call.
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo build --workspace
+      - run: cargo test --workspace
+
+  go:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloud
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: cloud/go.mod
+          cache-dependency-path: cloud/go.sum
+      - run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go tool staticcheck ./...
+      - run: go test ./...
+
+  ts:
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+
+  relay:
+    needs: changes
+    if: needs.changes.outputs.relay == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # Proves the pinned tag still exists and our patches still apply. It does not build
+      # iroh-relay — that is minutes of compile for a check that adds nothing until the
+      # patch does something (#46, #30).
+      - run: relay/apply.sh
+
+  ci-ok:
+    # The one check branch protection requires. Green when every job that ran passed, and
+    # when a job was skipped because nothing in its language changed.
+    needs: [changes, rust, go, ts, relay]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo '${{ toJSON(needs) }}'
+          if echo '${{ toJSON(needs) }}' | grep -q '"result": "\(failure\|cancelled\)"'; then
+            echo "a required job failed"; exit 1
+          fi
+          echo "ok"
