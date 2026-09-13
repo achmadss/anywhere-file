@@ -1,0 +1,25 @@
+# rust
+/target
+**/*.rs.bk
+
+# go
+/cloud/bin/
+
+# node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# relay: vendored upstream source, fetched by relay/apply.sh
+/relay/src/
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# local config and secrets
+.env
+.env.*
+!.env.example
