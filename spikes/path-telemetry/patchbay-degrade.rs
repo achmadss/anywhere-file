@@ -36,12 +36,28 @@ use crate::util::{Pair, PathConnectionExt, lab_with_relay, ping_accept, ping_ope
 /// relay, and reports how long that took from the replug.
 async fn run_direct_to_relay(replug_side: Side) -> Result {
     let (lab, relay_map, _relay_guard, guard) = lab_with_relay(testdir!()).await?;
-    let nat_easy = lab.add_router("nat_easy").nat(Nat::Moderate).build().await?;
+    let nat_easy = lab
+        .add_router("nat_easy")
+        .nat(Nat::Moderate)
+        .build()
+        .await?;
     let nat_hard = lab.add_router("nat_hard").nat(Nat::Strict).build().await?;
-    let nat_peer = lab.add_router("nat_peer").nat(Nat::Moderate).build().await?;
+    let nat_peer = lab
+        .add_router("nat_peer")
+        .nat(Nat::Moderate)
+        .build()
+        .await?;
 
-    let replug = lab.add_device("replug").uplink(nat_easy.id()).build().await?;
-    let stable = lab.add_device("stable").uplink(nat_peer.id()).build().await?;
+    let replug = lab
+        .add_device("replug")
+        .uplink(nat_easy.id())
+        .build()
+        .await?;
+    let stable = lab
+        .add_device("stable")
+        .uplink(nat_peer.id())
+        .build()
+        .await?;
 
     let timeout = Duration::from_secs(15);
     let watch = Duration::from_secs(40);

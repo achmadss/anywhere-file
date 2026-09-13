@@ -62,7 +62,8 @@ async fn main() -> Res {
     // the first selected path is a relay path; the direct one can only appear afterwards,
     // from addresses exchanged over the relay.
     let full = server.addr();
-    let relay_only = EndpointAddr::from_parts(full.id, full.addrs.into_iter().filter(|a| a.is_relay()));
+    let relay_only =
+        EndpointAddr::from_parts(full.id, full.addrs.into_iter().filter(|a| a.is_relay()));
     println!("dialling with relay-only address: {relay_only:?}");
 
     // SPIKE_IDLE=1 skips the transfer: does a connection with no application traffic still
@@ -104,7 +105,10 @@ async fn main() -> Res {
     let poller = tokio::spawn(poll_paths(conn.clone(), t0));
 
     if idle {
-        println!("[{:>9.3?}] idle mode: no streams, watching for 10s", t0.elapsed());
+        println!(
+            "[{:>9.3?}] idle mode: no streams, watching for 10s",
+            t0.elapsed()
+        );
         tokio::time::sleep(Duration::from_secs(10)).await;
         print_paths(&conn, t0, "after 10s idle");
         conn.close(0u32.into(), b"done");
@@ -134,7 +138,10 @@ async fn main() -> Res {
     let acked = u64::from_be_bytes(ack);
     let done = t0.elapsed();
     println!("[{done:>9.3?}] stream finished, peer acknowledged {acked} bytes");
-    assert_eq!(acked as usize, PAYLOAD, "single stream lost bytes across the transition");
+    assert_eq!(
+        acked as usize, PAYLOAD,
+        "single stream lost bytes across the transition"
+    );
 
     print_paths(&conn, t0, "at end of transfer");
     conn.close(0u32.into(), b"done");
@@ -175,10 +182,14 @@ async fn watch_events(
         match event {
             PathEvent::Opened {
                 id, remote_addr, ..
-            } => println!("[{at:>9.3?}] EVENT Opened   id={id} {remote_addr} (bytes written so far: {bytes})"),
+            } => println!(
+                "[{at:>9.3?}] EVENT Opened   id={id} {remote_addr} (bytes written so far: {bytes})"
+            ),
             PathEvent::Selected {
                 id, remote_addr, ..
-            } => println!("[{at:>9.3?}] EVENT Selected id={id} {remote_addr} (bytes written so far: {bytes})"),
+            } => println!(
+                "[{at:>9.3?}] EVENT Selected id={id} {remote_addr} (bytes written so far: {bytes})"
+            ),
             PathEvent::Closed {
                 id,
                 remote_addr,
@@ -202,10 +213,7 @@ async fn watch_events(
 async fn poll_paths(conn: Connection, t0: Instant) {
     loop {
         tokio::time::sleep(POLL_INTERVAL).await;
-        let direct = conn
-            .paths()
-            .iter()
-            .any(|p| p.is_selected() && p.is_ip());
+        let direct = conn.paths().iter().any(|p| p.is_selected() && p.is_ip());
         if direct {
             println!(
                 "[{:>9.3?}] POLL   first {POLL_INTERVAL:?} sample that sees a direct path selected",
