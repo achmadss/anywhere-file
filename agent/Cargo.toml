@@ -1,0 +1,13 @@
+[package]
+name = "rfm-agent"
+description = "Desktop agent. Hosts rfm-core in-process; the UI bundle calls it directly."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+rfm-core = { path = "../core" }
+
+[lints]
+workspace = true

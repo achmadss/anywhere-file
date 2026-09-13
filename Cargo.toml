@@ -1,0 +1,19 @@
+[workspace]
+resolver = "3"
+members = ["core", "agent"]
+
+# relay/ is deliberately not a member: it is pinned upstream source plus our diff,
+# fetched on demand by relay/apply.sh. See relay/README.md.
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "LicenseRef-Proprietary"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+# Warnings fail CI (`-D warnings`); this is the floor everything is held to.
+all = { level = "warn", priority = -1 }

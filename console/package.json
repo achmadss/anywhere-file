@@ -1,0 +1,10 @@
+{
+  "name": "@anywhere-file/console",
+  "private": true,
+  "type": "module",
+  "description": "Operator console.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}
