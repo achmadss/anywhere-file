@@ -27,3 +27,6 @@ dist/
 
 # claude code worktrees
 .claude/worktrees/
+
+# spike crates carry their own workspace and target dir
+spikes/*/target/
