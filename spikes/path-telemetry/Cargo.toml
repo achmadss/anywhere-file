@@ -1,0 +1,18 @@
+# Throwaway: spike #42 only. Not a workspace member, not built by CI, delete once the
+# spike's conclusions land in core/.
+[package]
+name = "spike-path-telemetry"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Deliberately its own workspace so `cargo build --workspace` at the repo root does not
+# pull iroh into the tree. core/ has no dependencies yet on purpose.
+[workspace]
+
+[dependencies]
+iroh = { version = "1.2.0", features = ["test-utils"] }
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

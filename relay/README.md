@@ -5,9 +5,14 @@ with one exception. Upstream's `limits.client_rx` is a single service-wide, rece
 rate with no per-endpoint variation. Per-workspace bandwidth shaping is a product
 requirement, so it needs a patch. That patch is what lives here.
 
-**Whether the patch is small is not yet known.** #46 is the spike that reads the
-connection-accept path and answers it. Until it reports, `patches/` is empty and this
-directory builds stock `iroh-relay`. Do not start #30 before then.
+#46 answered whether that patch is small: yes, 209 production lines against `v1.2.0`. The
+prototype is `patches/0001-per-connection-rate-limit.patch` and the reasoning is in
+[`docs/spikes/relay-shaping-patch.md`](../docs/spikes/relay-shaping-patch.md). #30 continues
+from there.
+
+The patch also fixes two things stock `iroh-relay` cannot do that r3 §11.3 assumes: it makes
+the access endpoint's response JSON rather than the bare text `true`, and it lets that
+response carry a rate. Deploy the patched binary, never the stock one.
 
 ## What is versioned
 

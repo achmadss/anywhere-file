@@ -28,3 +28,6 @@ dist/
 
 # claude code worktrees
 .claude/worktrees/
+
+# spike scratch builds
+/spikes/*/target/
