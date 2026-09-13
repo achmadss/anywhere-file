@@ -25,3 +25,6 @@ dist/
 .env
 .env.*
 !.env.example
+
+# claude code worktrees
+.claude/worktrees/
