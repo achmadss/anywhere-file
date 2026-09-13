@@ -64,6 +64,25 @@ jobs:
     defaults:
       run:
         working-directory: cloud
+    # The control plane's tests are about PostgreSQL constraints and about what PostgreSQL
+    # does when two transactions race for one. Without a database they skip, and skipping is
+    # indistinguishable from passing in a green tick, so CI runs a real one.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: rfm
+          POSTGRES_PASSWORD: rfm
+          POSTGRES_DB: rfm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rfm -d rfm"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      RFM_TEST_DATABASE_URL: postgres://rfm:rfm@localhost:5432/rfm?sslmode=disable
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -75,6 +94,9 @@ jobs:
       - run: go vet ./...
       - run: go tool staticcheck ./...
       - run: go test ./...
+      # A skipped test reports as a pass. Fail the job if the database tests did not run.
+      - run: go test -run TestConcurrentAssociationsLeaveExactlyOneRow -v ./... | tee /tmp/race.log
+      - run: "grep -q -- '--- PASS: TestConcurrentAssociationsLeaveExactlyOneRow' /tmp/race.log"
 
   ts:
     needs: changes
