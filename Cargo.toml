@@ -14,6 +14,7 @@ publish = false
 [workspace.dependencies]
 # Pinned exactly: iroh is the transport and a patch bump is a deliberate act, not a
 # `cargo update`. relay/IROH_VERSION pins the relay to the same release.
+cap-std = "4"
 getrandom = "0.4"
 iroh = "=1.2.0"
 # keyring 3 rather than 4: spike #2 measured 3.6 end to end on macOS, and 4 is a
