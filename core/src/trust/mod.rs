@@ -25,7 +25,10 @@ pub use self::{
 /// Random rather than derived, so that no property of the creating device leaks into it
 /// and two workspaces created by one device are unlinkable to anyone watching DNS-SD (#9),
 /// which puts this value in a TXT record in the clear.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
+#[serde(into = "String", try_from = "String")]
 pub struct WorkspaceId([u8; 16]);
 
 impl WorkspaceId {
@@ -44,6 +47,29 @@ impl WorkspaceId {
     /// Reconstructs an identifier from its raw bytes.
     pub fn from_bytes(bytes: [u8; 16]) -> Self {
         Self(bytes)
+    }
+}
+
+/// Parses the hex form, which is what #9 reads out of a `ws=` TXT record.
+impl std::str::FromStr for WorkspaceId {
+    type Err = crate::share::IdParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        crate::share::parse_hex16(s).map(Self)
+    }
+}
+
+impl From<WorkspaceId> for String {
+    fn from(id: WorkspaceId) -> Self {
+        id.to_string()
+    }
+}
+
+impl TryFrom<String> for WorkspaceId {
+    type Error = crate::share::IdParseError;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        s.parse()
     }
 }
 
