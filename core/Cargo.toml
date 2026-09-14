@@ -14,6 +14,19 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 tracing = { workspace = true }
 
+# keyring ships no backend unless a feature asks for one; without one it falls back to
+# an in-process mock that accepts every write and forgets it. These flags are load-bearing.
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { workspace = true, features = ["apple-native"] }
+
+# crypto-rust keeps the session encryption in Rust, vendored builds libdbus rather than
+# needing the distro's -dev package on every build machine.
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { workspace = true, features = ["sync-secret-service", "crypto-rust", "vendored"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-dpapi = { workspace = true }
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 
