@@ -3,7 +3,7 @@
 #
 #   REGION_ENV=regions/eu-west.env MONITOR_SUBNET=10.0.0.0/16 ./provision.sh
 #
-# Run from relay/deploy on the Vigil server (Debian or Ubuntu, Docker
+# Run from hosted/relay/deploy on the Vigil server (Debian or Ubuntu, Docker
 # installed or installable with apt). The filled regions/<name>.env must exist;
 # the .env.example files are placeholders, not configs. Re-running is safe.
 set -euo pipefail

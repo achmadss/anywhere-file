@@ -42,7 +42,7 @@ func connect(t *testing.T, maxConns int32) *pgxpool.Pool {
 	t.Helper()
 	url := os.Getenv(testDatabaseURLEnv)
 	if url == "" {
-		t.Skipf("%s is not set; start cloud/docker-compose.yml and export it", testDatabaseURLEnv)
+		t.Skipf("%s is not set; start hosted/cloud/docker-compose.yml and export it", testDatabaseURLEnv)
 	}
 
 	cfg, err := pgxpool.ParseConfig(url)
@@ -138,7 +138,7 @@ func TestMigrationsRunForwardAndBack(t *testing.T) {
 // a database, not as success.
 func TestSchemaTestsReportPresence(t *testing.T) {
 	if os.Getenv(testDatabaseURLEnv) == "" {
-		t.Skipf("SKIP: %s is not set, schema tests did not run. Start cloud/docker-compose.yml and export it.", testDatabaseURLEnv)
+		t.Skipf("SKIP: %s is not set, schema tests did not run. Start hosted/cloud/docker-compose.yml and export it.", testDatabaseURLEnv)
 	}
 	t.Logf("RUN: %s is set, schema tests run against a real PostgreSQL.", testDatabaseURLEnv)
 }

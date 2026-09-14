@@ -30,22 +30,22 @@ patching and reconsider — either upstream the change or vendor properly.
 ## Build
 
 ```sh
-relay/apply.sh                                  # fetch pinned iroh + apply patches
-cargo build --release --manifest-path relay/src/Cargo.toml -p iroh-relay
+hosted/relay/apply.sh    # fetch pinned iroh + apply patches
+cargo build --release --manifest-path hosted/relay/src/Cargo.toml -p iroh-relay
 ```
 
 ## Upgrading iroh
 
 1. Bump `IROH_VERSION`.
-2. `rm -rf relay/src && relay/apply.sh`.
-3. If a patch conflicts, `apply.sh` stops with the reject. Fix it in `relay/src`, then
-   regenerate: `git -C relay/src diff > relay/patches/NNNN-name.patch`.
+2. `rm -rf hosted/relay/src && hosted/relay/apply.sh`.
+3. If a patch conflicts, `apply.sh` stops with the reject. Fix it in `hosted/relay/src`, then
+   regenerate: `git -C hosted/relay/src diff > hosted/relay/patches/NNNN-name.patch`.
 4. Re-run the shaping test from #30. A patch that still applies cleanly is not proof it
    still does the same thing — upstream can move the code the hook hangs off without
    touching the lines the patch names.
 5. Commit `IROH_VERSION` and the regenerated patches together.
 
-CI runs step 2 on any change under `relay/`, so a patch that has stopped applying is caught
+CI runs step 2 on any change under `hosted/relay/`, so a patch that has stopped applying is caught
 on the PR that breaks it rather than at deploy time.
 
 ## Deployment
@@ -55,7 +55,7 @@ add more by copying a region env file.
 
 | Path | What |
 |---|---|
-| `deploy/Dockerfile` | image with the patched binary. Built from `relay/` as context. |
+| `deploy/Dockerfile` | image with the patched binary. Built from `hosted/relay/` as context. |
 | `deploy/compose.yml` | one relay per VPS, host networking, restart policy, healthcheck, rotated logs. |
 | `deploy/relay.toml.template` | the relay config. Rendered per region, never edited per region. |
 | `deploy/regions/*.env.example` | operator values per region. Copy to `.env`, fill in, never commit. |
@@ -66,8 +66,8 @@ add more by copying a region env file.
 Per-region deploy:
 
 ```sh
-cp relay/deploy/regions/eu-west.env.example relay/deploy/regions/eu-west.env
-# fill in eu-west.env, then on the VPS, from relay/deploy:
+cp hosted/relay/deploy/regions/eu-west.env.example hosted/relay/deploy/regions/eu-west.env
+# fill in eu-west.env, then on the VPS, from hosted/relay/deploy:
 REGION_ENV=regions/eu-west.env MONITOR_SUBNET=10.0.0.0/16 ./provision.sh
 ```
 
@@ -101,7 +101,7 @@ Issue #30 sizes relays in bytes per second, so the input has to be measured
 throughput per instance, not connection counts. Run from a client machine:
 
 ```sh
-relay/deploy/capacity/bench.sh https://relay-eu-west.example.com
+hosted/relay/deploy/capacity/bench.sh https://relay-eu-west.example.com
 ```
 
 It prints one JSON line per round and a summary with the median sustained
@@ -112,21 +112,21 @@ iroh upgrade.
 ## Tests
 
 ```sh
-cargo test --manifest-path relay/fleet/Cargo.toml
+cargo test --manifest-path hosted/relay/fleet/Cargo.toml
 ```
 
 `tests/no_public_relay.rs` runs in CI: the agent relay mode holds our relays
 only, and no `Default`/`Staging` mode or public relay host appears in
-`agent/`, `core/`, `cloud/` or `deploy/`. `tests/bench_smoke.rs` runs the
+`device/agent/`, `device/core/`, `hosted/cloud/` or `deploy/`. `tests/bench_smoke.rs` runs the
 harness against a local relay in CI.
 
 Two tests need a deployed fleet and stay ignored in CI:
 
 ```sh
 RFM_RELAY_URLS=https://relay-eu-west.example.com,https://relay-ap-se.example.com \
-  cargo test --manifest-path relay/fleet/Cargo.toml --test fleet_transfer -- --ignored --nocapture
+  cargo test --manifest-path hosted/relay/fleet/Cargo.toml --test fleet_transfer -- --ignored --nocapture
 RFM_RELAY_URLS=https://relay-eu-west.example.com,https://relay-ap-se.example.com \
-  cargo test --manifest-path relay/fleet/Cargo.toml --test relay_failover -- --ignored --nocapture
+  cargo test --manifest-path hosted/relay/fleet/Cargo.toml --test relay_failover -- --ignored --nocapture
 ```
 
 The first moves bytes between two agents through the relay. The second

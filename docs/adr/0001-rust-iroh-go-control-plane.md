@@ -10,7 +10,7 @@ whole product in Go on libp2p.
 | `rfm-core` | **Rust** | iroh, trust list, shares, file protocol, access rule. r3 **D1** and **D4** as written. |
 | Desktop agent | **Rust** + Tauri | Hosts `rfm-core` in-process; the UI bundle calls it and never opens a socket (r3 §7). |
 | Control plane | **Go** | r3 D4: *"a separate service in whatever stack the team prefers."* HTTPS + JSON, PostgreSQL. It never speaks iroh's protocol and never links `rfm-core`. |
-| Relay | **`iroh-relay` binary** | Deployed and configured, plus one patch. See 0002 and `relay/README.md`. |
+| Relay | **`iroh-relay` binary** | Deployed and configured, plus one patch. See 0002 and `hosted/relay/README.md`. |
 | UI bundle, operator console, customer dashboard | TypeScript | |
 
 The Rust surface is `rfm-core` plus the desktop shell. The cloud and UI work is unaffected

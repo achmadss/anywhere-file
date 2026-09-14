@@ -2,7 +2,7 @@
 
 Issue: [#2](https://github.com/achmadss/anywhere-file/issues/2). The throwaway crate that
 produced the output below lived in `spikes/keystore/` and was deleted once the design landed
-in `core/src/identity/` (#6). `git log -- spikes/keystore` has it.
+in `device/core/src/identity/` (#6). `git log -- spikes/keystore` has it.
 
 ## Evidence levels
 
@@ -390,7 +390,7 @@ Generate 32 bytes, write them through the store, then read them back and compare
 anything else with the identity. A store that silently persisted nothing has to fail loudly at
 first run and not at the next restart. `keyring` 3 makes this concrete: with no `*-native`
 feature enabled it falls back to an in-process mock credential store that accepts every write
-and forgets everything, so the feature flags in `core/Cargo.toml` are load-bearing.
+and forgets everything, so the feature flags in `device/core/Cargo.toml` are load-bearing.
 
 ### Start-up load
 
@@ -409,6 +409,6 @@ while logged out".
 ## Reproducing
 
 The spike crate is gone. `git show <commit>:spikes/keystore` recovers it, or run the shipped
-code: `core/src/identity/store.rs` uses the same `keyring` service name and account, so
+code: `device/core/src/identity/store.rs` uses the same `keyring` service name and account, so
 `security find-generic-password -s dev.anywherefile.agent -a device-key-seed` shows the item
 on macOS.

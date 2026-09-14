@@ -9,7 +9,7 @@
 //! container against the pinned iroh source:
 //!
 //! ```sh
-//! relay/apply.sh                                    # if relay/src is missing
+//! hosted/relay/apply.sh    # if hosted/relay/src is missing
 //! cp spikes/path-telemetry/patchbay-degrade.rs "$SRC/iroh/tests/patchbay/degrade42.rs"
 //! # add `#[path = "patchbay/degrade42.rs"] mod degrade42;` to iroh/tests/patchbay.rs
 //! docker run --rm --privileged -v "$SRC:/src" -w /src rust:1.98-bookworm bash -c \
@@ -17,7 +17,7 @@
 //!    cargo test --release -p iroh --test patchbay degrade42 -- --nocapture'
 //! ```
 //!
-//! Do this against a copy of `relay/src`, never the checkout itself.
+//! Do this against a copy of `hosted/relay/src`, never the checkout itself.
 
 use std::time::{Duration, Instant};
 

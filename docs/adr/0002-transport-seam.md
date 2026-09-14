@@ -34,7 +34,7 @@ along with it.
 
 ## Shape
 
-One trait, implemented once, in `core/src/transport/`:
+One trait, implemented once, in `device/core/src/transport/`:
 
 ```text
 Transport         connect(peer) -> Connection ;  accept() -> Connection

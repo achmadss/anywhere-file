@@ -10,7 +10,7 @@ publish = false
 
 [dependencies]
 iroh = "=1.2.0"
-rfm-core = { path = "../../core" }
+rfm-core = { path = "../../../device/core" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "io-util"] }
 
 [dev-dependencies]

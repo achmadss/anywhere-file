@@ -1,12 +1,12 @@
-# Relay image: upstream iroh-relay at relay/IROH_VERSION, plus our patches.
+# Relay image: upstream iroh-relay at hosted/relay/IROH_VERSION, plus our patches.
 #
 # Built from the repo root so apply.sh sees IROH_VERSION and patches/:
 #
-#   docker build -f relay/deploy/Dockerfile -t rfm-relay:<tag> relay/
+#   docker build -f hosted/relay/deploy/Dockerfile -t rfm-relay:<tag> hosted/relay/
 #
-# The context is relay/ on purpose. relay/src/ is gitignored upstream source,
+# The context is hosted/relay/ on purpose. Its src/ is gitignored upstream source,
 # so apply.sh re-fetches the pinned tag inside the build. What we own stays
-# visible as patches/*.patch. See relay/README.md.
+# visible as patches/*.patch. See hosted/relay/README.md.
 ARG RUST_VERSION=1.98.1
 
 FROM rust:${RUST_VERSION}-bookworm AS builder

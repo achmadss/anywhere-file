@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Render relay.toml.template with a regions/*.env file and validate the result.
 #
-#   relay/deploy/render-config.sh relay/deploy/regions/eu-west.env
+#   hosted/relay/deploy/render-config.sh hosted/relay/deploy/regions/eu-west.env
 #
 # Prints the rendered config to stdout. Fails if a required variable is
 # missing, still templated, or not valid TOML. Redirect to the relay host:
@@ -16,9 +16,9 @@ if [ "$#" -ne 1 ]; then
 fi
 
 ENV_FILE="$1"
-# Accept paths from the repo root too, e.g. relay/deploy/regions/x.env.
+# Accept paths from the repo root too, e.g. hosted/relay/deploy/regions/x.env.
 case "$ENV_FILE" in
-  relay/deploy/*) ENV_FILE="${ENV_FILE#relay/deploy/}" ;;
+  hosted/relay/deploy/*) ENV_FILE="${ENV_FILE#hosted/relay/deploy/}" ;;
   deploy/*) ENV_FILE="${ENV_FILE#deploy/}" ;;
 esac
 TEMPLATE="relay.toml.template"

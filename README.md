@@ -14,24 +14,29 @@ it can never grant. That distinction is the whole design.
 
 ## Layout
 
+Top level splits on where the code runs. `device/` is on the customer's machine and
+we never touch it. `hosted/` is on hardware we pay for. That is also the trust
+boundary: anything under `device/` can be tampered with by whoever owns the machine.
+
 | Path | What | Stack |
 |---|---|---|
-| `core/` | `rfm-core` — trust list, shares, access rule, file protocol, transport | Rust |
-| `agent/` | desktop agent — hosts `rfm-core` in-process | Rust + Tauri |
-| `cloud/` | control plane — trust-list distribution, relay authorization | Go |
-| `ui/` | agent UI bundle | TypeScript |
-| `console/` | operator console | TypeScript |
-| `dashboard/` | customer dashboard | TypeScript |
-| `relay/` | pinned `iroh-relay` plus our patch | Rust (vendored) |
+| `device/core/` | `rfm-core`: trust list, shares, access rule, file protocol, transport | Rust |
+| `device/agent/` | desktop agent, hosts `rfm-core` in-process | Rust + Tauri |
+| `device/ui/` | agent UI bundle, rendered inside the agent's window | TypeScript |
+| `hosted/cloud/` | control plane: trust-list distribution, relay authorization | Go |
+| `hosted/dashboard/` | customer dashboard | TypeScript |
+| `hosted/console/` | operator console | TypeScript |
+| `hosted/relay/` | pinned `iroh-relay` plus our patch | Rust (vendored) |
 
 ## Building
 
-Toolchains are pinned: `rust-toolchain.toml`, the `go` directive in `cloud/go.mod`, `.nvmrc`.
+Toolchains are pinned: `rust-toolchain.toml`, the `go` directive in `hosted/cloud/go.mod`,
+`.nvmrc`.
 With `rustup`, Go and `nvm` installed, a fresh clone builds with:
 
 ```sh
 cargo build --workspace          # core + agent
-(cd cloud && go build ./...)     # control plane
+(cd hosted/cloud && go build ./...)  # control plane
 npm ci && npm run build          # ui + console + dashboard
 ```
 
@@ -39,14 +44,15 @@ Test and lint the same way: `cargo test --workspace`, `cargo clippy --workspace 
 `cargo fmt --check`; `go test ./...`, `go vet ./...`, `go tool staticcheck ./...`;
 `npm run typecheck`, `npm run lint`.
 
-The relay is not built by default. See [`relay/README.md`](relay/README.md).
+The relay is not built by default. See [`hosted/relay/README.md`](hosted/relay/README.md).
 
 ## Running the control plane locally
 
-`cloud/` needs PostgreSQL. `cloud/docker-compose.yml` brings one up on host port 5433.
+`hosted/cloud/` needs PostgreSQL. `hosted/cloud/docker-compose.yml` brings one up on host
+port 5433.
 
 ```sh
-cd cloud
+cd hosted/cloud
 docker compose up -d
 export RFM_DATABASE_URL='postgres://rfm:rfm@localhost:5433/rfm?sslmode=disable'
 go run . migrate up          # `migrate down [n]` reverses

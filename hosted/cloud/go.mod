@@ -1,4 +1,4 @@
-module github.com/achmadss/anywhere-file/cloud
+module github.com/achmadss/anywhere-file/hosted/cloud
 
 go 1.26.2
 

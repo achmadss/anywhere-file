@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fetch the pinned iroh source and apply our patches on top.
 #
-# relay/src/ is gitignored: it is upstream's tree, not ours. What we version is
+# hosted/relay/src/ is gitignored: it is upstream's tree, not ours. What we version is
 # IROH_VERSION plus patches/. See README.md.
 set -euo pipefail
 
@@ -10,8 +10,8 @@ VERSION="$(cat IROH_VERSION)"
 SRC=src
 
 if [ -d "$SRC" ]; then
-  echo "relay/src exists — remove it to re-fetch." >&2
-  echo "  rm -rf relay/src && relay/apply.sh" >&2
+  echo "hosted/relay/src exists, remove it to re-fetch." >&2
+  echo "  rm -rf hosted/relay/src && hosted/relay/apply.sh" >&2
   exit 1
 fi
 
@@ -21,7 +21,7 @@ git clone --depth 1 --branch "$VERSION" https://github.com/n0-computer/iroh.git 
 shopt -s nullglob
 patches=(patches/*.patch)
 if [ ${#patches[@]} -eq 0 ]; then
-  echo "no patches — relay/src is stock iroh $VERSION"
+  echo "no patches, hosted/relay/src is stock iroh $VERSION"
   exit 0
 fi
 

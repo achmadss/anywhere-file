@@ -40,10 +40,10 @@ jobs:
           match() { echo "$files" | grep -qE "$1"; }
           m() { if match "$2"; then echo "$1=true"; else echo "$1=false"; fi; } >> "$GITHUB_OUTPUT"
 
-          m rust  '^(core/|agent/|Cargo\.(toml|lock)$|rustfmt\.toml$|rust-toolchain\.toml$|\.github/workflows/ci\.yml$)'
-          m go    '^(cloud/|\.github/workflows/ci\.yml$)'
-          m ts    '^(ui/|console/|dashboard/|package(-lock)?\.json$|tsconfig\.base\.json$|\.nvmrc$|\.github/workflows/ci\.yml$)'
-          m relay '^(relay/|\.github/workflows/ci\.yml$)'
+          m rust  '^(device/core/|device/agent/|Cargo\.(toml|lock)$|rustfmt\.toml$|rust-toolchain\.toml$|\.github/workflows/ci\.yml$)'
+          m go    '^(hosted/cloud/|\.github/workflows/ci\.yml$)'
+          m ts    '^(device/ui/|hosted/console/|hosted/dashboard/|package(-lock)?\.json$|tsconfig\.base\.json$|\.nvmrc$|\.github/workflows/ci\.yml$)'
+          m relay '^(hosted/relay/|\.github/workflows/ci\.yml$)'
           m spikes '^(spikes/|\.github/workflows/ci\.yml$)'
 
   rust:
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: cloud
+        working-directory: hosted/cloud
     # The control plane's tests are about PostgreSQL constraints and about what PostgreSQL
     # does when two transactions race for one. Without a database they skip, and skipping is
     # indistinguishable from passing in a green tick, so CI runs a real one.
@@ -99,8 +99,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
-          go-version-file: cloud/go.mod
-          cache-dependency-path: cloud/go.sum
+          go-version-file: hosted/cloud/go.mod
+          cache-dependency-path: hosted/cloud/go.sum
       - run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go build ./...
       - run: go vet ./...
@@ -134,19 +134,19 @@ jobs:
       # Proves the pinned tag still exists and our patches still apply. It does not build
       # iroh-relay — that is minutes of compile for a check that adds nothing until the
       # patch does something (#46, #30).
-      - run: relay/apply.sh
-      # relay/fleet is its own workspace, so the root cargo fmt/clippy/test do not see
-      # it. It gets the same treatment here.
+      - run: hosted/relay/apply.sh
+      # hosted/relay/fleet is its own workspace, so the root cargo fmt/clippy/test do
+      # not see it. It gets the same treatment here.
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: relay/fleet
-      - run: cargo fmt --manifest-path relay/fleet/Cargo.toml --all --check
-      - run: cargo clippy --manifest-path relay/fleet/Cargo.toml --all-targets -- -D warnings
-      - run: cargo test --manifest-path relay/fleet/Cargo.toml
+          workspaces: hosted/relay/fleet
+      - run: cargo fmt --manifest-path hosted/relay/fleet/Cargo.toml --all --check
+      - run: cargo clippy --manifest-path hosted/relay/fleet/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --manifest-path hosted/relay/fleet/Cargo.toml
       # Rendered configs must stay valid TOML with the fields #28 requires.
-      - run: relay/deploy/render-config.sh relay/deploy/regions/eu-west.env.example > /dev/null
-      - run: relay/deploy/render-config.sh relay/deploy/regions/ap-southeast.env.example > /dev/null
-      - run: bash -n relay/deploy/render-config.sh relay/deploy/provision.sh relay/deploy/capacity/bench.sh
+      - run: hosted/relay/deploy/render-config.sh hosted/relay/deploy/regions/eu-west.env.example > /dev/null
+      - run: hosted/relay/deploy/render-config.sh hosted/relay/deploy/regions/ap-southeast.env.example > /dev/null
+      - run: bash -n hosted/relay/deploy/render-config.sh hosted/relay/deploy/provision.sh hosted/relay/deploy/capacity/bench.sh
 
   spikes:
     needs: changes

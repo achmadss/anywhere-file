@@ -1,7 +1,7 @@
 # The path jail
 
 r3 §9 step 5, issue [#13](https://github.com/achmadss/anywhere-file/issues/13). Code in
-`core/src/fs/`, attacked in `core/tests/containment.rs`.
+`device/core/src/fs/`, attacked in `device/core/tests/containment.rs`.
 
 Every filesystem operation is against one share root and takes a share-relative path. What
 the operation touches has to be inside that root once symlinks are resolved, and still

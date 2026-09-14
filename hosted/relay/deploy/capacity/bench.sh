@@ -2,7 +2,7 @@
 # Capacity baseline harness. Measures real relayed throughput against one
 # deployed relay and prints one JSON line per round plus a summary.
 #
-#   relay/deploy/capacity/bench.sh https://relay-eu-west.example.com
+#   hosted/relay/deploy/capacity/bench.sh https://relay-eu-west.example.com
 #
 # This measures bytes that crossed the relay, not connection counts. Issue #30
 # uses the sustained bytes_per_second printed here as the denominator in its

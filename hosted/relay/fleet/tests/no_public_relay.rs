@@ -47,11 +47,17 @@ fn agent_relay_mode_holds_only_our_relays() {
 fn no_default_or_staging_relay_mode_in_agent_sources() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
+        .join("..")
         .join("..");
     let mut hits = Vec::new();
     // The fleet crate is the guard, not the guarded: it names the public
     // relays to deny-list them. Everything else is scanned.
-    for dir in ["agent", "core", "cloud", "relay/deploy"] {
+    for dir in [
+        "device/agent",
+        "device/core",
+        "hosted/cloud",
+        "hosted/relay/deploy",
+    ] {
         let path = root.join(dir);
         // A scan that finds nothing because the directory moved would pass and
         // guard nothing, so a missing directory is a failure here.

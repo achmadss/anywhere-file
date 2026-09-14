@@ -1,5 +1,5 @@
 # One relay per host. Each region gets its own rendered config and env file;
-# run one compose project per VPS. See relay/README.md and provision.sh.
+# run one compose project per VPS. See hosted/relay/README.md and provision.sh.
 #
 #   docker compose --env-file regions/eu-west.env up -d --build
 #
