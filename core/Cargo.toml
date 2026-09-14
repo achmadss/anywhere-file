@@ -7,11 +7,12 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+cap-std = { workspace = true }
 getrandom = { workspace = true }
 iroh = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["rt"] }
+tokio = { workspace = true, features = ["fs", "io-util", "rt"] }
 tracing = { workspace = true }
 
 # keyring ships no backend unless a feature asks for one; without one it falls back to

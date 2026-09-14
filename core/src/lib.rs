@@ -13,6 +13,7 @@
 //!   `iroh` type, so the transport stays swappable. (0002)
 
 pub mod config;
+pub mod fs;
 pub mod identity;
 pub mod transport;
 pub mod trust;
