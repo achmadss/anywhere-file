@@ -96,7 +96,7 @@ func TestMigrationsRunForwardAndBack(t *testing.T) {
 
 	want := []string{
 		"accounts", "audit_events", "device_authorizations", "devices",
-		"pairing_requests", "schema_migrations", "subscriptions",
+		"job_heartbeats", "pairing_requests", "schema_migrations", "subscriptions",
 		"transfer_requests", "workspace_associations", "workspace_members",
 	}
 	got := tableNames(t, pool)
@@ -132,6 +132,16 @@ func TestMigrationsRunForwardAndBack(t *testing.T) {
 	if got := tableNames(t, pool); len(got) != len(want) {
 		t.Fatalf("after second up, tables = %v, want %v", got, want)
 	}
+}
+
+// A skip looks like a pass in short output, so one test says out loud whether
+// the schema suite ran or skipped. Read the SKIP line as a failure to provide
+// a database, not as success.
+func TestSchemaTestsReportPresence(t *testing.T) {
+	if os.Getenv(testDatabaseURLEnv) == "" {
+		t.Skipf("SKIP: %s is not set, schema tests did not run. Start cloud/docker-compose.yml and export it.", testDatabaseURLEnv)
+	}
+	t.Logf("RUN: %s is set, schema tests run against a real PostgreSQL.", testDatabaseURLEnv)
 }
 
 func TestMigrateUpIsIdempotent(t *testing.T) {
