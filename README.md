@@ -23,20 +23,20 @@ boundary: anything under `device/` can be tampered with by whoever owns the mach
 | `device/core/` | `rfm-core`: trust list, shares, access rule, file protocol, transport | Rust |
 | `device/agent/` | desktop agent, hosts `rfm-core` in-process | Rust + Tauri |
 | `device/ui/` | agent UI bundle, rendered inside the agent's window | TypeScript |
-| `hosted/cloud/` | control plane: trust-list distribution, relay authorization | Go |
+| `hosted/control-plane/` | trust-list distribution, relay authorization, accounts | Go |
 | `hosted/dashboard/` | customer dashboard | TypeScript |
 | `hosted/console/` | operator console | TypeScript |
 | `hosted/relay/` | pinned `iroh-relay` plus our patch | Rust (vendored) |
 
 ## Building
 
-Toolchains are pinned: `rust-toolchain.toml`, the `go` directive in `hosted/cloud/go.mod`,
+Toolchains are pinned: `rust-toolchain.toml`, the `go` directive in `hosted/control-plane/go.mod`,
 `.nvmrc`.
 With `rustup`, Go and `nvm` installed, a fresh clone builds with:
 
 ```sh
 cargo build --workspace          # core + agent
-(cd hosted/cloud && go build ./...)  # control plane
+(cd hosted/control-plane && go build ./...)   # control plane
 npm ci && npm run build          # ui + console + dashboard
 ```
 
@@ -48,11 +48,11 @@ The relay is not built by default. See [`hosted/relay/README.md`](hosted/relay/R
 
 ## Running the control plane locally
 
-`hosted/cloud/` needs PostgreSQL. `hosted/cloud/docker-compose.yml` brings one up on host
+`hosted/control-plane/` needs PostgreSQL. `hosted/control-plane/docker-compose.yml` brings one up on host
 port 5433.
 
 ```sh
-cd hosted/cloud
+cd hosted/control-plane
 docker compose up -d
 export RFM_DATABASE_URL='postgres://rfm:rfm@localhost:5433/rfm?sslmode=disable'
 go run . migrate up          # `migrate down [n]` reverses

@@ -55,7 +55,7 @@ fn no_default_or_staging_relay_mode_in_agent_sources() {
     for dir in [
         "device/agent",
         "device/core",
-        "hosted/cloud",
+        "hosted/control-plane",
         "hosted/relay/deploy",
     ] {
         let path = root.join(dir);

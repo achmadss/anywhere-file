@@ -117,7 +117,7 @@ cargo test --manifest-path hosted/relay/fleet/Cargo.toml
 
 `tests/no_public_relay.rs` runs in CI: the agent relay mode holds our relays
 only, and no `Default`/`Staging` mode or public relay host appears in
-`device/agent/`, `device/core/`, `hosted/cloud/` or `deploy/`. `tests/bench_smoke.rs` runs the
+`device/agent/`, `device/core/`, `hosted/control-plane/` or `deploy/`. `tests/bench_smoke.rs` runs the
 harness against a local relay in CI.
 
 Two tests need a deployed fleet and stay ignored in CI:

@@ -41,7 +41,7 @@ jobs:
           m() { if match "$2"; then echo "$1=true"; else echo "$1=false"; fi; } >> "$GITHUB_OUTPUT"
 
           m rust  '^(device/core/|device/agent/|Cargo\.(toml|lock)$|rustfmt\.toml$|rust-toolchain\.toml$|\.github/workflows/ci\.yml$)'
-          m go    '^(hosted/cloud/|\.github/workflows/ci\.yml$)'
+          m go    '^(hosted/control-plane/|\.github/workflows/ci\.yml$)'
           m ts    '^(device/ui/|hosted/console/|hosted/dashboard/|package(-lock)?\.json$|tsconfig\.base\.json$|\.nvmrc$|\.github/workflows/ci\.yml$)'
           m relay '^(hosted/relay/|\.github/workflows/ci\.yml$)'
           m spikes '^(spikes/|\.github/workflows/ci\.yml$)'
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: hosted/cloud
+        working-directory: hosted/control-plane
     # The control plane's tests are about PostgreSQL constraints and about what PostgreSQL
     # does when two transactions race for one. Without a database they skip, and skipping is
     # indistinguishable from passing in a green tick, so CI runs a real one.
@@ -99,8 +99,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
-          go-version-file: hosted/cloud/go.mod
-          cache-dependency-path: hosted/cloud/go.sum
+          go-version-file: hosted/control-plane/go.mod
+          cache-dependency-path: hosted/control-plane/go.sum
       - run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go build ./...
       - run: go vet ./...

@@ -405,7 +405,7 @@ Not verified, and not verifiable today:
 
 - Every claim marked `by design`. No `rfm-core` code exists beyond a crate skeleton
   (`device/core/src/lib.rs`) and no cloud code exists beyond a `main` that prints a line
-  (`hosted/cloud/main.go`). The access rule, the path jail, the protocol and pairing are all unwritten.
+  (`hosted/control-plane/main.go`). The access rule, the path jail, the protocol and pairing are all unwritten.
 - Everything about a deployed relay. Nothing here was tested against a running `iroh-relay`, and A3
   in particular is a reading of the code rather than a measurement. Testing it needs #28's fleet,
   two workspaces placed on one relay, and a load generator.
