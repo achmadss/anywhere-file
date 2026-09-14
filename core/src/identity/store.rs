@@ -13,7 +13,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::{DeviceKeyStore, KeyStoreError, SEED_LEN, Seed};
+use super::{DeviceKeyStore, KeyStoreError, Seed};
 use crate::config::{ConfigDir, write_atomic};
 
 /// A 32-byte seed on disk with nothing wrapped around it.
@@ -118,7 +118,7 @@ fn set_mode(_path: &Path, _mode: u32) -> io::Result<()> {
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod os_keystore {
-    use super::{DeviceKeyStore, KeyStoreError, SEED_LEN, Seed};
+    use super::{DeviceKeyStore, KeyStoreError, Seed};
 
     /// Namespaces the item. Changing it orphans every already-stored key.
     const SERVICE: &str = "dev.anywherefile.agent";
@@ -184,7 +184,6 @@ mod os_keystore {
         }
 
         fn store(&self, seed: &Seed) -> Result<(), KeyStoreError> {
-            debug_assert_eq!(seed.len(), SEED_LEN);
             self.entry()?
                 .set_secret(seed)
                 .map_err(|e| KeyStoreError::Unavailable(e.to_string()))
@@ -297,7 +296,7 @@ pub fn default_store(dir: &ConfigDir) -> Box<dyn DeviceKeyStore> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::identity::DeviceIdentity;
+    use crate::identity::{DeviceIdentity, SEED_LEN};
 
     fn seed_file() -> (tempfile::TempDir, SeedFile) {
         let tmp = tempfile::tempdir().unwrap();
