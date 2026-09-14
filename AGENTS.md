@@ -24,6 +24,19 @@ is a claim that it can be merged as it stands.
 Say what changed and why. Don't include a "things to decide", "open questions", or "caveats"
 section.
 
+## Talking to me
+
+Keep replies short. Say what you did and what it means for the work, and stop there.
+
+I can read code. I don't know Rust or Go well, so don't lean on either language's habits or
+naming to carry an explanation, and skip the library names unless they're the point. Say what
+the thing does in plain words.
+
+Assume I'm deciding, not implementing. What I want to know is whether something works, what it
+costs, what's blocked and what needs me. Spare me the walkthrough of how you got there.
+
+Go long only when I ask for detail.
+
 ## Prose
 
 Applies to PR descriptions, commit messages, ADRs, issue bodies, READMEs and comments.
