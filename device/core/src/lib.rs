@@ -1,8 +1,8 @@
-//! `rfm-core` — everything a device needs to decide who may touch which files, and to move
+//! `rfm-core`: everything a device needs to decide who may touch which files, and to move
 //! them once that is decided.
 //!
 //! The surface arrives issue by issue: identity and the keystore (#6), the trust list
-//! (#7–#11), shares and the access rule (#12–#14), the file protocol (#15–#17), the UI API
+//! (#7 to #11), shares and the access rule (#12 to #14), the file protocol (#15 to #17), the UI API
 //! (#18).
 //!
 //! Two rules this crate is held to, from `docs/adr/`:

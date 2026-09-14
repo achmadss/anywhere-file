@@ -132,7 +132,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       # Proves the pinned tag still exists and our patches still apply. It does not build
-      # iroh-relay — that is minutes of compile for a check that adds nothing until the
+      # iroh-relay, which is minutes of compile for a check that adds nothing until the
       # patch does something (#46, #30).
       - run: hosted/relay/apply.sh
       # hosted/relay/fleet is its own workspace, so the root cargo fmt/clippy/test do
@@ -175,6 +175,23 @@ jobs:
           done
           if [ "$found" = 0 ]; then echo "no spike crates"; fi
 
+  prose:
+    # AGENTS.md bans em and en dashes in anything a person reads. A rule with no check is a
+    # rule that comes back one PR at a time, so this is the check. Generated and vendored
+    # files are exempt because we do not write them; -I skips binaries.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: no em or en dashes
+        run: |
+          if git grep -nPI '[\x{2013}\x{2014}]' -- . \
+               ':!package-lock.json' ':!Cargo.lock' ':!hosted/relay/fleet/Cargo.lock' \
+               ':!hosted/relay/patches'; then
+            echo
+            echo "Em and en dashes are banned (AGENTS.md). Use a period, comma, colon or parentheses."
+            exit 1
+          fi
+
   blockers:
     # Issue dependencies are advisory in GitHub's UI: it shows what an issue waits on and
     # then lets you close it anyway. This is where they bite. Only a pull request carries
@@ -195,7 +212,7 @@ jobs:
   ci-ok:
     # The one check branch protection requires. Green when every job that ran passed, and
     # when a job was skipped because nothing in its language changed.
-    needs: [changes, rust, go, ts, relay, spikes, blockers]
+    needs: [changes, rust, go, ts, relay, spikes, blockers, prose]
     if: always()
     runs-on: ubuntu-latest
     steps:
