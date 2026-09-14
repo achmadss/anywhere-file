@@ -1,7 +1,8 @@
 # The canonical trust list encoding
 
-Version 1. Normative. `core/src/trust/encoding.rs` implements this document; where they
-disagree, this document is right and the code is a bug.
+Versions 1 and 2. Normative. `core/src/trust/encoding.rs` implements this document;
+where they disagree, this document is right and the code is a bug. This build writes
+version 2 and reads versions 1 and 2.
 
 A workspace is its trust list (r3 §8.1), and a trust list is only worth what its signature
 is worth. A signature is over bytes, so the bytes have to be reproducible: any two devices
@@ -40,7 +41,8 @@ The body:
 | Field | Bytes | Notes |
 |---|---|---|
 | magic | 15 | `rfm-trust-list\0` |
-| encoding version | 1 | `1` for this document |
+| encoding version | 1 | `2` for this document (`1` for version 1) |
+| workspace status | 1 | version 2 only: `0` live, `1` deleted |
 | signer | 32 | Ed25519 public key of the device that signed |
 | workspace id | 16 | random, minted by the creating agent |
 | name length | 4 | `u32`, at most 4096 |
@@ -86,17 +88,24 @@ It also gives #8 what it needs. The §8.1 succession rule is "signed by a key th
 `active` and `admin` in the version currently held", and that check needs to know which key
 signed before it can look it up.
 
-## Version 1 and what would make a version 2
+## Version 2 and what would make a version 3
 
-The encoding version is the second field, before anything variable-length, so a decoder can
-refuse an unknown version before it has parsed anything it might misread. Version 1 decoders
-refuse anything that is not `1` rather than skipping fields they do not recognize: a trust
-list understood approximately is worse than one not read at all.
+Version 2 adds one field: workspace status, the third field, right after the
+encoding version and before the signer. `0` means the workspace is live. `1` means
+the workspace is deleted: the version carrying it is the final one, signed by an
+active admin like any other version, and agents that receive it drop their copy of
+the list (r3 §14). The field sits with the other fixed-width fields, before
+anything variable-length, for the same reason the encoding version does.
+
+Version 1 bytes have no status byte. A v2 decoder reads them as live, which is all
+v1 knew. A v1 decoder meeting v2 bytes refuses them with unknown encoding version:
+it reads the version byte first and stops before it has parsed anything it might
+misread. A trust list understood approximately is worse than one not read at all.
 
 Any change to field order, field widths, the entry sort key, or the meaning of a
-discriminant is a new version. Adding a field is a new version too, because the signature
-covers the exact bytes and an old encoder would produce a different string for the same
-membership.
+discriminant is a new version. Adding a field is a new version too, because the
+signature covers the exact bytes and an old encoder would produce a different
+string for the same membership.
 
 ## Limits
 

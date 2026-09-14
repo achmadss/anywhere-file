@@ -16,6 +16,8 @@ func newHandler(db *pgxpool.Pool, log *slog.Logger, m *Metrics) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", health(db))
 	mux.Handle("GET /metrics", m.Handler())
+	registerAuthRoutes(mux, db, log)
+	registerAgentRoutes(mux, db)
 	return logRequests(mux, log)
 }
 

@@ -68,13 +68,14 @@ mod tests {
     use iroh::SecretKey;
 
     use super::*;
-    use crate::trust::{Entry, Role, Status, TrustList};
+    use crate::trust::{Entry, Role, Status, TrustList, WorkspaceStatus};
 
     fn list(workspace: WorkspaceId, admin: &SecretKey) -> TrustList {
         TrustList {
             workspace_id: workspace,
             name: "kitchen table".to_owned(),
             version: 1,
+            status: WorkspaceStatus::Live,
             entries: vec![Entry {
                 device_key: admin.public(),
                 display_name: "laptop".to_owned(),

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -95,8 +93,9 @@ func TestMigrationsRunForwardAndBack(t *testing.T) {
 	ctx := t.Context()
 
 	want := []string{
-		"accounts", "audit_events", "device_authorizations", "devices",
-		"job_heartbeats", "pairing_requests", "schema_migrations", "subscriptions",
+		"accounts", "agent_messages", "audit_events", "device_authorizations", "device_nonces",
+		"devices", "email_verification_tokens", "job_heartbeats", "pairing_requests",
+		"password_reset_tokens", "schema_migrations", "sessions", "subscriptions",
 		"transfer_requests", "workspace_associations", "workspace_members",
 	}
 	got := tableNames(t, pool)
@@ -189,9 +188,4 @@ func TestSeedIsIdempotent(t *testing.T) {
 			t.Errorf("after two seeds, %s has %d rows, want %d", table, n, want)
 		}
 	}
-}
-
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
