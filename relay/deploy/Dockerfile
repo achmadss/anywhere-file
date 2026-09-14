@@ -14,7 +14,12 @@ WORKDIR /build
 COPY IROH_VERSION apply.sh ./
 COPY patches ./patches
 RUN ./apply.sh
-RUN cargo build --release --manifest-path src/Cargo.toml -p iroh-relay
+# The binary is behind the `server` feature (upstream sets required-features on
+# [[bin]]). Without it cargo builds the library, reports success and writes no
+# binary, and the failure only surfaces as a missing file in the COPY below.
+# `--bin iroh-relay` makes cargo refuse outright if the feature stops enabling it.
+RUN cargo build --release --manifest-path src/Cargo.toml -p iroh-relay \
+    --features server --bin iroh-relay
 
 FROM debian:bookworm-slim
 RUN apt-get update \
