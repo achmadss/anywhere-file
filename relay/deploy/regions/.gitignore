@@ -1,0 +1,4 @@
+# Filled region env files hold operator hostnames and addresses. Never commit
+# them. The .env.example files are the committed placeholders.
+*.env
+!*.env.example
