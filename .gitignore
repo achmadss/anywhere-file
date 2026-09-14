@@ -4,16 +4,16 @@
 **/*.rs.bk
 
 # go
-/cloud/bin/
-/cloud/cloud
+/hosted/control-plane/bin/
+/hosted/control-plane/control-plane
 
 # node
 node_modules/
 dist/
 *.tsbuildinfo
 
-# relay: vendored upstream source, fetched by relay/apply.sh
-/relay/src/
+# relay: vendored upstream source, fetched by hosted/relay/apply.sh
+/hosted/relay/src/
 
 # editors / os
 .DS_Store

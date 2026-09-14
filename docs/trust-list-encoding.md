@@ -1,6 +1,6 @@
 # The canonical trust list encoding
 
-Versions 1 and 2. Normative. `core/src/trust/encoding.rs` implements this document;
+Versions 1 and 2. Normative. `device/core/src/trust/encoding.rs` implements this document;
 where they disagree, this document is right and the code is a bug. This build writes
 version 2 and reads versions 1 and 2.
 

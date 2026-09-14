@@ -2,11 +2,11 @@
   "name": "anywhere-file",
   "private": true,
   "type": "module",
-  "workspaces": ["ui", "console", "dashboard"],
+  "workspaces": ["device/ui", "hosted/console", "hosted/dashboard"],
   "scripts": {
     "build": "npm run build --workspaces",
     "typecheck": "npm run typecheck --workspaces",
-    "lint": "oxlint --deny-warnings ui console dashboard"
+    "lint": "oxlint --deny-warnings device/ui hosted/console hosted/dashboard"
   },
   "devDependencies": {
     "oxlint": "^1.0.0",

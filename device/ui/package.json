@@ -1,0 +1,10 @@
+{
+  "name": "@anywhere-file/ui",
+  "private": true,
+  "type": "module",
+  "description": "Agent UI bundle.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

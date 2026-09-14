@@ -1,7 +1,7 @@
 # 46: is per-workspace rate shaping a small patch to `iroh-relay`?
 
 **Verdict: go.** 209 production lines across 6 files, against iroh `v1.2.0`. The prototype is
-in `relay/patches/0001-per-connection-rate-limit.patch` and #30 starts from working code.
+in `hosted/relay/patches/0001-per-connection-rate-limit.patch` and #30 starts from working code.
 
 One finding changes the design rather than the verdict: the bucket cannot be keyed by
 workspace, only by connection. The cloud absorbs that, and the section below says how.
@@ -69,7 +69,7 @@ happens before any meaningful traffic has moved.
 | | **209** | plus 135 lines of test |
 
 `cargo fmt`, `cargo clippy --all-targets`, and all 83 upstream tests pass on the patched
-tree. `relay/apply.sh` was run against a fresh clone to confirm the patch applies and the
+tree. `hosted/relay/apply.sh` was run against a fresh clone to confirm the patch applies and the
 result still passes.
 
 ### The one regression, and why the patch is bigger than it looks
@@ -193,16 +193,16 @@ The patch touches five functions. Three are structural and unlikely to move
 - `set_client_rate_limit` will conflict if upstream reworks its own rate-limit plumbing,
   which is plausible, since per-connection rates are an obvious feature for them to add.
 
-If upstream does add per-connection rates, this patch is deleted and `relay/patches/` goes
+If upstream does add per-connection rates, this patch is deleted and `hosted/relay/patches/` goes
 back to empty. Worth watching rather than acting on.
 
 ## What changes in the plan
 
-- **#30** starts from `relay/patches/0001-per-connection-rate-limit.patch`. Its remaining
+- **#30** starts from `hosted/relay/patches/0001-per-connection-rate-limit.patch`. Its remaining
   work is deployment, measurement against a real relay, and the untested items above.
 - **#24** must read `X-Iroh-NodeId`, return the JSON shape above, and divide the workspace
   rate by active device count.
-- **#28** must deploy the patched binary, not the stock one, and `relay/apply.sh` is how it
+- **#28** must deploy the patched binary, not the stock one, and `hosted/relay/apply.sh` is how it
   is built.
 - **#47** should record two assumptions: shaping is receive-side only, and a workspace's
   aggregate rate is enforced by cloud arithmetic rather than by the relay.

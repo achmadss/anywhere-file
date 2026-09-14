@@ -24,9 +24,9 @@ here. `by design` means a requirement or an issue says it, no code exists yet, a
 become `verified` when the issue's tests exist. `assumed` means the model rests on it and nothing
 checks it.
 
-Citations of the form `relay/src/...` point at the upstream iroh tree that `relay/apply.sh` fetches
-into `relay/src`. That tree is gitignored and is not part of the repository. Line numbers are from
-the tree with `relay/patches/0001-per-connection-rate-limit.patch` applied (the patch from #46,
+Citations of the form `hosted/relay/src/...` point at the upstream iroh tree that `hosted/relay/apply.sh` fetches
+into `hosted/relay/src`. That tree is gitignored and is not part of the repository. Line numbers are from
+the tree with `hosted/relay/patches/0001-per-connection-rate-limit.patch` applied (the patch from #46,
 which lives on `spike/relay-shaping` and is not merged). Where a citation lands in a region the
 patch touches, it says so.
 
@@ -58,12 +58,12 @@ capability. It holds in iroh `v1.2.0`. `verified`:
 - The dialer pins the remote key. `ServerCertificateVerifier::verify_server_cert` decodes the
   expected endpoint id out of the TLS server name and rejects the handshake unless the presented
   raw public key is bit-for-bit that key
-  (`relay/src/iroh/src/tls/verifier.rs:33-74`).
+  (`hosted/relay/src/iroh/src/tls/verifier.rs:33-74`).
 - Only TLS 1.3 with Ed25519 raw public keys is accepted; TLS 1.2 is refused outright
-  (`relay/src/iroh/src/tls/verifier.rs:18-24`, `:76-86`, `:132-141`).
+  (`hosted/relay/src/iroh/src/tls/verifier.rs:18-24`, `:76-86`, `:132-141`).
 - The accepting side derives the peer key from the completed handshake rather than from anything
   the peer sends: `remote_id_from_noq_conn` reads `conn.peer_identity()` and fails closed if it is
-  absent or malformed (`relay/src/iroh/src/endpoint/connection.rs:382-408`, exposed as
+  absent or malformed (`hosted/relay/src/iroh/src/endpoint/connection.rs:382-408`, exposed as
   `Connection::remote_id` at `:568`).
 
 So `rfm-core` can take the key from the connection and must never accept one from inside a frame.
@@ -96,7 +96,7 @@ cloud never signed.
 
 The address-substitution case has no mitigation and is not worth building one for: a dialer has to
 send packets somewhere, and the handshake fails immediately against the wrong key
-(`relay/src/iroh/src/tls/verifier.rs:56-72`, `verified`). It is recorded here as accepted rather
+(`hosted/relay/src/iroh/src/tls/verifier.rs:56-72`, `verified`). It is recorded here as accepted rather
 than solved.
 
 ### The compromised relay
@@ -106,7 +106,7 @@ matters.
 
 What it does not see: file contents, filenames, or the file protocol. The relay forwards
 `Datagrams { ecn, segment_size, contents }` addressed by destination endpoint id
-(`relay/src/iroh-relay/src/protos/relay.rs:198-207`, upstream). The contents are the QUIC packets of
+(`hosted/relay/src/iroh-relay/src/protos/relay.rs:198-207`, upstream). The contents are the QUIC packets of
 an endpoint-to-endpoint TLS 1.3 session the relay is not a party to, so it cannot decrypt them and
 cannot substitute itself for a peer.
 
@@ -116,9 +116,9 @@ two named devices are transferring something large right now.
 
 A relay cannot forge a source. The source endpoint id on a forwarded packet is taken from the
 authenticated handshake guard rather than from the frame
-(`relay/src/iroh-relay/src/server/client.rs:588-596`, upstream), and the handshake requires a
+(`hosted/relay/src/iroh-relay/src/server/client.rs:588-596`, upstream), and the handshake requires a
 signature over a server-chosen challenge or over exported TLS keying material
-(`relay/src/iroh-relay/src/protos/handshake.rs:11-20`, `:201-228`, upstream).
+(`hosted/relay/src/iroh-relay/src/protos/handshake.rs:11-20`, `:201-228`, upstream).
 
 ---
 
@@ -149,9 +149,9 @@ deny, and its absence denies only relayed requests).
 relay path and a direct path at the same time, and only one of them is selected for application
 data. iroh `v1.2.0` exposes this as `Connection::paths()` returning a list of paths, each with
 `is_relay()` and `is_selected()`
-(`relay/src/iroh/src/socket/remote_map/remote_state/path_watcher.rs:455-482`;
+(`hosted/relay/src/iroh/src/socket/remote_map/remote_state/path_watcher.rs:455-482`;
 `Connection::paths()`, `paths_stream()` and `path_events()` at
-`relay/src/iroh/src/endpoint/connection.rs:1140-1180`). Step 4 must therefore ask about the
+`hosted/relay/src/iroh/src/endpoint/connection.rs:1140-1180`). Step 4 must therefore ask about the
 *selected* path. The stricter reading, "any open relay path means treat the request as relayed",
 would deny direct-path requests on cloud state and break this claim outright. Raised on #14 and #42.
 
@@ -173,7 +173,7 @@ G5 below.
 r3 principle 6. `verified` for content, with the metadata caveat in section 2. The relay's own
 authorization decision cannot widen this: `Access::Allow` and `Access::AllowLimited` admit an
 endpoint to the relay's forwarding service and nothing else
-(`relay/src/iroh-relay/src/server.rs:350-370`, patched region).
+(`hosted/relay/src/iroh-relay/src/server.rs:350-370`, patched region).
 
 ### C5. A request cannot escape a share root
 
@@ -216,7 +216,7 @@ oracle for enumerating share roots and grants.
 ### A1. Relay shaping is receive-side only
 
 The token bucket wraps `poll_read`. `poll_write` is a pass-through to the inner stream with no
-bucket consulted (`relay/src/iroh-relay/src/server/streams.rs:565-618` and `:620-627`, upstream and
+bucket consulted (`hosted/relay/src/iroh-relay/src/server/streams.rs:565-618` and `:620-627`, upstream and
 untouched by the #46 patch). There is no send-side limit to configure, so this is a property of the
 design rather than a setting.
 
@@ -244,10 +244,10 @@ This is the assumption A1's reasoning quietly depends on, and it is false as the
 
 The relay does not know what a workspace is. `Clients::send_packet` looks the destination endpoint
 id up in one flat map of connected clients and forwards, with no check that source and destination
-belong together (`relay/src/iroh-relay/src/server/clients.rs:243-259`, upstream). Authorization is
+belong together (`hosted/relay/src/iroh-relay/src/server/clients.rs:243-259`, upstream). Authorization is
 per endpoint at connect time and admits that endpoint to the whole relay
 (`AccessControl::on_connect`, called once from the handshake at
-`relay/src/iroh-relay/src/protos/handshake.rs:492-495`).
+`hosted/relay/src/iroh-relay/src/protos/handshake.rs:492-495`).
 
 So an admitted endpoint can spend its own receive bucket sending datagrams at any other endpoint
 connected to the same relay, and because there is no send-side limit, the victim's inbound relayed
@@ -290,7 +290,7 @@ convinced it is correct.
 ### W3. The authorize endpoint failing open (#29)
 
 The relay side already fails closed: any error, timeout, non-200 status, or unparseable body maps to
-`Access::Deny` (`relay/src/iroh-relay/src/main.rs:296-318` and `:350-381`, patched region; the
+`Access::Deny` (`hosted/relay/src/iroh-relay/src/main.rs:296-318` and `:350-381`, patched region; the
 error-to-deny mapping is upstream behaviour that the patch preserves). `verified`.
 
 The risk that remains is on our side of the wire: a handler that returns `{"allow": true}` from a
@@ -298,7 +298,7 @@ stale cache, or a 200 with a default-constructed body, when the database is unre
 requires fail-closed behaviour and a database-down test.
 
 One thing #29 does not cover: the bearer token is a single shared secret across the fleet
-(`relay/src/iroh-relay/src/main.rs:359-363`, upstream). One compromised relay VPS yields a token
+(`hosted/relay/src/iroh-relay/src/main.rs:359-363`, upstream). One compromised relay VPS yields a token
 that authorizes queries about any endpoint id, and each answer carries the workspace id and its
 rate. Raised on #29 as gap G4.
 
@@ -368,7 +368,7 @@ and most of what looks like a hole is already an open decision inside an existin
 
 | # | Gap | Where it went |
 |---|---|---|
-| G1 | De-authorization does not reach a live relay connection. `AccessControl::on_connect` is called once during the handshake and never re-run; the `iroh-relay` binary never calls `Clients::disconnect` (`relay/src/iroh-relay/src/server/clients.rs:224-239`, upstream; only tests call it). r3 §10.3's "immediately" and #29's "within one cache TTL" are true for new connections only. The same missing channel blocks #24's plan to call `set_connection_rate_limit` on live connections when a workspace's device count changes. | Filed as #51 |
+| G1 | De-authorization does not reach a live relay connection. `AccessControl::on_connect` is called once during the handshake and never re-run; the `iroh-relay` binary never calls `Clients::disconnect` (`hosted/relay/src/iroh-relay/src/server/clients.rs:224-239`, upstream; only tests call it). r3 §10.3's "immediately" and #29's "within one cache TTL" are true for new connections only. The same missing channel blocks #24's plan to call `set_connection_rate_limit` on live connections when a workspace's device count changes. | Filed as #51 |
 | G2 | Assumption A3: the relay does not partition workspaces, so receive-side-only shaping does not bound a workspace's inbound relayed traffic. | Raised on #30 as acceptance criteria |
 | G3 | Retention is undefined for audit events, and account deletion versus an append-only audit log has not been reconciled. | Raised on #27 and #20 as acceptance criteria |
 | G4 | The relay authorize bearer token is one shared secret across the fleet, so one compromised relay yields a fleet-wide query capability. | Raised on #29 as acceptance criteria |
@@ -382,7 +382,7 @@ Four issues are asked to reference this document by #47's own acceptance: #13, #
 
 ## 8. What was verified, and what was not
 
-Read and confirmed against source, all in iroh `v1.2.0` at `relay/src`:
+Read and confirmed against source, all in iroh `v1.2.0` at `hosted/relay/src`:
 
 - Peer key authentication on both sides of a QUIC connection (`iroh/src/tls/verifier.rs`,
   `iroh/src/endpoint/connection.rs`).
@@ -404,8 +404,8 @@ principles 1 to 7, and D5. Read and confirmed against the issues: #8, #10, #12, 
 Not verified, and not verifiable today:
 
 - Every claim marked `by design`. No `rfm-core` code exists beyond a crate skeleton
-  (`core/src/lib.rs`) and no cloud code exists beyond a `main` that prints a line
-  (`cloud/main.go`). The access rule, the path jail, the protocol and pairing are all unwritten.
+  (`device/core/src/lib.rs`) and no cloud code exists beyond a `main` that prints a line
+  (`hosted/control-plane/main.go`). The access rule, the path jail, the protocol and pairing are all unwritten.
 - Everything about a deployed relay. Nothing here was tested against a running `iroh-relay`, and A3
   in particular is a reading of the code rather than a measurement. Testing it needs #28's fleet,
   two workspaces placed on one relay, and a load generator.

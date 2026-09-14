@@ -30,13 +30,13 @@ Two runs editing one checkout will overwrite each other. One worktree per issue:
 git worktree add -b issue/20-cloud-accounts /path/to/wt/20 main
 ```
 
-Runs that share a resource need it split too. Two `cloud/` issues both drop and recreate the
+Runs that share a resource need it split too. Two `hosted/control-plane/` issues both drop and recreate the
 `public` schema, so each gets its own database on the one running PostgreSQL, and both briefs
 say not to touch `docker compose`:
 
 ```sh
-docker compose -f cloud/docker-compose.yml up -d
-docker compose -f cloud/docker-compose.yml exec -T postgres \
+docker compose -f hosted/control-plane/docker-compose.yml up -d
+docker compose -f hosted/control-plane/docker-compose.yml exec -T postgres \
   psql -U rfm -d rfm -c 'CREATE DATABASE rfm_t20 OWNER rfm;'
 ```
 

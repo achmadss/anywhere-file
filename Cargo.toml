@@ -1,9 +1,9 @@
 [workspace]
 resolver = "3"
-members = ["core", "agent"]
+members = ["device/core", "device/agent"]
 
-# relay/ is deliberately not a member: it is pinned upstream source plus our diff,
-# fetched on demand by relay/apply.sh. See relay/README.md.
+# hosted/relay/ is deliberately not a member: it is pinned upstream source plus our
+# diff, fetched on demand by hosted/relay/apply.sh. See hosted/relay/README.md.
 
 [workspace.package]
 version = "0.1.0"
@@ -13,7 +13,7 @@ publish = false
 
 [workspace.dependencies]
 # Pinned exactly: iroh is the transport and a patch bump is a deliberate act, not a
-# `cargo update`. relay/IROH_VERSION pins the relay to the same release.
+# `cargo update`. hosted/relay/IROH_VERSION pins the relay to the same release.
 cap-std = "4"
 getrandom = "0.4"
 iroh = "=1.2.0"

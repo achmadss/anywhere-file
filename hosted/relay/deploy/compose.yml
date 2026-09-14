@@ -1,0 +1,46 @@
+# One relay per host. Each region gets its own rendered config and env file;
+# run one compose project per VPS. See hosted/relay/README.md and provision.sh.
+#
+#   docker compose --env-file regions/eu-west.env up -d --build
+#
+# Host networking is deliberate. The relay terminates TLS on 443 itself, serves
+# QUIC discovery on UDP, and binds metrics to the private interface address
+# from METRICS_BIND_ADDR. NATing all three through bridge mappings is a second
+# config to get wrong for no benefit on a single-purpose VPS.
+name: rfm-relay
+
+services:
+  relay:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: rfm-relay:${IMAGE_TAG:-local}
+    container_name: rfm-relay
+    network_mode: host
+    restart: unless-stopped
+    env_file:
+      - ${REGION_ENV:?Set REGION_ENV to the region env file, e.g. REGION_ENV=regions/eu-west.env}
+    volumes:
+      - /etc/iroh-relay/relay.toml:/etc/iroh-relay/relay.toml:ro
+      - relay-certs:/var/lib/iroh-relay
+    # Liveness is the metrics endpoint. If it answers, the process is up and
+    # serving. It binds the private address from the rendered config, so this
+    # probe also fails when metrics were misbound.
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://${METRICS_BIND_ADDR:?}/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+        tag: "rfm-relay"
+    # The relay needs 80/tcp (ACME HTTP-01 plus captive portal), 443/tcp and
+    # 443/udp (HTTPS relay plus QUIC address discovery). The firewall, not this
+    # file, decides who reaches the metrics port. See provision.sh.
+
+volumes:
+  relay-certs:

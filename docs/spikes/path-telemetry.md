@@ -3,8 +3,8 @@
 Answers r3 §20.1 and fills in item 5 of [ADR 0002](../adr/0002-transport-seam.md), the one
 capability that record left unproven.
 
-Everything below refers to iroh **v1.2.0**, the version pinned in `relay/IROH_VERSION`.
-Line references are into `relay/src/`, which `relay/apply.sh` fetches. Every claim is
+Everything below refers to iroh **v1.2.0**, the version pinned in `hosted/relay/IROH_VERSION`.
+Line references are into `hosted/relay/src/`, which `hosted/relay/apply.sh` fetches. Every claim is
 labelled observed (something was run here and the output is quoted) or inferred (read from
 the source, with the citation, and not executed). Where a run needed Linux, it happened in a
 privileged container on this machine, and the section says so.
@@ -146,7 +146,7 @@ Observed, in a simulated network. patchbay, iroh's own harness, builds virtual t
 Linux user namespaces and is gated `#![cfg(all(target_os = "linux", not(skip_patchbay)))]`
 (`iroh/tests/patchbay.rs:27`), so it does not run on this laptop directly. It does run in a
 privileged Linux container, and OrbStack is enough. What follows was run here that way, on
-copies of `relay/src` in the scratch directory, never on the checkout.
+copies of `hosted/relay/src` in the scratch directory, never on the checkout.
 
 ```sh
 docker run --rm --privileged -v "$SRC:/src" -w /src rust:1.98-bookworm bash -c \
@@ -302,7 +302,7 @@ SPIKE_IDLE=1 cargo run --release # same, no traffic, plus the 1s-poll comparison
 ```
 
 The patchbay test in that directory needs Linux and does not run from the repo. Its header has
-the container command. Run it against a copy of `relay/src`, never the checkout.
+the container command. Run it against a copy of `hosted/relay/src`, never the checkout.
 
 That directory is throwaway. It has its own `[workspace]` so `cargo build --workspace` at the
 repo root does not pull iroh into the tree, and `core/` keeps having no dependencies. Delete
