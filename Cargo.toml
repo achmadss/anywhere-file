@@ -14,8 +14,10 @@ publish = false
 [workspace.dependencies]
 # Pinned exactly: iroh is the transport and a patch bump is a deliberate act, not a
 # `cargo update`. relay/IROH_VERSION pins the relay to the same release.
+getrandom = "0.4"
 iroh = "=1.2.0"
 tempfile = "3"
+thiserror = "2"
 tokio = "1"
 tracing = "0.1"
 

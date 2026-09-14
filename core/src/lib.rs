@@ -14,6 +14,7 @@
 
 pub mod config;
 pub mod transport;
+pub mod trust;
 
 /// The version of the on-wire protocol this build speaks.
 ///
