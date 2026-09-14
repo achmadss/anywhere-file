@@ -28,9 +28,10 @@ section.
 
 Keep replies short. Say what you did and what it means for the work, and stop there.
 
-I can read code. I don't know Rust or Go well, so don't lean on either language's habits or
-naming to carry an explanation, and skip the library names unless they're the point. Say what
-the thing does in plain words.
+I can read code. Assume I don't know the specifics of whatever you're working in, whether
+that's a language, a database setting, a Docker problem, a CI config or anything else. Don't
+lean on its habits, naming or tool names to carry an explanation. Say what the thing does and
+why it matters in plain words. Name a tool or setting only when I need it to act.
 
 Assume I'm deciding, not implementing. What I want to know is whether something works, what it
 costs, what's blocked and what needs me. Spare me the walkthrough of how you got there.
