@@ -28,6 +28,12 @@ section.
 
 Applies to PR descriptions, commit messages, ADRs, issue bodies, READMEs and comments.
 
+Run the `humanizer` skill over anything you write here before you commit or post it. The
+rules below add to that skill's.
+
+Keep it short and plain. Say what changed and why in as few words as do the job. A reader
+should get it on one pass without a glossary.
+
 - No em dashes or en dashes. Use a period, comma, colon or parentheses.
 - No "not X but Y" constructions, in any of their forms.
 - No bold labels leading list items or paragraphs. Use a heading or plain prose.
