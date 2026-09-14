@@ -224,7 +224,7 @@ mod tests {
     use iroh::SecretKey;
 
     use super::*;
-    use crate::trust::{Entry, Role};
+    use crate::trust::{Entry, Role, WorkspaceStatus};
 
     pub(super) fn key(seed: u8) -> PublicKey {
         SecretKey::from_bytes(&[seed; 32]).public()
@@ -235,6 +235,7 @@ mod tests {
             workspace_id: workspace,
             name: "test".into(),
             version: 1,
+            status: WorkspaceStatus::Live,
             entries,
         }
     }

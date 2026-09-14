@@ -19,7 +19,7 @@ use std::collections::BTreeSet;
 
 use iroh::{PublicKey, Signature};
 
-use super::{Entry, Role, SignedTrustList, Status, TrustList, WorkspaceId};
+use super::{Entry, Role, SignedTrustList, Status, TrustList, WorkspaceId, WorkspaceStatus};
 
 /// Domain separation. A device signs trust lists here and will sign other things later
 /// (#11's recovery bundle, #17's pairing); no signature over one may ever be replayed as a
@@ -27,8 +27,9 @@ use super::{Entry, Role, SignedTrustList, Status, TrustList, WorkspaceId};
 const MAGIC: &[u8; 15] = b"rfm-trust-list\0";
 
 /// The version of this encoding, not of a trust list. A decoder that does not know a
-/// version refuses the bytes rather than guessing at them.
-pub const ENCODING_VERSION: u8 = 1;
+/// version refuses the bytes rather than guessing at them. This build writes v2 and
+/// reads v1 and v2; v1 bytes decode with a live workspace status, which is all v1 knew.
+pub const ENCODING_VERSION: u8 = 2;
 
 const SIGNATURE_LEN: usize = 64;
 
@@ -43,6 +44,12 @@ pub(super) fn encode(list: &TrustList, signer: &PublicKey) -> Vec<u8> {
     let mut out = Vec::new();
     out.extend_from_slice(MAGIC);
     out.push(ENCODING_VERSION);
+    // The v2 field. It sits with the other fixed-width fields, before anything
+    // variable-length, for the same reason the encoding version does.
+    out.push(match list.status {
+        WorkspaceStatus::Live => 0,
+        WorkspaceStatus::Deleted => 1,
+    });
     out.extend_from_slice(signer.as_bytes());
     out.extend_from_slice(list.workspace_id.as_bytes());
     put_str(&mut out, &list.name);
@@ -90,9 +97,16 @@ pub(super) fn decode(bytes: &[u8]) -> Result<SignedTrustList, DecodeError> {
         return Err(DecodeError::NotATrustList);
     }
     let version = r.u8()?;
-    if version != ENCODING_VERSION {
-        return Err(DecodeError::UnknownEncodingVersion(version));
-    }
+    let workspace_status = match version {
+        // v1 had no status field. Every v1 list was a live one.
+        1 => WorkspaceStatus::Live,
+        2 => match r.u8()? {
+            0 => WorkspaceStatus::Live,
+            1 => WorkspaceStatus::Deleted,
+            other => return Err(DecodeError::UnknownWorkspaceStatus(other)),
+        },
+        other => return Err(DecodeError::UnknownEncodingVersion(other)),
+    };
 
     let signer = r.public_key()?;
     let workspace_id =
@@ -162,6 +176,7 @@ pub(super) fn decode(bytes: &[u8]) -> Result<SignedTrustList, DecodeError> {
             workspace_id,
             name,
             version: list_version,
+            status: workspace_status,
             entries,
         },
         signer,
@@ -238,6 +253,8 @@ pub enum DecodeError {
     EntriesNotSorted,
     #[error("role byte {0} is not one this build knows")]
     UnknownRole(u8),
+    #[error("workspace status byte {0} is not one this build knows")]
+    UnknownWorkspaceStatus(u8),
     #[error("status byte {0} is not one this build knows")]
     UnknownStatus(u8),
     #[error("optional-field tag {0} is neither absent (0) nor present (1)")]
@@ -265,6 +282,7 @@ mod tests {
             workspace_id: WorkspaceId::from_bytes([7; 16]),
             name: "kitchen table".to_owned(),
             version: 3,
+            status: WorkspaceStatus::Live,
             entries,
         }
     }
@@ -306,6 +324,7 @@ mod tests {
             workspace_id: WorkspaceId::generate(),
             name: "hüttenschlüssel 🔑".to_owned(),
             version: u64::MAX,
+            status: WorkspaceStatus::Live,
             entries: vec![
                 Entry {
                     device_key: a.public(),
@@ -379,6 +398,57 @@ mod tests {
         assert_eq!(forged.verify(), Err(VerifyError::BadSignature));
     }
 
+    /// A deleted list round-trips like a live one. Deletion is a field value,
+    /// not a second format.
+    #[test]
+    fn deleted_status_round_trips() {
+        let signer = SecretKey::generate();
+        let mut deleted = list(vec![entry(&SecretKey::generate(), "laptop")]);
+        deleted.status = WorkspaceStatus::Deleted;
+        let signed = deleted.sign(&signer);
+
+        let decoded = SignedTrustList::decode(&signed.encode()).expect("decode");
+        assert_eq!(decoded.list().status, WorkspaceStatus::Deleted);
+        decoded.verify().expect("verify");
+        assert_eq!(decoded.encode(), signed.encode());
+    }
+
+    /// v1 bytes have no status byte. They decode as live, which is all v1 knew,
+    /// and the signature over them still verifies.
+    #[test]
+    fn v1_bytes_decode_as_live() {
+        let signer = SecretKey::generate();
+        let signed = list(vec![entry(&SecretKey::generate(), "laptop")]).sign(&signer);
+        let mut v1 = signed.encode();
+        v1.remove(MAGIC.len() + 1);
+        v1[MAGIC.len()] = 1;
+
+        let decoded = SignedTrustList::decode(&v1).expect("decode v1 bytes");
+        assert_eq!(decoded.list().status, WorkspaceStatus::Live);
+        decoded.verify().expect("verify");
+    }
+
+    #[test]
+    fn unknown_versions_and_statuses_are_refused() {
+        let signer = SecretKey::generate();
+        let signed = list(vec![entry(&SecretKey::generate(), "laptop")]).sign(&signer);
+        let bytes = signed.encode();
+
+        let mut future = bytes.clone();
+        future[MAGIC.len()] = ENCODING_VERSION + 1;
+        assert_eq!(
+            SignedTrustList::decode(&future),
+            Err(DecodeError::UnknownEncodingVersion(ENCODING_VERSION + 1))
+        );
+
+        let mut bad_status = bytes.clone();
+        bad_status[MAGIC.len() + 1] = 7;
+        assert_eq!(
+            SignedTrustList::decode(&bad_status),
+            Err(DecodeError::UnknownWorkspaceStatus(7))
+        );
+    }
+
     #[test]
     fn unsorted_entries_are_refused() {
         let a = SecretKey::generate();
@@ -396,7 +466,7 @@ mod tests {
 
         // Swap the two encoded entries. They are the same length, so this is a byte swap
         // of two equal-sized windows and the rest of the frame is untouched.
-        let header = MAGIC.len() + 1 + 32 + 16 + 4 + "kitchen table".len() + 8 + 4;
+        let header = MAGIC.len() + 1 + 1 + 32 + 16 + 4 + "kitchen table".len() + 8 + 4;
         let entry_len = (bytes.len() - SIGNATURE_LEN - header) / 2;
         let mut swapped = bytes.clone();
         swapped[header..header + entry_len]
@@ -465,7 +535,7 @@ mod tests {
         let signed =
             list(vec![entry(&SecretKey::generate(), "laptop")]).sign(&SecretKey::generate());
         let mut bytes = signed.encode();
-        let name_len_at = MAGIC.len() + 1 + 32 + 16;
+        let name_len_at = MAGIC.len() + 1 + 1 + 32 + 16;
         bytes[name_len_at..name_len_at + 4].copy_from_slice(&u32::MAX.to_be_bytes());
         assert_eq!(
             SignedTrustList::decode(&bytes),
