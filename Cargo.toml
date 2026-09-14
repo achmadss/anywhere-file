@@ -11,6 +11,14 @@ edition = "2024"
 license = "LicenseRef-Proprietary"
 publish = false
 
+[workspace.dependencies]
+# Pinned exactly: iroh is the transport and a patch bump is a deliberate act, not a
+# `cargo update`. relay/IROH_VERSION pins the relay to the same release.
+iroh = "=1.2.0"
+tempfile = "3"
+tokio = "1"
+tracing = "0.1"
+
 [workspace.lints.rust]
 unsafe_code = "forbid"
 
