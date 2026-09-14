@@ -15,6 +15,7 @@
 pub mod config;
 pub mod fs;
 pub mod identity;
+pub mod share;
 pub mod transport;
 pub mod trust;
 

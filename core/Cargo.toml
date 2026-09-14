@@ -10,6 +10,8 @@ publish.workspace = true
 cap-std = { workspace = true }
 getrandom = { workspace = true }
 iroh = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs", "io-util", "rt"] }
