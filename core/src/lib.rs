@@ -1,9 +1,9 @@
 //! `rfm-core` — everything a device needs to decide who may touch which files, and to move
 //! them once that is decided.
 //!
-//! Nothing lives here yet. The surface arrives issue by issue: identity and the keystore
-//! (#5–#7), the trust list (#8–#11), shares and the access rule (#12–#14), the file
-//! protocol (#15–#17), transport (#18).
+//! The surface arrives issue by issue: identity and the keystore (#6), the trust list
+//! (#7–#11), shares and the access rule (#12–#14), the file protocol (#15–#17), the UI API
+//! (#18).
 //!
 //! Two rules this crate is held to, from `docs/adr/`:
 //!
@@ -11,6 +11,10 @@
 //!   decision from the control plane. (0001)
 //! - The protocol is written against an abstract bidirectional stream, never against an
 //!   `iroh` type, so the transport stays swappable. (0002)
+
+pub mod config;
+pub mod transport;
+pub mod trust;
 
 /// The version of the on-wire protocol this build speaks.
 ///
