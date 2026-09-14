@@ -17,6 +17,9 @@ publish = false
 cap-std = "4"
 getrandom = "0.4"
 iroh = "=1.2.0"
+# mdns-sd 0.21: the DNS-SD responder and querier for #9, picked by spike #3
+# (docs/spikes/mdns.md). Pure Rust, no Bonjour or Avahi needed.
+mdns-sd = "0.21"
 # keyring 3 rather than 4: spike #2 measured 3.6 end to end on macOS, and 4 is a
 # rewrite into per-store crates that nothing here has run.
 keyring = "3.6"
