@@ -1,5 +1,9 @@
 # Spike #3: DNS-SD coverage without Bonjour or Avahi, and the unplugged-router test
 
+Issue [#3](https://github.com/achmadss/anywhere-file/issues/3). The throwaway harness that
+produced the output below lived in `spikes/mdns/` and was deleted once the design landed in
+`device/core/src/discovery/` (#9). `git log -- spikes/mdns` has it.
+
 ## The question
 
 r3 §13.1 says mDNS "via the platform responder where present (Bonjour, Avahi) or an embedded
@@ -352,10 +356,15 @@ switch.
 
 ## Reproducing
 
-The throwaway harness is `spikes/mdns/`. It has its own `[workspace]` key, so the root
-`cargo build --workspace` does not see it. Verified by breaking it on purpose: with a type
-error in `spikes/mdns/src/main.rs`, `cargo clippy` in the spike exits 101 and `cargo build
---workspace` at the root still exits 0.
+The harness is gone from the tree. Restore it first:
+
+```sh
+git checkout $(git rev-list -1 HEAD -- spikes/mdns)^ -- spikes/mdns
+```
+
+It carried its own `[workspace]` key, so the root `cargo build --workspace` did not see it.
+Verified by breaking it on purpose: with a type error in `spikes/mdns/src/main.rs`, `cargo
+clippy` in the spike exited 101 and `cargo build --workspace` at the root still exited 0.
 
 ```sh
 cd spikes/mdns && cargo build --release
