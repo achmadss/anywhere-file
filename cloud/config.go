@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -16,6 +17,7 @@ type config struct {
 	tlsKey          string        // RFM_TLS_KEY
 	logLevel        slog.Level    // RFM_LOG_LEVEL
 	shutdownTimeout time.Duration // RFM_SHUTDOWN_TIMEOUT
+	overcommitRatio float64       // RFM_OVERCOMMIT_RATIO
 }
 
 func loadConfig() (config, error) {
@@ -41,6 +43,20 @@ func loadConfig() (config, error) {
 			return c, fmt.Errorf("RFM_SHUTDOWN_TIMEOUT: %w", err)
 		}
 		c.shutdownTimeout = parsed
+	}
+	// The overcommit ratio is an operator setting with a conservative default
+	// (r3 section 11.3). At 1 the fleet carries no more committed rate than
+	// measured capacity. The operator raises it against real usage.
+	c.overcommitRatio = 1
+	if v := os.Getenv("RFM_OVERCOMMIT_RATIO"); v != "" {
+		parsed, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return c, fmt.Errorf("RFM_OVERCOMMIT_RATIO: %w", err)
+		}
+		if parsed <= 0 {
+			return c, fmt.Errorf("RFM_OVERCOMMIT_RATIO must be above zero, got %q", v)
+		}
+		c.overcommitRatio = parsed
 	}
 	return c, nil
 }

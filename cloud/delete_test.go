@@ -19,7 +19,7 @@ import (
 func TestDeleteAccountLeavesWorkspacesLocalAndTellsAgents(t *testing.T) {
 	pool := freshDB(t, 8)
 	ctx := t.Context()
-	h := newHandler(pool, discard)
+	h := newHandler(pool, discard, NewMetrics(1))
 
 	if rec := signupReq(t, h, "owner-del@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
 		t.Fatalf("signup owner: status = %d (body %s)", rec.Code, rec.Body)
@@ -176,7 +176,7 @@ func TestDeleteAccountLeavesWorkspacesLocalAndTellsAgents(t *testing.T) {
 
 func TestDeleteAccountWrongPasswordKeepsAccount(t *testing.T) {
 	pool := freshDB(t, 4)
-	h := newHandler(pool, discard)
+	h := newHandler(pool, discard, NewMetrics(1))
 
 	if rec := signupReq(t, h, "stubborn@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
 		t.Fatalf("signup: status = %d (body %s)", rec.Code, rec.Body)

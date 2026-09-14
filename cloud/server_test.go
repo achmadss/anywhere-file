@@ -15,7 +15,7 @@ func TestHealthReportsOKWhenTheDatabaseAnswers(t *testing.T) {
 	pool := freshDB(t, 2)
 
 	rec := httptest.NewRecorder()
-	newHandler(pool, discard).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	newHandler(pool, discard, NewMetrics(1)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d (body %s)", rec.Code, http.StatusOK, rec.Body)
@@ -36,7 +36,7 @@ func TestHealthReportsUnavailableWhenTheDatabaseIsGone(t *testing.T) {
 	pool.Close()
 
 	rec := httptest.NewRecorder()
-	newHandler(pool, discard).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	newHandler(pool, discard, NewMetrics(1)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want %d (body %s)", rec.Code, http.StatusServiceUnavailable, rec.Body)
@@ -47,7 +47,7 @@ func TestUnknownPathIs404(t *testing.T) {
 	pool := connect(t, 2)
 
 	rec := httptest.NewRecorder()
-	newHandler(pool, discard).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	newHandler(pool, discard, NewMetrics(1)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
