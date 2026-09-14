@@ -24,6 +24,20 @@ is a claim that it can be merged as it stands.
 Say what changed and why. Don't include a "things to decide", "open questions", or "caveats"
 section.
 
+## Talking to me
+
+Keep replies short. Say what you did and what it means for the work, and stop there.
+
+I can read code. Assume I don't know the specifics of whatever you're working in, whether
+that's a language, a database setting, a Docker problem, a CI config or anything else. Don't
+lean on its habits, naming or tool names to carry an explanation. Say what the thing does and
+why it matters in plain words. Name a tool or setting only when I need it to act.
+
+Assume I'm deciding, not implementing. What I want to know is whether something works, what it
+costs, what's blocked and what needs me. Spare me the walkthrough of how you got there.
+
+Go long only when I ask for detail.
+
 ## Prose
 
 Applies to PR descriptions, commit messages, ADRs, issue bodies, READMEs and comments.
