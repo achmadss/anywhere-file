@@ -1,0 +1,49 @@
+# iroh-relay config, one per region. Rendered by render-config.sh from a
+# regions/*.env file. Never edit the rendered copy by hand; edit this template
+# or the env file and re-render, so the two regions cannot drift silently.
+#
+# Field names follow upstream iroh-relay v1.2.0 (src/main.rs, struct Config).
+# That struct has no deny_unknown_fields, so a misspelled key is ignored in
+# silence and its field takes the default. For access the default is Everyone,
+# which means one typo turns this into an open relay with a clean startup log.
+# render-config.sh asserts every field below by name for that reason. Add an
+# assertion there for anything you add here.
+
+enable_relay = true
+http_bind_addr = "[::]:80"
+
+# Metrics on the private interface only. This address must be a VPC address,
+# never 0.0.0.0. The firewall lets the monitoring subnet in and the Internet
+# gets nothing. See provision.sh.
+enable_metrics = true
+metrics_bind_addr = "${METRICS_BIND_ADDR}"
+
+# DO NOT SHIP TO PRODUCTION ON Everyone. This admits every endpoint id to the
+# relay with no check. It exists for first boot and load testing only. Issue
+# #29 replaces it with HTTP delegation to the cloud authorize endpoint:
+#
+#   access.http.url = "https://cloud.example.com/relay/authorize"
+#   access.http.bearer_token = "..."  # or IROH_RELAY_HTTP_BEARER_TOKEN
+#
+# Until that lands, a relay running this config is an open relay.
+access = "everyone"
+
+[tls]
+# TLS terminates here, on 443, with a LetsEncrypt certificate. Port 80 must be
+# reachable from the Internet or issuance fails.
+hostname = "${RELAY_HOSTNAME}"
+cert_mode = "LetsEncrypt"
+contact = "${RELAY_CONTACT}"
+https_bind_addr = "[::]:443"
+
+[limits]
+# Accept-queue DoS protection. These bound connection setup, not transfers.
+accept_conn_limit = ${ACCEPT_CONN_LIMIT}
+accept_conn_burst = ${ACCEPT_CONN_BURST}
+
+[limits.client.rx]
+# Per-client receive-side DoS protection only. This is not bandwidth shaping
+# and not billing. Per-workspace shaping is issue #30 and its rate arrives
+# from the authorize endpoint, overriding this default per connection.
+bytes_per_second = ${CLIENT_RX_BYTES_PER_SECOND}
+max_burst_bytes = ${CLIENT_RX_MAX_BURST_BYTES}

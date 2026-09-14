@@ -1,0 +1,23 @@
+[workspace]
+
+[package]
+name = "rfm-fleet"
+description = "Our relay fleet: the URLs agents use, the checks that keep them ours, and the throughput harness."
+version = "0.1.0"
+edition = "2024"
+license = "LicenseRef-Proprietary"
+publish = false
+
+[dependencies]
+iroh = "=1.2.0"
+rfm-core = { path = "../../core" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "io-util"] }
+
+[dev-dependencies]
+iroh-relay = { version = "=1.2.0", features = ["server"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "warn"
