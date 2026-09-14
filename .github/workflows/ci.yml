@@ -163,10 +163,27 @@ jobs:
           done
           if [ "$found" = 0 ]; then echo "no spike crates"; fi
 
+  blockers:
+    # Issue dependencies are advisory in GitHub's UI: it shows what an issue waits on and
+    # then lets you close it anyway. This is where they bite. Only a pull request carries
+    # `closingIssuesReferences`, so there is nothing to check on a push to main.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v5
+      - run: .github/scripts/check-blockers.sh "$GITHUB_REPOSITORY" "$PR"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+
   ci-ok:
     # The one check branch protection requires. Green when every job that ran passed, and
     # when a job was skipped because nothing in its language changed.
-    needs: [changes, rust, go, ts, relay, spikes]
+    needs: [changes, rust, go, ts, relay, spikes, blockers]
     if: always()
     runs-on: ubuntu-latest
     steps:
