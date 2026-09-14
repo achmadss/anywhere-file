@@ -2,6 +2,15 @@
 
 Revision 3 is a rewrite, not a patch. It keeps the business idea, removes everything the chosen architecture does not need, and records the feasibility research that drove the choices. Where a decision is a trade-off rather than a fact, it is marked so you can overturn it.
 
+**Revision 3.2, September 2026.** Onboarding and the upgrade moment, after a product review. Two changes:
+
+1. **Pairing asks whose device is joining, and your own devices join as admins.** §8.2. The old flow admitted every locally paired device as `standard`, which left the machine you carry away from home unable to act on its own. See [ADR 0003](adr/0003-own-devices-pair-as-admin.md).
+2. **Remote access gets a 14-day trial, offered where it is missed.** §10.5 and §14. A device that is away from the rest of its workspace says so on the device list and offers the trial there. See [ADR 0004](adr/0004-the-upgrade-moment.md).
+
+Nothing below the UI changes shape. The access rule, the trust list format, the file protocol and the relay design are untouched.
+
+---
+
 **Revision 3.1 — September 2026.** Three changes, all narrowing:
 
 1. **Android is deferred to v1.1.** v1 is desktop only. This removes the plan's largest risk (old §20.1) and, with it, SAF share roots, `ACCESS_LOCAL_NETWORK`, the service picker, and the foreground-service requirement. Nothing below the UI changes, so Android returns as an additional agent against an unchanged core.
@@ -186,11 +195,33 @@ Every device holds the full list. It is persisted with atomic writes.
 
 No account, no Internet.
 
-1. Joining device shows a QR code / 8-character code containing its device key and a one-time secret.
-2. An admin device scans or types it, sees the key fingerprint and proposed name, and approves.
-3. The admin device signs version N+1 adding the key as `standard` with no account binding, and sends it to the new device over a direct iroh connection authenticated with the one-time secret.
+Pairing starts on an admin device with two questions. Whose machine is joining sets the role.
+Where the machine is sets the mechanism, because someone standing next to you can read a code
+off a screen and someone in another city cannot.
 
-A standard device cannot admit anyone.
+```text
+Add a device
+  whose?    ( ) My own device           → admin
+            ( ) Someone else's device   → standard
+  where?    ( ) Here with me            → the code exchange below
+            ( ) Somewhere else          → invite by email (§8.3)
+```
+
+"Somewhere else" is remote pairing and needs remote access already on, so a local-only
+workspace cannot reach anyone who is not in the room. The rest of this section is the local
+half.
+
+1. The joining device shows a QR code / 8-character code containing its device key and a one-time secret.
+2. The admin device scans or types it and approves, seeing the key fingerprint, the proposed name, and the role chosen above.
+3. The admin device signs version N+1 adding the key with no account binding, and sends it to the new device over a direct iroh connection authenticated with the one-time secret.
+
+My own device joins as `admin` and co-signs acceptance in the same exchange, which §8.7 requires of any promotion. Someone else's device joins as `standard`. Neither carries an account binding: a locally paired device is never account-bound, which is what makes §10.3's "unbound devices are untouched" true.
+
+Step 2 states the role rather than asking again, so a wrong choice at the first screen is still caught against a live fingerprint before anything is signed.
+
+Remote pairing (§8.3) keeps its `standard` role for every device including your own, because a workspace that can pair remotely already has remote access on, and an admin device signed to make that true. The deadlock this rule exists to break cannot occur there.
+
+A standard device cannot admit anyone. Admin role grants no file access (§9).
 
 ### 8.3 Remote pairing
 
@@ -221,7 +252,7 @@ Compromise: revoke, re-pair with a fresh key. There is no rotate-under-compromis
 
 * Promoting a device to admin requires the promoted device to co-sign acceptance.
 * The last admin cannot be revoked or demoted; the UI refuses.
-* Once a second desktop joins, the UI recommends making it an admin.
+* Your own devices are admins from the moment they pair (§8.2), so a workspace has succession cover without anyone acting on a prompt. A device paired as someone else's can still be promoted later.
 * **All admins lost:** the trust list is frozen. Existing devices keep working with each other indefinitely; nothing can be added or removed. Two exits: (a) an opt-in encrypted **recovery bundle** (admin private key wrapped by a passphrase, exported at setup and after promotions, never sent to the cloud) imported on another workspace device; (b) create a new workspace from any remaining device and re-pair. Files never move in either case.
 
 ---
@@ -282,6 +313,8 @@ Re-enabling by the same owner within 90 days restores membership. Otherwise memb
 ### 10.5 Subscription
 
 The owner's subscription covers the whole workspace. Members pay nothing.
+
+Trial: 14 days, no card, started from an admin device at the moment remote access would have helped (§14). One per account and one per workspace, so deleting a workspace and recreating it does not mint another. A trial is an `active` subscription everywhere else in this document, relay authorization included. It ends by converting to paid or by expiring, and expiry goes straight to `suspended` with no grace period, since there is no failed payment to retry.
 
 Lapse: 14-day grace with remote access on → `suspended` (relays refuse, membership retained, local unaffected) → after 90 days suspended, association deleted, workspace is local-only.
 
@@ -459,21 +492,18 @@ create (admin device)
    ▼
 local-only ◀──────────────────────────────────────────┐
    │ enable remote access (admin device + owner acct) │ disable (owner OR admin device)
+   │ paid, or a 14-day trial (§10.5)                  │
    ▼                                                  │
 cloud-associated ──── transfer ────▶ cloud-associated │
    │                                 (new owner)      │
-   │ subscription lapse                               │
+   │ subscription lapse, or trial expiry              │
    ▼                                                  │
 suspended ──── renew ──▶ cloud-associated             │
    │ 90 days                                          │
    └──────────────────────────────────────────────────┘
-
-delete workspace (admin device): final signed version with status=deleted;
-every agent drops its copy on receipt; cloud deletes association and members;
-files and device keys untouched.
-
-account deletion: owned workspaces become local-only; memberships removed (§10.3).
 ```
+
+The move out of local-only is offered where it is felt. An agent that cannot reach a workspace device, is not on a network where it could, and belongs to a workspace with remote access off, says exactly that on its device list and offers the trial beside it. Any admin device can accept, which is the reason §8.2 pairs your own devices as admins: the machine that notices is the one you carried away from the others, and it has to be able to act alone.
 
 The workspace ID is constant in every state but deleted.
 
@@ -511,6 +541,11 @@ The workspace ID is constant in every state but deleted.
 | Remote access suspended | Expired workspace |
 | Remove device · Remove member | Delete |
 | Share (folder) | Root · Mount |
+| My own device · Someone else's device | Trusted device · Guest |
+| Remote access trial | Free tier · Freemium |
+| Not on this network · Offline | Disconnected · Unavailable |
+
+Both offline words are allowed and they mean different things. "Not on this network" is a device that is running somewhere else, which is what the trial fixes. "Offline" is a device that is not running. Using one for the other sells the trial to someone whose desktop is switched off.
 
 Status block on every workspace screen:
 
@@ -519,6 +554,7 @@ My Home
 Local access      Available on this network
 Remote access     Off                          [ Enable Remote Access ]
                   / On · Alice pays            [ Manage ]
+                  / On · trial, 9 days left    [ Subscribe ]
                   / Suspended · renew          [ Renew ]
 ```
 
@@ -534,6 +570,7 @@ Remote access     Off                          [ Enable Remote Access ]
 | Agent restart | Trust list, shares, and in-flight transfer state reload from disk; transfers resume. |
 | Network change | iroh re-establishes paths; file layer resumes chunks. |
 | Revoked device offline | Rejected by every peer when it returns. |
+| Workspace device is elsewhere, remote access off | Listed as "Not on this network", with the trial offered beside it (§14). Not an error state and not a retry. |
 
 No failure ever deletes workspace state, device keys, or files.
 
