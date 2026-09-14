@@ -12,9 +12,12 @@ import (
 
 // newHandler builds the HTTP surface. net/http's ServeMux routes by method and pattern since
 // Go 1.22, which is all this service needs; no router dependency.
-func newHandler(db *pgxpool.Pool, log *slog.Logger) http.Handler {
+func newHandler(db *pgxpool.Pool, log *slog.Logger, m *Metrics) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", health(db))
+	mux.Handle("GET /metrics", m.Handler())
+	registerAuthRoutes(mux, db, log)
+	registerAgentRoutes(mux, db)
 	return logRequests(mux, log)
 }
 
@@ -66,7 +69,7 @@ func (r *statusRecorder) WriteHeader(code int) {
 func serve(ctx context.Context, cfg config, db *pgxpool.Pool, log *slog.Logger) error {
 	srv := &http.Server{
 		Addr:              cfg.addr,
-		Handler:           newHandler(db, log),
+		Handler:           newHandler(db, log, NewMetrics(cfg.overcommitRatio)),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}

@@ -10,14 +10,20 @@
 //! that need the version currently held. [`SignedTrustList::verify`] answers only "was
 //! this signed by the key it claims", which is the question #8 asks first.
 
+mod accept;
 mod encoding;
 mod store;
+mod workspace;
 
 use iroh::{PublicKey, SecretKey, Signature};
 
 pub use self::{
+    accept::{Decision, Reject, decide, is_active_admin},
     encoding::{DecodeError, ENCODING_VERSION},
     store::{StoreError, TrustStore},
+    workspace::{
+        ApplyOutcome, Error as WorkspaceError, State as WorkspaceState, Stored, Workspace, load,
+    },
 };
 
 /// A workspace identifier: random 128 bits, minted by the creating agent.
@@ -103,6 +109,16 @@ pub enum Status {
     Revoked,
 }
 
+/// Whether the workspace itself is still alive (r3 §14).
+///
+/// Signed into the list from encoding v2 on. A deleted workspace ends with a final
+/// version carrying `Deleted`. Agents that receive it drop their copy of the list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceStatus {
+    Live,
+    Deleted,
+}
+
 /// One device's membership of one workspace.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
@@ -126,6 +142,8 @@ pub struct TrustList {
     pub name: String,
     /// Monotonic. The successor rule in §8.1 is stated in terms of it.
     pub version: u64,
+    /// Live or deleted. The delete is a final version, signed like any other.
+    pub status: WorkspaceStatus,
     /// Sorted by `device_key` in the canonical encoding, whatever order they arrive in.
     pub entries: Vec<Entry>,
 }

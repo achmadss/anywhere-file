@@ -47,7 +47,7 @@ INSERT INTO device_authorizations (workspace_id, device_key, status) VALUES
 ON CONFLICT (workspace_id, device_key) DO NOTHING;
 
 INSERT INTO audit_events (workspace_id, actor, action)
-SELECT 'ws-dev', '00000000-0000-0000-0000-000000000001', 'remote_access.enabled'
+SELECT 'ws-dev', '00000000-0000-0000-0000-000000000001', '` + ActionAssociationCreated + `'
 WHERE NOT EXISTS (SELECT 1 FROM audit_events WHERE workspace_id = 'ws-dev');
 `
 
