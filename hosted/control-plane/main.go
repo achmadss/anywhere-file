@@ -1,7 +1,7 @@
 // Command cloud is the control plane.
 //
 // It distributes signed trust lists, answers the relay's authorization probe, and holds the
-// operator's dials. It never signs a trust list (r3 D5) and never grants access — it can
+// operator's dials. It never signs a trust list (r3 D5) and never grants access. It can
 // only decline to hand out what an admin device already signed. See docs/adr/0001.
 //
 // Subcommands:
@@ -27,7 +27,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// alpn is the protocol identifier peers negotiate. The control plane never speaks it — the
+// alpn is the protocol identifier peers negotiate. The control plane never speaks it. The
 // constant is here only so the relay authorization endpoint can report which fleet it serves.
 const alpn = "rfm/1"
 
