@@ -543,9 +543,11 @@ The workspace ID is constant in every state but deleted.
 | Share (folder) | Root · Mount |
 | My own device · Someone else's device | Trusted device · Guest |
 | Remote access trial | Free tier · Freemium |
-| Not on this network · Offline | Disconnected · Unavailable |
+| Unreachable | Offline · Disconnected · Not on this network |
 
-Both offline words are allowed and they mean different things. "Not on this network" is a device that is running somewhere else, which is what the trial fixes. "Offline" is a device that is not running. Using one for the other sells the trial to someone whose desktop is switched off.
+One word covers it while remote access is off, because the agent cannot tell the cases apart. A device that is switched off and a device running in another building are both silent on the LAN, and so is one behind a firewall that blocks us. Saying "offline" claims knowledge we do not have, and saying "not on this network" sells a relay to somebody whose desktop is unplugged.
+
+Remote access is what buys the distinction. Once a workspace is associated, a device checks in with the cloud, so silence there means it really is not running, and the UI can split `Connected` from `Offline`. That split is worth naming in the pitch: part of what the subscription buys is knowing which of the two it is.
 
 Status block on every workspace screen:
 
@@ -570,7 +572,8 @@ Remote access     Off                          [ Enable Remote Access ]
 | Agent restart | Trust list, shares, and in-flight transfer state reload from disk; transfers resume. |
 | Network change | iroh re-establishes paths; file layer resumes chunks. |
 | Revoked device offline | Rejected by every peer when it returns. |
-| Workspace device is elsewhere, remote access off | Listed as "Not on this network", with the trial offered beside it (§14). Not an error state and not a retry. |
+| Device not found, remote access off | Listed as `Unreachable`, with the trial offered beside it (§14). It covers switched off, on another network, and firewalled, which the agent cannot tell apart from here. Not an error state and not a retry. |
+| Device not found, remote access on | `Offline`, and now a fact: the cloud has not heard from it either. |
 
 No failure ever deletes workspace state, device keys, or files.
 

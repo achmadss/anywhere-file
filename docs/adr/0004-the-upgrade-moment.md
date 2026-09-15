@@ -13,8 +13,8 @@ My Home
 Local access     Not on this network
 Remote access    Off
 
-  Desktop     Not on this network
-  Work PC     Not on this network
+  Desktop     Unreachable
+  Work PC     Unreachable
 
 "These machines are somewhere else. Remote Access reaches them from anywhere."
                                               [ Try free for 14 days ]
@@ -31,8 +31,9 @@ render and no device to name.
 
 The agent can, with no network at all. Every paired machine holds the full trust list (§8.1),
 so the laptop in a cafe already knows Desktop exists, what it is called, and which folders it
-shares. It knows the difference between a machine that is switched off and a machine that is
-running somewhere it cannot reach, and §16 now gives those two states different words.
+shares. What it cannot know, until remote access is on, is whether a silent machine is switched off,
+on another network, or behind a firewall. §16 therefore gives all three one word, `Unreachable`,
+and the subscription is what earns the right to split them.
 
 ## Alternatives
 
