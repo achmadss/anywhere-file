@@ -14,9 +14,9 @@ Closes #
 ## Checks
 
 - [ ] The issue's acceptance criteria are met, or the ones that are not are called out below.
-- [ ] If this changes behaviour the threat model (#47) covers, the model still holds — or this PR updates it.
+- [ ] If this changes behaviour the threat model (#47) covers, the model still holds, or this PR updates it.
 
 <!-- `ci-ok` is a required check on main. It is green when every job that ran passed and
      when a job skipped because nothing in its language changed, so a docs-only PR passes
-     without running a single build. Admins are not forced through it — if you bypass, say
+     without running a single build. Admins are not forced through it. If you bypass, say
      why here. -->

@@ -1,7 +1,7 @@
 # relay
 
-The relay is `iroh-relay`, upstream's binary, configured rather than written (r3 §11.3) —
-with one exception. Upstream's `limits.client_rx` is a single service-wide, receive-side
+The relay is `iroh-relay`, upstream's binary, configured rather than written (r3 §11.3), with
+one exception. Upstream's `limits.client_rx` is a single service-wide, receive-side
 rate with no per-endpoint variation. Per-workspace bandwidth shaping is a product
 requirement, so it needs a patch. That patch is what lives here.
 
@@ -25,7 +25,7 @@ response carry a rate. Deploy the patched binary, never the stock one.
 Carrying a diff rather than a fork is deliberate: it keeps the size of what we own visible
 in `git diff --stat`, and it makes an upgrade a merge conflict rather than an archaeology
 project. If the diff ever grows past roughly a file or two, that is the signal to stop
-patching and reconsider — either upstream the change or vendor properly.
+patching and reconsider: either upstream the change or vendor properly.
 
 ## Build
 
@@ -41,7 +41,7 @@ cargo build --release --manifest-path hosted/relay/src/Cargo.toml -p iroh-relay
 3. If a patch conflicts, `apply.sh` stops with the reject. Fix it in `hosted/relay/src`, then
    regenerate: `git -C hosted/relay/src diff > hosted/relay/patches/NNNN-name.patch`.
 4. Re-run the shaping test from #30. A patch that still applies cleanly is not proof it
-   still does the same thing — upstream can move the code the hook hangs off without
+   still does the same thing. Upstream can move the code the hook hangs off without
    touching the lines the patch names.
 5. Commit `IROH_VERSION` and the regenerated patches together.
 

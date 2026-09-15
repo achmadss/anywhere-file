@@ -1,4 +1,4 @@
-# 0001 — Rust core on iroh, Go control plane
+# 0001: Rust core on iroh, Go control plane
 
 **Status:** accepted, 2026-09-13. Supersedes an earlier, unrecorded decision to build the
 whole product in Go on libp2p.
@@ -14,13 +14,13 @@ whole product in Go on libp2p.
 | UI bundle, operator console, customer dashboard | TypeScript | |
 
 The Rust surface is `rfm-core` plus the desktop shell. The cloud and UI work is unaffected
-by this decision — it is a decision about one third of the tree, not all of it.
+by this decision. It is a decision about one third of the tree, not all of it.
 
 ## Context
 
 There is a working Go transport at `achmadss/p2p-transport`: peer identity, LAN discovery,
 cross-carrier hole punching, relay fallback, mid-transfer path upgrade, and honest
-direct-vs-relayed path reporting. Steps 0–5 are done and measured — LAN 65 MB/s, relayed
+direct-vs-relayed path reporting. Steps 0 to 5 are done and measured: LAN 65 MB/s, relayed
 3.7 MB/s, and a relayed pair on one LAN moving to the LAN in 10 s and then running at
 107.7 MB/s. r3 §19 explicitly permits swapping the transport, so either stack was allowed.
 
@@ -39,7 +39,7 @@ bucket, and a Prometheus endpoint all come as configuration. r3 §11.3 has the f
 That turns the relay from a component into a deployment. Against it, the Go plan required:
 
 - `heimdall`, a relay we own and operate;
-- `bifrost`, a coordinator designed in `FLEET.md` and **not built** — leases, placement, a
+- `bifrost`, a coordinator designed in `FLEET.md` and **not built**: leases, placement, a
   fleet protocol, and a subject admin API;
 - and, for per-subject bandwidth, a **fork of libp2p's circuit relay** (`FLEET.md` §4.5),
   because upstream's `WithLimit` and `WithMetricsTracer` cannot express a per-subject rate.
@@ -49,7 +49,7 @@ That turns the relay from a component into a deployment. Against it, the Go plan
 **The fork is not a difference between the stacks.** Per-workspace bandwidth shaping is a
 product requirement (r3 §11.3), and upstream `iroh-relay` cannot express it either:
 `limits.client_rx` is one service-wide, receive-side rate with no per-endpoint variation and
-no send-side limit. A relay patch is needed on *either* stack — that is issue #30, and
+no send-side limit. A relay patch is needed on *either* stack. That is issue #30, and
 issue #46 is the spike that finds out how big it is.
 
 **Authorization was never the differentiator either.** go-libp2p's
@@ -62,16 +62,16 @@ iroh ships all of that. The Go plan builds it. That is the decision.
 
 ## What it is not justified by
 
-Not the hole-punch rate. n0 report ~90–99 % direct; the ~70 % figure r3 §5 cites for libp2p
+Not the hole-punch rate. n0 report ~90-99 % direct; the ~70 % figure r3 §5 cites for libp2p
 is a published third-party number; `p2p-transport`'s own step 3 is a pass/fail verdict rather
 than a rate. None of those three numbers is comparable to the others, and nothing here rests
 on them.
 
 ## Consequences
 
-- `p2p-transport` becomes reference rather than foundation. Steps 0–5 are sunk cost.
+- `p2p-transport` becomes reference rather than foundation. Steps 0 to 5 are sunk cost.
 - r3 §20.3 (path telemetry) was solved by `transport.Watch`, which pushes path changes off
-  libp2p's own connection hooks. Under iroh it is an unverified risk again — #42.
+  libp2p's own connection hooks. Under iroh it is an unverified risk again, see #42.
 - Rust sits on the hottest path in the product, with the learning curve that implies.
 - One workspace pins to one home relay, which is what makes its token bucket local and
   deletes `bifrost`'s cross-relay allowance loop, leases, and placement negotiation.

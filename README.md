@@ -1,7 +1,7 @@
 # anywhere-file
 
 A remote file manager for your own devices. You pair a device once, and from then on any
-other device you own can browse and move files on it — over the LAN when they share one,
+other device you own can browse and move files on it: over the LAN when they share one,
 directly across the internet when a hole punch works, and through a relay when it does not.
 
 There is no server holding your files, and no server that can grant access to them. The

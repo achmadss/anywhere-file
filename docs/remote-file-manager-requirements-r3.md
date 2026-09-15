@@ -1,18 +1,27 @@
-# Remote File Manager — Product & Architecture Requirements (Revision 3)
+# Remote File Manager: Product & Architecture Requirements (Revision 3)
 
 Revision 3 is a rewrite, not a patch. It keeps the business idea, removes everything the chosen architecture does not need, and records the feasibility research that drove the choices. Where a decision is a trade-off rather than a fact, it is marked so you can overturn it.
 
-**Revision 3.1 — September 2026.** Three changes, all narrowing:
+**Revision 3.2, September 2026.** Onboarding and the upgrade moment, after a product review. Two changes:
+
+1. **Pairing asks whose device is joining, and your own devices join as admins.** §8.2. The old flow admitted every locally paired device as `standard`, which left the machine you carry away from home unable to act on its own. See [ADR 0003](adr/0003-own-devices-pair-as-admin.md).
+2. **Remote access gets a 14-day trial, offered where it is missed.** §10.5 and §14. A device that is away from the rest of its workspace says so on the device list and offers the trial there. See [ADR 0004](adr/0004-the-upgrade-moment.md).
+
+Nothing below the UI changes shape. The access rule, the trust list format, the file protocol and the relay design are untouched.
+
+---
+
+**Revision 3.1, September 2026.** Three changes, all narrowing:
 
 1. **Android is deferred to v1.1.** v1 is desktop only. This removes the plan's largest risk (old §20.1) and, with it, SAF share roots, `ACCESS_LOCAL_NETWORK`, the service picker, and the foreground-service requirement. Nothing below the UI changes, so Android returns as an additional agent against an unchanged core.
-2. **Old §20.2 — relay authorization — is resolved, not open.** `iroh-relay` takes an `access` mode in its TOML config, and one of those modes delegates to an HTTP endpoint of ours. No authenticating proxy is needed. See §11.3.
+2. **Old §20.2 (relay authorization) is resolved, not open.** `iroh-relay` takes an `access` mode in its TOML config, and one of those modes delegates to an HTTP endpoint of ours. No authenticating proxy is needed. See §11.3.
 3. **The control plane is Go**, as D4 already permitted. The only Rust written is `rfm-core` and the desktop agent; the relay is a deployed binary.
 
 ---
 
 ## 1. The idea
 
-Users own their files on their own devices. They should be able to browse and transfer those files between their devices over the LAN with nothing more than the app installed, and — if they pay — from anywhere, without moving the files to a cloud.
+Users own their files on their own devices. They should be able to browse and transfer those files between their devices over the LAN with nothing more than the app installed, and, if they pay, from anywhere, without moving the files to a cloud.
 
 The business is: **free local product, paid remote connectivity.** The cloud sells reachability, not storage.
 
@@ -33,7 +42,7 @@ The business is: **free local product, paid remote connectivity.** The cloud sel
 
 * Cloud file storage, sync, backup, versioning.
 * Browser-based file access at `https://dash.example.com`. The web app manages accounts, billing, and membership only. (Decision D2 explains why.)
-* The Android agent. Deferred to v1.1 — see Revision 3.1. The concepts, the trust list, the access rule and the file protocol are all written to accommodate it unchanged.
+* The Android agent. Deferred to v1.1, see Revision 3.1. The concepts, the trust list, the access rule and the file protocol are all written to accommodate it unchanged.
 * iOS.
 * Shared/public links, guest access.
 * Per-file permissions. Permissions are per shared folder.
@@ -81,8 +90,8 @@ What was checked, what was found, and what it changed. Checked September 2026.
 | Can a browser reach LAN peers by WebRTC? | Yes, in all major browsers, but it requires a signaling channel and adds ICE/STUN/TURN/DTLS/SCTP. TURN relays are stateful and comparatively expensive to run. | Only worth carrying if browser file access is a requirement. It is not in v1. Drives **D2**. |
 | Does `http://something.local` work on Android browsers? | Android 12+ resolves `.local` in browsers via the system resolver, but it sends *legacy unicast* mDNS queries (RFC 6762 §6.7). Responders that only reply by multicast are not seen, and OEM behaviour varies. | A workspace hostname would need a custom mDNS responder and still be unreliable. Dropped. Drives **D3**. |
 | Android LAN access restrictions | Android 16 introduced an opt-in `ACCESS_LOCAL_NETWORK` runtime permission. Android 17 enforces it for apps targeting SDK 37+: all LAN sockets and mDNS/NSD need it. A system picker (`FLAG_SHOW_PICKER`) grants access to one selected service without the broad permission. | A workspace talks to many devices, so the broad permission is required. The picker is a fallback for users who deny it. See §13.2. |
-| Is there a transport library that does identity, LAN, hole-punching, and relay together? | iroh 1.0 (June 2026): QUIC/TLS 1.3, dial by Ed25519 key, direct LAN and hole-punched connections with stateless relay fallback, ~90–99 % direct-connection rate reported, self-hostable relays, first-party Rust with Swift/Kotlin/Python/JS bindings. Limitations: no browser support (QUIC only); the published Kotlin artifact is JVM-only and Android needs a from-source or third-party JNI build; Android backgrounding tears down endpoints. | Adopted as the transport. Removes the custom WebRTC stack, custom relay, custom signaling, and custom handshake from the previous draft. Drives **D1**. |
-| Can a self-hosted relay authorize per device key? | `iroh-relay` accepts an `access` mode in its TOML config: `Everyone`, `allowlist` / `denylist` of endpoint ids, `shared_token`, or **`HTTP`** — which POSTs to a URL of ours with an `X-Iroh-Endpoint-Id` header and admits on a `200` carrying `true`. TLS with Let's Encrypt, per-client token-bucket rate limiting, and Prometheus on `:9090` are all config. | Relay authorization is a config field, not a component. Closes the old §20.2 risk and collapses §10.3, §10.4, §10.5 and §11.3 into one endpoint. See **§11.3**. |
+| Is there a transport library that does identity, LAN, hole-punching, and relay together? | iroh 1.0 (June 2026): QUIC/TLS 1.3, dial by Ed25519 key, direct LAN and hole-punched connections with stateless relay fallback, ~90-99 % direct-connection rate reported, self-hostable relays, first-party Rust with Swift/Kotlin/Python/JS bindings. Limitations: no browser support (QUIC only); the published Kotlin artifact is JVM-only and Android needs a from-source or third-party JNI build; Android backgrounding tears down endpoints. | Adopted as the transport. Removes the custom WebRTC stack, custom relay, custom signaling, and custom handshake from the previous draft. Drives **D1**. |
+| Can a self-hosted relay authorize per device key? | `iroh-relay` accepts an `access` mode in its TOML config: `Everyone`, `allowlist` / `denylist` of endpoint ids, `shared_token`, or **`HTTP`**, which POSTs to a URL of ours with an `X-Iroh-Endpoint-Id` header and admits on a `200` carrying `true`. TLS with Let's Encrypt, per-client token-bucket rate limiting, and Prometheus on `:9090` are all config. | Relay authorization is a config field, not a component. Closes the old §20.2 risk and collapses §10.3, §10.4, §10.5 and §11.3 into one endpoint. See **§11.3**. |
 | libp2p as the alternative | Broader feature set, browser transports available, but wider configuration surface and hole-punching success reported around 70 %. | Rejected for v1; noted in §19. |
 | Tailscale / WireGuard mesh as the alternative | Solves the same connectivity problem but presumes a control server and coordination model that overlaps with ours, and pulls a full L3 VPN into an app that only needs one stream type. | Rejected; noted in §19. |
 
@@ -92,7 +101,7 @@ Sources: Chrome for Developers "New permission prompt for Local Network Access";
 
 ## 6. Architecture decisions
 
-### D1 — One transport library: iroh (trade-off)
+### D1. One transport library: iroh (trade-off)
 
 All device-to-device traffic runs over iroh QUIC connections. iroh supplies: the device key pair, mutual authentication by key, end-to-end TLS 1.3, LAN direct paths, NAT hole-punching, relay fallback, and migration between paths. The product adds one ALPN (`rfm/1`) and the file protocol on top.
 
@@ -100,7 +109,7 @@ What this deletes from the requirements: WebRTC, ICE, STUN, TURN, a signaling se
 
 Risks accepted: Rust is mandatory for `rfm-core` and the desktop agent (see D4); the library is at 1.0 and the team is small. The Android binding risk is deferred with Android itself (Revision 3.1). Mitigation: the file protocol is defined over an abstract bidirectional stream so the transport can be swapped (§19).
 
-### D2 — File UI lives only inside the agents (trade-off)
+### D2. File UI lives only inside the agents (trade-off)
 
 The file manager UI is a web bundle rendered inside the desktop agent's window (and, in v1.1, the Android agent's WebView). It talks to its own agent in-process. It never makes network calls itself.
 
@@ -108,11 +117,11 @@ The file manager UI is a web bundle rendered inside the desktop agent's window (
 
 Why: every browser-based LAN or P2P path (§5) is either Chromium-only, prompt-gated, or requires the WebRTC stack that D1 removed. Browser file access can be added later as a separate project without changing anything below the UI.
 
-### D3 — No workspace hostname (fact-driven)
+### D3. No workspace hostname (fact-driven)
 
 Discovery is DNS-SD (`_rfm._tcp`) with the workspace ID in a TXT record. Devices find each other by ID, never by name. There is no `myhome.local`, no host election, no collision handling. Workspace names are labels for humans only.
 
-### D4 — One shared core (trade-off)
+### D4. One shared core (trade-off)
 
 The agent is a Rust library (`rfm-core`) containing iroh, the trust list, shares, the file protocol, and the access-decision rule. Desktop wraps it with Tauri (or equivalent) for the window.
 
@@ -122,7 +131,7 @@ The relay is the upstream `iroh-relay` binary, deployed and configured. It is no
 
 So the Rust surface is `rfm-core` plus the desktop shell. Android, when it returns in v1.1, wraps the same library with UniFFI/JNI.
 
-### D5 — The cloud is a directory, a billing system, and a relay operator. Nothing else.
+### D5. The cloud is a directory, a billing system, and a relay operator. Nothing else.
 
 It stores accounts, subscriptions, associations, members, and the public keys of devices it has been told about. It hosts relays and tells them which device keys may use them. It cannot read files, add devices, or sign anything the agents trust.
 
@@ -186,11 +195,33 @@ Every device holds the full list. It is persisted with atomic writes.
 
 No account, no Internet.
 
-1. Joining device shows a QR code / 8-character code containing its device key and a one-time secret.
-2. An admin device scans or types it, sees the key fingerprint and proposed name, and approves.
-3. The admin device signs version N+1 adding the key as `standard` with no account binding, and sends it to the new device over a direct iroh connection authenticated with the one-time secret.
+Pairing starts on an admin device with two questions. Whose machine is joining sets the role.
+Where the machine is sets the mechanism, because someone standing next to you can read a code
+off a screen and someone in another city cannot.
 
-A standard device cannot admit anyone.
+```text
+Add a device
+  whose?    ( ) My own device           → admin
+            ( ) Someone else's device   → standard
+  where?    ( ) Here with me            → the code exchange below
+            ( ) Somewhere else          → invite by email (§8.3)
+```
+
+"Somewhere else" is remote pairing and needs remote access already on, so a local-only
+workspace cannot reach anyone who is not in the room. The rest of this section is the local
+half.
+
+1. The joining device shows a QR code / 8-character code containing its device key and a one-time secret.
+2. The admin device scans or types it and approves, seeing the key fingerprint, the proposed name, and the role chosen above.
+3. The admin device signs version N+1 adding the key with no account binding, and sends it to the new device over a direct iroh connection authenticated with the one-time secret.
+
+My own device joins as `admin` and co-signs acceptance in the same exchange, which §8.7 requires of any promotion. Someone else's device joins as `standard`. Neither carries an account binding: a locally paired device is never account-bound, which is what makes §10.3's "unbound devices are untouched" true.
+
+Step 2 states the role rather than asking again, so a wrong choice at the first screen is still caught against a live fingerprint before anything is signed.
+
+Remote pairing (§8.3) keeps its `standard` role for every device including your own, because a workspace that can pair remotely already has remote access on, and an admin device signed to make that true. The deadlock this rule exists to break cannot occur there.
+
+A standard device cannot admit anyone. Admin role grants no file access (§9).
 
 ### 8.3 Remote pairing
 
@@ -221,7 +252,7 @@ Compromise: revoke, re-pair with a fresh key. There is no rotate-under-compromis
 
 * Promoting a device to admin requires the promoted device to co-sign acceptance.
 * The last admin cannot be revoked or demoted; the UI refuses.
-* Once a second desktop joins, the UI recommends making it an admin.
+* Your own devices are admins from the moment they pair (§8.2), so a workspace has succession cover without anyone acting on a prompt. A device paired as someone else's can still be promoted later.
 * **All admins lost:** the trust list is frozen. Existing devices keep working with each other indefinitely; nothing can be added or removed. Two exits: (a) an opt-in encrypted **recovery bundle** (admin private key wrapped by a passphrase, exported at setup and after promotions, never sent to the cloud) imported on another workspace device; (b) create a new workspace from any remaining device and re-pair. Files never move in either case.
 
 ---
@@ -283,6 +314,8 @@ Re-enabling by the same owner within 90 days restores membership. Otherwise memb
 
 The owner's subscription covers the whole workspace. Members pay nothing.
 
+Trial: 14 days, no card, started from an admin device at the moment remote access would have helped (§14). One per account and one per workspace, so deleting a workspace and recreating it does not mint another. A trial is an `active` subscription everywhere else in this document, relay authorization included. It ends by converting to paid or by expiring, and expiry goes straight to `suspended` with no grace period, since there is no failed payment to retry.
+
 Lapse: 14-day grace with remote access on → `suspended` (relays refuse, membership retained, local unaffected) → after 90 days suspended, association deleted, workspace is local-only.
 
 Agents cache subscription state for 24 hours and label it stale after that.
@@ -319,7 +352,7 @@ iroh picks LAN direct, hole-punched direct, or relay, and upgrades relayed conne
 
 ### 11.3 Relay
 
-Self-hosted `iroh-relay`, one or more per region. It is the upstream binary, deployed and configured — not code we write.
+Self-hosted `iroh-relay`, one or more per region. It is the upstream binary, deployed and configured, not code we write.
 
 **Authorization is a config field.** The relay's `access` mode delegates to an endpoint of ours:
 
@@ -345,9 +378,9 @@ The relay POSTs to `url` with an `X-Iroh-Endpoint-Id` header carrying the hex en
 | The member was removed and this key is bound to them | §10.3 |
 | Remote access was disabled | §10.4 |
 | The subscription lapsed past grace | §10.5 |
-| *(no quota row — relay use is shaped, not capped; see below)* | |
+| *(no quota row: relay use is shaped, not capped; see below)* | |
 
-Plus the standing conditions: active association, key active in the trust-list mirror. The endpoint must be fast and cached — it is on the connection path — and it must **fail closed**.
+Plus the standing conditions: active association, key active in the trust-list mirror. The endpoint must be fast and cached (it is on the connection path) and it must **fail closed**.
 
 #### Bandwidth is shaped per workspace, not capped per month
 
@@ -361,13 +394,13 @@ the direction upstream already limits (`limits.client_rx`), which keeps the patc
 
 Three mechanisms, and they are deliberately small:
 
-**Placement — one workspace, one home relay.** An iroh endpoint pings the relays in the relay map it
+**Placement: one workspace, one home relay.** An iroh endpoint pings the relays in the relay map it
 was given and adopts the lowest-latency one as its home relay. The cloud hands out that map, so
 naming a single relay in it *is* placement. Assigning every device of a workspace to the same relay
-means a workspace never spans relays — which removes the need for any cross-relay bandwidth
+means a workspace never spans relays, which removes the need for any cross-relay bandwidth
 coordination.
 
-**Shaping — one token bucket per workspace, local to its relay.** The relay already learns the
+**Shaping: one token bucket per workspace, local to its relay.** The relay already learns the
 endpoint id at accept, because that is what it sends to the authorize endpoint. So the authorize
 response carries the policy as well as the decision:
 
@@ -380,21 +413,21 @@ POST /relay/authorize      X-Iroh-Endpoint-Id: <hex>
 Endpoints sharing a workspace share that workspace's bucket, so the rate divides between a
 workspace's machines by demand rather than being handed out per device.
 
-**Capacity — committed rate is the sizing input.** How many relays to keep online is the sum of
+**Capacity: committed rate is the sizing input.** How many relays to keep online is the sum of
 committed rates placed on each relay against its measured capacity, not a guess from connection
 counts. Placement is then a packing decision the cloud makes when it hands out a relay map.
 
 Committed rate is what was *sold*, and workspaces are idle most of the time, so provisioning for all
 of it at once would be waste. The gap is an **overcommit ratio, and it is an operator setting with a
-conservative default — not a number this document picks.** It cannot be chosen correctly before real
+conservative default, and not a number this document picks.** It cannot be chosen correctly before real
 usage exists. What v1 must do is record the measurements that let it be chosen later: committed rate
 and actual throughput per relay over time, and peak concurrent relayed throughput per workspace.
 
 **What this costs.** Upstream `iroh-relay` applies one service-wide receive-side rate to every
 client (`limits.client_rx`), with no per-endpoint variation. Per-workspace shaping therefore requires
 a patch: carry the rate from the authorize response onto the connection and attach a bucket keyed by
-workspace. It is bounded and well-located — the endpoint id is already in hand at that point, and
-the direction is the one upstream already limits — but it is a fork, and a carry cost on every
+workspace. It is bounded and well-located (the endpoint id is already in hand at that point, and
+the direction is the one upstream already limits), but it is a fork, and a carry cost on every
 `iroh-relay` upgrade.
 
 Direct traffic is never shaped and never counted. Only relayed bytes traverse a relay, so
@@ -438,13 +471,13 @@ Enforcement is by the owning agent (§9). The UI's greying-out of buttons is cos
 
 Installer installs the agent as a user-level service plus a windowed app. First run creates a workspace (or joins one by code). Key stored in the OS keystore (Keychain / DPAPI / Secret Service). mDNS via the platform responder where present (Bonjour, Avahi) or an embedded responder otherwise.
 
-### 13.2 Android — deferred to v1.1
+### 13.2 Android, deferred to v1.1
 
 Not built in v1 (Revision 3.1). Recorded here because the v1 design must not foreclose it, and because the platform constraints shape what the core may assume.
 
 * Kotlin app embedding `rfm-core` through UniFFI/JNI. The published iroh Kotlin artifact is JVM-only; Android needs a from-source or third-party JNI build. **This was the plan's single biggest risk and deferring Android is what removes it.**
 * Target SDK 37+: declare and request `ACCESS_LOCAL_NETWORK`. Explain before prompting. If denied, offer the system service picker (`NsdManager` with `FLAG_SHOW_PICKER`) to connect to one chosen device at a time, and remote access if enabled.
-* Folder access via Storage Access Framework; persist tree URIs with `takePersistableUriPermission`. Each chosen tree is a share root. **This is the one place Android changes a v1 type** — §12's `root` is an absolute path today and must widen to accommodate a tree URI. Keep it opaque to everything above the filesystem layer so that widening is local.
+* Folder access via Storage Access Framework; persist tree URIs with `takePersistableUriPermission`. Each chosen tree is a share root. **This is the one place Android changes a v1 type.** §12's `root` is an absolute path today and must widen to accommodate a tree URI. Keep it opaque to everything above the filesystem layer so that widening is local.
 * Accepting incoming connections requires a foreground service ("Workspace active" notification) while the user has sharing on. Without it the OS suspends the endpoint.
 * Key in Android Keystore.
 * Android devices can be admins.
@@ -459,21 +492,18 @@ create (admin device)
    ▼
 local-only ◀──────────────────────────────────────────┐
    │ enable remote access (admin device + owner acct) │ disable (owner OR admin device)
+   │ paid, or a 14-day trial (§10.5)                  │
    ▼                                                  │
 cloud-associated ──── transfer ────▶ cloud-associated │
    │                                 (new owner)      │
-   │ subscription lapse                               │
+   │ subscription lapse, or trial expiry              │
    ▼                                                  │
 suspended ──── renew ──▶ cloud-associated             │
    │ 90 days                                          │
    └──────────────────────────────────────────────────┘
-
-delete workspace (admin device): final signed version with status=deleted;
-every agent drops its copy on receipt; cloud deletes association and members;
-files and device keys untouched.
-
-account deletion: owned workspaces become local-only; memberships removed (§10.3).
 ```
+
+The move out of local-only is offered where it is felt. An agent that cannot reach a workspace device, is not on a network where it could, and belongs to a workspace with remote access off, says exactly that on its device list and offers the trial beside it. Any admin device can accept, which is the reason §8.2 pairs your own devices as admins: the machine that notices is the one you carried away from the others, and it has to be able to act alone.
 
 The workspace ID is constant in every state but deleted.
 
@@ -483,17 +513,17 @@ The workspace ID is constant in every state but deleted.
 
 | Operation | Admin device | Cloud owner | Manager | Member |
 |---|---|---|---|---|
-| Create / delete workspace | ✔ | — | — | — |
-| Add, revoke, promote, bind device | ✔ | — | — | — |
-| Configure own device's shares | ✔ (any device's user, on that device) | — | — | — |
-| Enable remote access | initiates | must be the signed-in account | — | — |
-| Disable remote access | ✔ alone | ✔ alone | — | — |
-| Transfer ownership | confirms | initiates | — | — |
-| Manage members | — | ✔ | members only | — |
-| Approve pairing (cloud side) | — | ✔ | ✔ | — |
-| Sign trust list | ✔ | — | — | — |
-| Request pairing for own device | — | ✔ | ✔ | ✔ |
-| Subscription | — | ✔ | — | — |
+| Create / delete workspace | ✔ | no | no | no |
+| Add, revoke, promote, bind device | ✔ | no | no | no |
+| Configure own device's shares | ✔ (any device's user, on that device) | no | no | no |
+| Enable remote access | initiates | must be the signed-in account | no | no |
+| Disable remote access | ✔ alone | ✔ alone | no | no |
+| Transfer ownership | confirms | initiates | no | no |
+| Manage members | no | ✔ | members only | no |
+| Approve pairing (cloud side) | no | ✔ | ✔ | no |
+| Sign trust list | ✔ | no | no | no |
+| Request pairing for own device | no | ✔ | ✔ | ✔ |
+| Subscription | no | ✔ | no | no |
 
 ---
 
@@ -511,6 +541,13 @@ The workspace ID is constant in every state but deleted.
 | Remote access suspended | Expired workspace |
 | Remove device · Remove member | Delete |
 | Share (folder) | Root · Mount |
+| My own device · Someone else's device | Trusted device · Guest |
+| Remote access trial | Free tier · Freemium |
+| Unreachable | Offline · Disconnected · Not on this network |
+
+One word covers it while remote access is off, because the agent cannot tell the cases apart. A device that is switched off and a device running in another building are both silent on the LAN, and so is one behind a firewall that blocks us. Saying "offline" claims knowledge we do not have, and saying "not on this network" sells a relay to somebody whose desktop is unplugged.
+
+Remote access is what buys the distinction. Once a workspace is associated, a device checks in with the cloud, so silence there means it really is not running, and the UI can split `Connected` from `Offline`. That split is worth naming in the pitch: part of what the subscription buys is knowing which of the two it is.
 
 Status block on every workspace screen:
 
@@ -519,6 +556,7 @@ My Home
 Local access      Available on this network
 Remote access     Off                          [ Enable Remote Access ]
                   / On · Alice pays            [ Manage ]
+                  / On · trial, 9 days left    [ Subscribe ]
                   / Suspended · renew          [ Renew ]
 ```
 
@@ -534,6 +572,8 @@ Remote access     Off                          [ Enable Remote Access ]
 | Agent restart | Trust list, shares, and in-flight transfer state reload from disk; transfers resume. |
 | Network change | iroh re-establishes paths; file layer resumes chunks. |
 | Revoked device offline | Rejected by every peer when it returns. |
+| Device not found, remote access off | Listed as `Unreachable`, with the trial offered beside it (§14). It covers switched off, on another network, and firewalled, which the agent cannot tell apart from here. Not an error state and not a retry. |
+| Device not found, remote access on | `Offline`, and now a fact: the cloud has not heard from it either. |
 
 No failure ever deletes workspace state, device keys, or files.
 
@@ -553,7 +593,7 @@ The division of labour, because it decides how much UI gets built:
 
 * **Grafana** owns time series, graphs, and exploration. Its panels are embedded in the operator console rather than reimplemented there.
 * **Alertmanager** owns routing, grouping, silences, and escalation. None of that is rebuilt.
-* **The operator console** owns live, domain-shaped health — is the fleet big enough right now, which relays are unhealthy, which workspaces sit on them, and why a given workspace's relay access is denied. Plus every dial in the system.
+* **The operator console** owns live, domain-shaped health: is the fleet big enough right now, which relays are unhealthy, which workspaces sit on them, and why a given workspace's relay access is denied. Plus every dial in the system.
 
 Native charts in the console are a later decision, taken against real usage, not a v1 one.
 
@@ -566,8 +606,10 @@ Native charts in the console are a later decision, taken against real usage, not
 | WebRTC + TURN + custom signaling | Two to three extra services, stateful relays, browser-only benefit that v1 doesn't need. | If browser file access becomes a requirement. It can be added as a second transport behind the same stream abstraction. |
 | libp2p | Wider surface, lower reported hole-punch success, more configuration to get wrong. | If a public DHT or browser transports are needed. |
 | Tailscale / Headscale / WireGuard mesh | Full L3 VPN and a second control plane for a product that needs one authenticated stream. Licensing and account coupling. | If users demand SMB/NFS-style mounting rather than an in-app browser. |
-| Custom relay with a fleet coordinator | Per-workspace shaping is a requirement (§11.3), and upstream `iroh-relay` cannot express it, so a patch is needed either way. What a coordinator would add on top — leases, placement negotiation, and a cross-relay allowance loop — is avoided instead by pinning a workspace to one home relay, which makes its bucket local. | If one workspace ever needs more bandwidth than a single relay can serve, or if placement must rebalance while sessions are live. |
+| Custom relay with a fleet coordinator | Per-workspace shaping is a requirement (§11.3), and upstream `iroh-relay` cannot express it, so a patch is needed either way. What a coordinator would add on top (leases, placement negotiation, and a cross-relay allowance loop) is avoided instead by pinning a workspace to one home relay, which makes its bucket local. | If one workspace ever needs more bandwidth than a single relay can serve, or if placement must rebalance while sessions are live. |
 | Workspace `.local` hostname | Browser resolution is unreliable on Android, name collisions, host election; only useful for a browser entry point v1 doesn't have. | With browser file access. |
+| PWA instead of a native agent | A browser cannot dial a QUIC peer, cannot accept an inbound connection, cannot hold a key in the OS keystore, and cannot keep persistent access to a folder tree (the File System Access API is Chromium-only and prompt-gated). Every one of those is load-bearing, so the agent has to be native. App store distribution, the usual reason to want a PWA, is not a problem the desktop agent has: it is a download from our own site with a self-updater, like Sunshine. | Never for the agent. The dashboard is a normal web app and can be a PWA whenever an installable icon and §17's cached-and-stale view are worth the service worker. |
+| Loading the UI bundle from our server at runtime | Faster to ship than a signed agent release, and it is why the idea keeps coming up. The bundle has an in-process bridge to the filesystem layer (D2, §7), so serving it remotely turns a compromise of our CDN into read and write access to every user's disk. | Not without moving the UI outside the trust boundary first, which is a different product. |
 | Redis for ephemeral state | Nothing in v1 is shared across cloud instances that PostgreSQL can't hold. | If relay-auth lookups become a bottleneck. |
 
 ---
@@ -575,15 +617,15 @@ Native charts in the console are a later decision, taken against real usage, not
 ## 20. Risks to verify before committing
 
 1. **iroh path telemetry.** Confirm the API exposes direct-vs-relayed per connection, and signals the change when a relayed connection upgrades mid-session. §9 step 4 needs it to decide, and §11.4 needs it to move a transfer to a better path.
-2. **Desktop mDNS coverage.** Avahi is not always installed on Linux; the embedded responder must be tested on Windows without Bonjour. Include the unplugged-router test — principle 1 should be verified, not assumed.
+2. **Desktop mDNS coverage.** Avahi is not always installed on Linux; the embedded responder must be tested on Windows without Bonjour. Include the unplugged-router test: principle 1 should be verified, not assumed.
 3. **Key store portability.** Confirm the OS keystores allow non-exportable Ed25519 keys usable by `rfm-core` on all three desktop OSes, or fall back to an encrypted file keyed by the OS keystore. Note the likely tension: iroh signs with the key in process, so genuinely non-exportable may be unavailable.
 4. **Desktop shell.** Confirm Tauri can host `rfm-core` in-process alongside the accept loop, install as a user-level service plus a windowed app on all three OSes, and stream a multi-GB file to the webview without buffering it.
 
 **Closed since Revision 3** (see Revision 3.1):
 
-* ~~iroh on Android~~ — deferred with Android itself. Was the single biggest risk in the plan.
-* ~~Android 17 permission denial rate~~ — deferred with Android.
-* ~~iroh relay authorization hook~~ — **resolved.** It is an `access` mode in the relay's config, with an HTTP delegation option. No authenticating proxy needed. §11.3 has the configuration.
+* ~~iroh on Android~~. Deferred with Android itself. Was the single biggest risk in the plan.
+* ~~Android 17 permission denial rate~~. Deferred with Android.
+* ~~iroh relay authorization hook~~. **Resolved.** It is an `access` mode in the relay's config, with an HTTP delegation option. No authenticating proxy needed. §11.3 has the configuration.
 
 ---
 
