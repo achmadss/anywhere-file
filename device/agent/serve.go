@@ -23,8 +23,9 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	handler := newGateway(ag)
 	srv := &http.Server{
-		Handler: newGateway(ag),
+		Handler: handler,
 		// No write timeout: a download of a large file is the point of this service, and a
 		// deadline on the whole response would cut one off partway through.
 		ReadHeaderTimeout: 10 * time.Second,
@@ -43,6 +44,13 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 			return err
 		}
 		defer ad.close()
+	}
+
+	// The tunnel serves the same handler as the LAN. It runs whether or not this PC is
+	// enrolled yet, because enrolment can happen while the agent is running, and an
+	// unenrolled agent retrying costs nothing.
+	if cfg.tunnel {
+		go runTunnel(ctx, ag, handler)
 	}
 
 	done := make(chan error, 1)

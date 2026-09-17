@@ -39,14 +39,17 @@ application on a PC without an authorized user asking it to.
 ### C1. The agent is not an open proxy
 
 The gateway resolves a logical app name from its registry to a loopback address and refuses
-anything else. There is no way to name a host or port in a request. `by design`, the
-gateway issue owns the test.
+anything else. There is no way to name a host or port in a request
+(`device/agent/gateway.go`, `verified`). The tunnel serves that same handler, so what the
+LAN cannot reach the server cannot reach either (`device/agent/tunnel.go`, `verified`).
 
 ### C2. A `device_id` proves nothing
 
 Enrolment, app registry updates and the tunnel handshake are signed with the device key, over
 a nonce and timestamp the server checks once. The control plane already does this for signed
-agent requests (`hosted/control-plane/agent.go`, `verified`). The tunnel reuses it, `by design`.
+agent requests (`hosted/control-plane/agent.go`, `verified`). The tunnel handshake is the
+same signed request, checked before the connection is handed over
+(`hosted/control-plane/tunnel.go`, `device/agent/tunnel.go`, `verified`).
 
 ### C3. Remote routing checks the user, the binding and the app on every request
 
