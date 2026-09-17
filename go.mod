@@ -5,8 +5,11 @@ go 1.26.2
 tool honnef.co/go/tools/cmd/staticcheck
 
 require (
+	github.com/danieljoos/wincred v1.2.3
+	github.com/godbus/dbus/v5 v5.2.2
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/prometheus/client_golang v1.24.1
+	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/net v0.57.0
 	gopkg.in/yaml.v3 v3.0.1
 )

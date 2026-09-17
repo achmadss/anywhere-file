@@ -24,8 +24,8 @@ the customer's phone or laptop, and `hosted/` on hardware we pay for. Anything u
 | `internal/` | Go shared by the agent and the control plane, starting with request signing | Go |
 | `client/` | the client app for Android, Windows, macOS and Linux | Kotlin, Compose Multiplatform |
 
-The agent is a build target with nothing in it yet, and `client/` does not exist. The work
-is broken down in the issue tracker, starting at the
+The agent holds its device key so far, and `client/` does not exist. The work is broken
+down in the issue tracker, starting at the
 [epic](https://github.com/achmadss/anywhere-file/issues/41).
 
 ## Building
@@ -39,6 +39,33 @@ go build ./...
 
 Test and lint from the root: `go test ./...`, `go vet ./...`, `go tool staticcheck ./...`,
 `gofmt -l .`. CI runs them on ubuntu, macOS and Windows.
+
+## Running the agent
+
+The agent generates one Ed25519 key per PC on first run and keeps it for the life of the
+machine. The server derives `device_id` from the public key, so a replaced key is a new
+device and drops the PC out of every binding it had.
+
+```sh
+go run ./device/agent key
+```
+
+| Variable | Default | What |
+|---|---|---|
+| `RFM_AGENT_DIR` | the OS config directory, `%LocalAppData%` on Windows | where the agent keeps its own state |
+| `RFM_AGENT_KEYSTORE` | `auto` | `keyring` for the OS keystore, `file` for a seed file |
+| `RFM_AGENT_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
+
+`auto` uses the OS keystore: Keychain on macOS, Credential Manager on Windows, the Secret
+Service on a Linux desktop. A Linux machine with no Secret Service, such as a NAS, a server
+or a container, has no keystore, so the seed goes in a mode 0600 file in a mode 0700
+directory and wider permissions are refused. On such a machine the device key is protected
+by filesystem permissions and by full disk encryption if the operator set one up, and by
+nothing else. Set `RFM_AGENT_KEYSTORE` when the guess is wrong.
+
+A keystore that is locked or unreachable is a wait, not a new key. The agent retries and
+says so in the log rather than generating an identity that would silently replace the
+machine's.
 
 ## Running the control plane locally
 
