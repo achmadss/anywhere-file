@@ -33,6 +33,9 @@ that's a language, a database setting, a Docker problem, a CI config or anything
 lean on its habits, naming or tool names to carry an explanation. Say what the thing does and
 why it matters in plain words. Name a tool or setting only when I need it to act.
 
+Prefer a numbered or unordered list over narration. A list is easier to scan and skip.
+Narrate only where a list would lose the point, such as a reason or a trade-off.
+
 Assume I'm deciding, not implementing. What I want to know is whether something works, what it
 costs, what's blocked and what needs me. Spare me the walkthrough of how you got there.
 
@@ -50,6 +53,8 @@ should get it on one pass without a glossary.
 
 - No em dashes or en dashes. Use a period, comma, colon or parentheses.
 - No "not X but Y" constructions, in any of their forms.
+- Prefer lists here too. A PR description that walks through the change in paragraphs is
+  harder to read than the same change as a list.
 - No bold labels leading list items or paragraphs. Use a heading or plain prose.
 - No closing line that restates the paragraph above it.
 - Don't group things in threes because three sounds complete.
