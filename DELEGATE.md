@@ -78,8 +78,6 @@ Re-run the gates yourself. Before believing a linter, prove it scans: break some
 purpose, watch it fire, put it back. A tool matching nothing reports success.
 
 ```sh
-cargo test --workspace && cargo clippy --workspace --all-targets && cargo fmt --check
-# or
 go build ./... && go vet ./... && go tool staticcheck ./... && go test ./...
 ```
 

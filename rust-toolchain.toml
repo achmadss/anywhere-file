@@ -1,5 +1,0 @@
-[toolchain]
-# Pinned so CI and laptops agree. Bump deliberately; `iroh`'s MSRV is the constraint
-# that will move this.
-channel = "1.98.1"
-components = ["rustfmt", "clippy"]

@@ -5,10 +5,10 @@ on:
     branches: [main]
   pull_request:
 
-# One workflow rather than four, because branch protection needs a single check that is
-# always reported. Path-filtered workflows cannot do that: a PR touching only TypeScript
-# never reports the Rust check, so a required Rust check would block it forever. Here the
-# `changes` job always runs, the language jobs skip, and `ci-ok` is always reported.
+# One workflow rather than several, because branch protection needs a single check that is
+# always reported. Path-filtered workflows cannot do that: a PR touching only docs never
+# reports the Go check, so a required Go check would block it forever. Here the `changes`
+# job always runs, the language jobs skip, and `ci-ok` is always reported.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -17,11 +17,7 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      rust: ${{ steps.filter.outputs.rust }}
-      spikes: ${{ steps.filter.outputs.spikes }}
       go: ${{ steps.filter.outputs.go }}
-      ts: ${{ steps.filter.outputs.ts }}
-      relay: ${{ steps.filter.outputs.relay }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -40,34 +36,7 @@ jobs:
           match() { echo "$files" | grep -qE "$1"; }
           m() { if match "$2"; then echo "$1=true"; else echo "$1=false"; fi; } >> "$GITHUB_OUTPUT"
 
-          m rust  '^(device/core/|device/agent/|Cargo\.(toml|lock)$|rustfmt\.toml$|rust-toolchain\.toml$|\.github/workflows/ci\.yml$)'
-          m go    '^(hosted/control-plane/|\.github/workflows/ci\.yml$)'
-          m ts    '^(device/ui/|hosted/console/|hosted/dashboard/|package(-lock)?\.json$|tsconfig\.base\.json$|\.nvmrc$|\.github/workflows/ci\.yml$)'
-          m relay '^(hosted/relay/|\.github/workflows/ci\.yml$)'
-          m spikes '^(spikes/|\.github/workflows/ci\.yml$)'
-
-  rust:
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
-    # Three runners, because the device key store is a different implementation on each
-    # (#6) and the path jail will be too (#13). A cfg-gated branch that nothing compiles
-    # is a branch that nothing checks, and it rots silently until someone opens a laptop
-    # running the other OS.
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v5
-      # rust-toolchain.toml pins the version; rustup honours it on first cargo call.
-      - uses: Swatinem/rust-cache@v2
-      # Formatting has no per-OS answer, so it is checked once.
-      - if: matrix.os == 'ubuntu-latest'
-        run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo build --workspace
-      - run: cargo test --workspace
+          m go '^(hosted/control-plane/|\.github/workflows/ci\.yml$)'
 
   go:
     needs: changes
@@ -110,83 +79,15 @@ jobs:
       - run: go test -run TestConcurrentAssociationsLeaveExactlyOneRow -v ./... | tee /tmp/race.log
       - run: "grep -q -- '--- PASS: TestConcurrentAssociationsLeaveExactlyOneRow' /tmp/race.log"
 
-  ts:
-    needs: changes
-    if: needs.changes.outputs.ts == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run build
-
-  relay:
-    needs: changes
-    if: needs.changes.outputs.relay == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      # Proves the pinned tag still exists and our patches still apply. It does not build
-      # iroh-relay, which is minutes of compile for a check that adds nothing until the
-      # patch does something (#46, #30).
-      - run: hosted/relay/apply.sh
-      # hosted/relay/fleet is its own workspace, so the root cargo fmt/clippy/test do
-      # not see it. It gets the same treatment here.
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: hosted/relay/fleet
-      - run: cargo fmt --manifest-path hosted/relay/fleet/Cargo.toml --all --check
-      - run: cargo clippy --manifest-path hosted/relay/fleet/Cargo.toml --all-targets -- -D warnings
-      - run: cargo test --manifest-path hosted/relay/fleet/Cargo.toml
-      # Rendered configs must stay valid TOML with the fields #28 requires.
-      - run: hosted/relay/deploy/render-config.sh hosted/relay/deploy/regions/eu-west.env.example > /dev/null
-      - run: hosted/relay/deploy/render-config.sh hosted/relay/deploy/regions/ap-southeast.env.example > /dev/null
-      - run: bash -n hosted/relay/deploy/render-config.sh hosted/relay/deploy/provision.sh hosted/relay/deploy/capacity/bench.sh
-
-  spikes:
-    needs: changes
-    if: needs.changes.outputs.spikes == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      # Spike crates each declare their own [workspace] so the root `cargo build
-      # --workspace` does not pull iroh or Tauri into every Rust run. That also puts them
-      # outside root `cargo fmt --all`, so they get formatted here instead. Only formatting:
-      # clippy would mean a full iroh build for throwaway code that is deleted once the
-      # spike's conclusions land.
-      - name: rustfmt every spike crate and loose .rs file
-        run: |
-          shopt -s nullglob
-          found=0
-          for manifest in spikes/*/Cargo.toml; do
-            echo "== $(dirname "$manifest")"
-            (cd "$(dirname "$manifest")" && cargo fmt --all --check)
-            found=1
-          done
-          for stray in spikes/*/*.rs; do
-            echo "== $stray"
-            rustfmt --edition 2024 --check "$stray"
-            found=1
-          done
-          if [ "$found" = 0 ]; then echo "no spike crates"; fi
-
   prose:
     # AGENTS.md bans em and en dashes in anything a person reads. A rule with no check is a
-    # rule that comes back one PR at a time, so this is the check. Generated and vendored
-    # files are exempt because we do not write them; -I skips binaries.
+    # rule that comes back one PR at a time, so this is the check. -I skips binaries.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: no em or en dashes
         run: |
-          if git grep -nPI '[\x{2013}\x{2014}]' -- . \
-               ':!package-lock.json' ':!Cargo.lock' ':!hosted/relay/fleet/Cargo.lock' \
-               ':!hosted/relay/patches'; then
+          if git grep -nPI '[\x{2013}\x{2014}]' -- . ; then
             echo
             echo "Em and en dashes are banned (AGENTS.md). Use a period, comma, colon or parentheses."
             exit 1
@@ -212,7 +113,7 @@ jobs:
   ci-ok:
     # The one check branch protection requires. Green when every job that ran passed, and
     # when a job was skipped because nothing in its language changed.
-    needs: [changes, rust, go, ts, relay, spikes, blockers, prose]
+    needs: [changes, go, blockers, prose]
     if: always()
     runs-on: ubuntu-latest
     steps:
