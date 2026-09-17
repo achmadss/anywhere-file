@@ -22,6 +22,9 @@ const (
 	ActionInviteCreated    = "invite.created"
 	ActionInviteRedeemed   = "invite.redeemed"
 
+	ActionTunnelConnected    = "tunnel.connected"
+	ActionTunnelDisconnected = "tunnel.disconnected"
+
 	ActionSubscriptionChanged = "subscription.changed"
 )
 
@@ -36,6 +39,9 @@ var validActions = map[string]bool{
 	ActionDeviceAppsSynced: true,
 	ActionInviteCreated:    true,
 	ActionInviteRedeemed:   true,
+
+	ActionTunnelConnected:    true,
+	ActionTunnelDisconnected: true,
 
 	ActionSubscriptionChanged: true,
 }
