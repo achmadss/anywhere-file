@@ -21,20 +21,24 @@ the customer's phone or laptop, and `hosted/` on hardware we pay for. Anything u
 |---|---|---|
 | `device/agent/` | the agent: device identity, mDNS, app registry, local gateway, tunnel client | Go |
 | `hosted/control-plane/` | accounts, device registry, authorization, invitations, tunnel endpoint, audit | Go |
+| `internal/` | Go shared by the agent and the control plane, starting with request signing | Go |
 | `client/` | the client app for Android, Windows, macOS and Linux | Kotlin, Compose Multiplatform |
 
-`device/agent/` and `client/` do not exist yet. The work is broken down in the issue tracker,
-starting at the [epic](https://github.com/achmadss/anywhere-file/issues/41).
+The agent is a build target with nothing in it yet, and `client/` does not exist. The work
+is broken down in the issue tracker, starting at the
+[epic](https://github.com/achmadss/anywhere-file/issues/41).
 
 ## Building
 
-The Go version is pinned by the `go` directive in `hosted/control-plane/go.mod`.
+The Go code is one module rooted here, so one command builds the agent and the control
+plane. The Go version is pinned by the `go` directive in `go.mod`.
 
 ```sh
-(cd hosted/control-plane && go build ./...)
+go build ./...
 ```
 
-Test and lint: `go test ./...`, `go vet ./...`, `go tool staticcheck ./...`, `gofmt -l .`.
+Test and lint from the root: `go test ./...`, `go vet ./...`, `go tool staticcheck ./...`,
+`gofmt -l .`. CI runs them on ubuntu, macOS and Windows.
 
 ## Running the control plane locally
 
@@ -59,8 +63,8 @@ so point it at a throwaway:
 RFM_TEST_DATABASE_URL='postgres://rfm:rfm@localhost:5433/rfm?sslmode=disable' go test ./...
 ```
 
-Without it those tests skip, and a skip looks like a pass. CI runs them against a PostgreSQL
-service container and fails if the concurrency test did not actually run.
+Without it those tests skip, and a skip looks like a pass. CI runs them against PostgreSQL
+on the ubuntu runner and fails if the concurrency test did not actually run.
 
 ## History
 
