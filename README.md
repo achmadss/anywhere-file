@@ -51,6 +51,7 @@ device and drops the PC out of every binding it had.
 go run ./device/agent key        # print the identity
 go run ./device/agent run       # serve the applications and announce this PC on the LAN
 go run ./device/agent discover  # list the agents this machine can see on the LAN
+go run ./device/agent enrol https://cloud.example.com <token>
 ```
 
 | Variable | Default | What |
@@ -111,6 +112,17 @@ longer one without saying anything, so the agent refuses to start instead.
 
 `agent discover` is the same browse from the command line, and is the first thing to run
 when a PC does not appear in the client.
+
+### Enrolment
+
+A PC works on the LAN with no account. Enrolling it adds remote access: the client mints a
+short-lived token for the signed-in account and hands it to the agent, which signs the
+enrolment request with its device key and pushes its application list.
+
+The client does this over the LAN by posting to `/enrol` on the gateway. `agent enrol` is
+the same thing from a terminal, for a PC with no screen. Either way the server address and
+the device id are written to `agent.json` only after the server has accepted, so a bad or
+expired token leaves the PC as it was.
 
 ## Running the control plane locally
 

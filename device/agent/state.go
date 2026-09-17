@@ -14,9 +14,13 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/achmadss/anywhere-file/internal/appname"
 )
+
+// deviceIDPattern is the shape the server derives from a public key.
+var deviceIDPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 const (
 	stateFileName = "agent.json"
@@ -26,11 +30,17 @@ const (
 	protocolVersion = 1
 )
 
-// state is the agent's own file, read at startup and written back by enrolment (#94).
+// state is the agent's own file, read at startup and written back by enrolment.
 type state struct {
 	Name string `json:"name"`
-	Apps []app  `json:"apps"`
+	// Server and DeviceID are written by enrolment. Empty means this PC is local only,
+	// which is a working state: the LAN needs no account.
+	Server   string `json:"server,omitempty"`
+	DeviceID string `json:"device_id,omitempty"`
+	Apps     []app  `json:"apps"`
 }
+
+func (s *state) enrolled() bool { return s.Server != "" && s.DeviceID != "" }
 
 // app is one registered application. Address is a host:port the agent dials; only the name
 // and the type are ever sent to the server.
@@ -97,6 +107,14 @@ func (s *state) validate() error {
 	}
 	if len(s.Apps) > maxApps {
 		return fmt.Errorf("%d applications, the server accepts %d", len(s.Apps), maxApps)
+	}
+	if s.Server != "" {
+		if _, err := cleanServerURL(s.Server); err != nil {
+			return err
+		}
+	}
+	if s.DeviceID != "" && !deviceIDPattern.MatchString(s.DeviceID) {
+		return fmt.Errorf("device_id %q is not 64 hex characters", s.DeviceID)
 	}
 	seen := map[string]bool{}
 	for _, a := range s.Apps {

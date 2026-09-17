@@ -12,18 +12,11 @@ import (
 // serve runs the gateway. The agent is a service with no window, so everything it has to
 // say goes to the log.
 func serve(ctx context.Context, cfg config, log *slog.Logger) error {
-	store, err := openSeedStore(cfg)
+	ag, err := openAgent(ctx, cfg, log)
 	if err != nil {
 		return err
 	}
-	key, err := waitForDeviceKey(ctx, store, log, cfg.storeRetry)
-	if err != nil {
-		return err
-	}
-	st, err := loadState(cfg.dir)
-	if err != nil {
-		return err
-	}
+	key, st := ag.key, ag.snapshot()
 
 	// The listener comes first, because the port it lands on is what the LAN is told.
 	ln, err := net.Listen("tcp", cfg.addr)
@@ -31,14 +24,15 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		return err
 	}
 	srv := &http.Server{
-		Handler: newGateway(st, key, log),
+		Handler: newGateway(ag),
 		// No write timeout: a download of a large file is the point of this service, and a
 		// deadline on the whole response would cut one off partway through.
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
 	log.Info("gateway listening",
-		"addr", ln.Addr().String(), "device", key.deviceID(), "name", st.Name, "apps", st.appNames())
+		"addr", ln.Addr().String(), "device", key.deviceID(), "name", st.Name,
+		"apps", st.appNames(), "enrolled", st.enrolled())
 
 	if cfg.mdns {
 		ad := newAdvertiser(ln.Addr().(*net.TCPAddr).Port, log)
