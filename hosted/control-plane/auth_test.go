@@ -3,17 +3,15 @@ package main
 import (
 	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/achmadss/anywhere-file/internal/devicesig"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -342,88 +340,30 @@ func TestPasswordHashRoundTrip(t *testing.T) {
 	}
 }
 
-// signAgentRequest signs a canonical agent payload with a device key. Tests play the
-// agent: they hold the private half and the server holds the key string from the header.
-func signAgentRequest(t *testing.T, method, path, deviceKey string, priv ed25519.PrivateKey, nonce string, at time.Time, body []byte) map[string]string {
-	t.Helper()
-	stamp := strconv.FormatInt(at.Unix(), 10)
-	sum := sha256.Sum256(body)
-	payload := strings.Join([]string{method, path, deviceKey, nonce, stamp, hex.EncodeToString(sum[:])}, "\n")
-	sig := ed25519.Sign(priv, []byte(payload))
-	return map[string]string{
-		"X-Device-Key":       deviceKey,
-		"X-Device-Nonce":     nonce,
-		"X-Device-Timestamp": stamp,
-		"X-Device-Signature": hex.EncodeToString(sig),
-		"Authorization":      "",
-	}
-}
-
-func randomNonce(t *testing.T) string {
-	t.Helper()
-	buf := make([]byte, 16)
-	if _, err := rand.Read(buf); err != nil {
-		t.Fatal(err)
-	}
-	return hex.EncodeToString(buf)
-}
-
-// The signed-request check is covered directly, not through a public route: no
-// endpoint exists to demonstrate the mechanism, and #22 owns the real one.
+// The signature format itself is tested in internal/devicesig. This covers the part that
+// needs the database: a nonce is accepted once.
 func TestVerifyAgentSignature(t *testing.T) {
 	pool := freshDB(t, 4)
 
-	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-	deviceKey := hex.EncodeToString(pub)
-	newRequest := func(body []byte, headers map[string]string) *http.Request {
-		t.Helper()
-		var reader *strings.Reader
-		if body == nil {
-			reader = strings.NewReader("")
-		} else {
-			reader = strings.NewReader(string(body))
-		}
-		req := httptest.NewRequest(http.MethodPost, "/v1/workspaces/ws-1/enable", reader)
-		for k, v := range headers {
-			if v != "" {
-				req.Header.Set(k, v)
-			}
-		}
-		return req
-	}
+	body := []byte(`{"workspace_id":"ws-1"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/workspaces/ws-1/enable", strings.NewReader(string(body)))
+	devicesig.Sign(req, priv, body)
 
-	body := []byte(`{"workspace_id":"ws-1","trust_list_version":3}`)
-	headers := signAgentRequest(t, http.MethodPost, "/v1/workspaces/ws-1/enable", deviceKey, priv, randomNonce(t), time.Now(), body)
-	got, err := verifyAgentSignature(newRequest(body, headers), pool, body)
+	got, err := verifyAgentSignature(req, pool, body)
 	if err != nil {
 		t.Fatalf("valid signature rejected: %v", err)
 	}
-	if got != deviceKey {
-		t.Errorf("device key = %q, want %q", got, deviceKey)
+	if want := req.Header.Get(devicesig.HeaderKey); got != want {
+		t.Errorf("device key = %q, want %q", got, want)
 	}
-
-	// A replayed nonce is refused: the signature is right but the nonce is spent.
-	if _, err := verifyAgentSignature(newRequest(body, headers), pool, body); err == nil {
+	if _, err := verifyAgentSignature(req, pool, body); err == nil {
 		t.Error("replayed nonce accepted, want rejected")
 	}
 
-	// A tampered body is refused: the signature no longer matches the bytes.
-	headers2 := signAgentRequest(t, http.MethodPost, "/v1/workspaces/ws-1/enable", deviceKey, priv, randomNonce(t), time.Now(), body)
-	other := []byte(`{"workspace_id":"ws-2","trust_list_version":3}`)
-	if _, err := verifyAgentSignature(newRequest(other, headers2), pool, other); err == nil {
-		t.Error("tampered body accepted, want rejected")
-	}
-
-	// A stale timestamp is refused, even with a fresh nonce and body.
-	headers3 := signAgentRequest(t, http.MethodPost, "/v1/workspaces/ws-1/enable", deviceKey, priv, randomNonce(t), time.Now().Add(-time.Hour), body)
-	if _, err := verifyAgentSignature(newRequest(body, headers3), pool, body); err == nil {
-		t.Error("stale timestamp accepted, want rejected")
-	}
-
-	// Missing headers are refused without touching the database.
 	bare := httptest.NewRequest(http.MethodPost, "/v1/workspaces/ws-1/enable", strings.NewReader(string(body)))
 	if _, err := verifyAgentSignature(bare, pool, body); err == nil {
 		t.Error("unsigned request accepted, want rejected")

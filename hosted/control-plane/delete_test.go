@@ -8,7 +8,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
+
+	"github.com/achmadss/anywhere-file/internal/devicesig"
 )
 
 // Deleting an account (r3 section 14): owned workspaces become local-only, memberships
@@ -133,14 +134,8 @@ func TestDeleteAccountLeavesWorkspacesLocalAndTellsAgents(t *testing.T) {
 	// It authenticates as itself, with no session, since its account is gone.
 	poll := func(deviceKey string, priv ed25519.PrivateKey) []map[string]any {
 		t.Helper()
-		path := "/v1/agent/messages?device_key=" + deviceKey
-		headers := signAgentRequest(t, http.MethodGet, "/v1/agent/messages", deviceKey, priv, randomNonce(t), time.Now(), []byte{})
-		req := httptest.NewRequest(http.MethodGet, path, nil)
-		for k, v := range headers {
-			if v != "" {
-				req.Header.Set(k, v)
-			}
-		}
+		req := httptest.NewRequest(http.MethodGet, "/v1/agent/messages?device_key="+deviceKey, nil)
+		devicesig.Sign(req, priv, []byte{})
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {

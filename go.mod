@@ -1,4 +1,4 @@
-module github.com/achmadss/anywhere-file/hosted/control-plane
+module github.com/achmadss/anywhere-file
 
 go 1.26.2
 
