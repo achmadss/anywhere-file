@@ -85,7 +85,7 @@ func deviceIDFromKey(t *testing.T, publicHex string) string {
 func enrolAgent(t *testing.T) (*agent, string) {
 	t.Helper()
 	dir := agentDir(t)
-	st := &state{Name: "pc1", Apps: []app{{Name: "copyparty", Type: "http", Address: "127.0.0.1:3923"}}}
+	st := &state{Name: "pc1", Apps: []app{{Name: "dufs", Type: "http", Address: "127.0.0.1:5000"}}}
 	if err := saveState(dir, st); err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestEnrolStoresWhatTheServerAcceptedAndPushesTheApps(t *testing.T) {
 	if cp.appsBody == nil {
 		t.Fatal("the application list was not pushed")
 	}
-	if got := string(cp.appsBody); !strings.Contains(got, `"copyparty"`) || strings.Contains(got, "3923") {
+	if got := string(cp.appsBody); !strings.Contains(got, `"dufs"`) || strings.Contains(got, "5000") {
 		t.Errorf("apps body = %s, want the name and no address", got)
 	}
 

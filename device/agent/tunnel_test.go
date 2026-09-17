@@ -131,7 +131,7 @@ func TestTheServerReachesTheGatewayDownTheTunnel(t *testing.T) {
 	t.Cleanup(backend.Close)
 
 	ts, srv := newTunnelServer(t)
-	ag := tunnelAgent(t, srv, app{Name: "copyparty", Type: "http", Address: hostPort(t, backend.URL)})
+	ag := tunnelAgent(t, srv, app{Name: "dufs", Type: "http", Address: hostPort(t, backend.URL)})
 	cc := waitForTunnel(t, ts)
 
 	// The handshake is signed with the device key, so the server knows which PC opened it.
@@ -139,7 +139,7 @@ func TestTheServerReachesTheGatewayDownTheTunnel(t *testing.T) {
 		t.Fatalf("handshake signed with %v, want [%s]", keys, ag.key.publicHex())
 	}
 
-	resp := down(t, cc, ag, "/copyparty/files/a.txt")
+	resp := down(t, cc, ag, "/dufs/files/a.txt")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}

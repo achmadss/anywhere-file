@@ -44,7 +44,7 @@ func TestEveryPrivilegedActionAuditsOnce(t *testing.T) {
 
 	priv := enrolKey(t, h, "owner@example.com", "pc1")
 	deviceID := derivedDeviceID(priv)
-	if rec := syncAppsReq(t, h, priv, `{"apps":[{"name":"copyparty","type":"http"}]}`, nil); rec.Code != http.StatusOK {
+	if rec := syncAppsReq(t, h, priv, `{"apps":[{"name":"dufs","type":"http"}]}`, nil); rec.Code != http.StatusOK {
 		t.Fatalf("sync apps: status = %d (body %s)", rec.Code, rec.Body)
 	}
 	owner := signinToken(t, h, "owner@example.com", "correct horse battery")
@@ -107,7 +107,7 @@ func TestEveryPrivilegedActionAuditsOnce(t *testing.T) {
 func TestRemoteAndTunnelSeriesReportWhatHappened(t *testing.T) {
 	s := remoteScenario(t, echoApp())
 
-	if rec := s.get(t, "/d/"+s.deviceID+"/copyparty/files", s.cookies()); rec.Code != http.StatusOK {
+	if rec := s.get(t, "/d/"+s.deviceID+"/dufs/files", s.cookies()); rec.Code != http.StatusOK {
 		t.Fatalf("remote request: status = %d (body %s)", rec.Code, rec.Body)
 	}
 	if rec := s.get(t, "/d/"+s.deviceID+"/jellyfin/library", s.cookies()); rec.Code != http.StatusNotFound {

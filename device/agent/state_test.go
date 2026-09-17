@@ -37,12 +37,12 @@ func TestFirstRunWritesARegistry(t *testing.T) {
 func TestBadRegistryIsRefused(t *testing.T) {
 	for what, body := range map[string]string{
 		"a misspelled field":      `{"name":"pc1","applications":[]}`,
-		"an uppercase name":       `{"name":"pc1","apps":[{"name":"Copyparty","type":"http","address":"127.0.0.1:3923"}]}`,
-		"a name with a slash":     `{"name":"pc1","apps":[{"name":"media/files","type":"http","address":"127.0.0.1:3923"}]}`,
+		"an uppercase name":       `{"name":"pc1","apps":[{"name":"Dufs","type":"http","address":"127.0.0.1:5000"}]}`,
+		"a name with a slash":     `{"name":"pc1","apps":[{"name":"media/files","type":"http","address":"127.0.0.1:5000"}]}`,
 		"a duplicate name":        `{"name":"pc1","apps":[{"name":"a","type":"http","address":"127.0.0.1:1"},{"name":"a","type":"http","address":"127.0.0.1:2"}]}`,
-		"a missing address":       `{"name":"pc1","apps":[{"name":"copyparty","type":"http"}]}`,
-		"a URL for an address":    `{"name":"pc1","apps":[{"name":"copyparty","type":"http","address":"http://127.0.0.1:3923/x"}]}`,
-		"an address with no port": `{"name":"pc1","apps":[{"name":"copyparty","type":"http","address":"127.0.0.1"}]}`,
+		"a missing address":       `{"name":"pc1","apps":[{"name":"dufs","type":"http"}]}`,
+		"a URL for an address":    `{"name":"pc1","apps":[{"name":"dufs","type":"http","address":"http://127.0.0.1:5000/x"}]}`,
+		"an address with no port": `{"name":"pc1","apps":[{"name":"dufs","type":"http","address":"127.0.0.1"}]}`,
 		"a name that is too long": `{"name":"` + strings.Repeat("n", 65) + `","apps":[]}`,
 		"broken json":             `{"name":`,
 	} {
@@ -66,7 +66,7 @@ func TestRegistryTakesWhatTheServerTakes(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	body := `{"name":"pc1","apps":[{"name":"copyparty","type":"http","address":"127.0.0.1:3923"}]}`
+	body := `{"name":"pc1","apps":[{"name":"dufs","type":"http","address":"127.0.0.1:5000"}]}`
 	if err := os.WriteFile(filepath.Join(dir, stateFileName), []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -74,10 +74,10 @@ func TestRegistryTakesWhatTheServerTakes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(st.Apps) != 1 || st.Apps[0].Address != "127.0.0.1:3923" {
-		t.Fatalf("apps = %v, want one copyparty on loopback", st.Apps)
+	if len(st.Apps) != 1 || st.Apps[0].Address != "127.0.0.1:5000" {
+		t.Fatalf("apps = %v, want one dufs on loopback", st.Apps)
 	}
-	if names := st.appNames(); len(names) != 1 || names[0] != "copyparty" {
-		t.Errorf("appNames = %v, want [copyparty]", names)
+	if names := st.appNames(); len(names) != 1 || names[0] != "dufs" {
+		t.Errorf("appNames = %v, want [dufs]", names)
 	}
 }

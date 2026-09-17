@@ -178,8 +178,8 @@ func remoteRequest(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *tunnelRe
 	}
 }
 
-// stripSessionCookie removes our own cookie and leaves the application's. Copyparty and
-// friends set cookies of their own on the same host, and dropping the whole header would
+// stripSessionCookie removes our own cookie and leaves the application's. Applications set
+// cookies of their own on the same host, and dropping the whole header would
 // sign the user out of the application on every request.
 func stripSessionCookie(r *http.Request) {
 	cookies := r.Cookies()

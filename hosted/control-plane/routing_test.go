@@ -72,7 +72,7 @@ func remoteScenario(t *testing.T, app http.Handler) *remoteSetup {
 
 	priv := enrolKey(t, h, "owner@example.com", "pc1")
 	deviceID := derivedDeviceID(priv)
-	if rec := syncAppsReq(t, h, priv, `{"apps":[{"name":"copyparty","type":"http"}]}`, nil); rec.Code != http.StatusOK {
+	if rec := syncAppsReq(t, h, priv, `{"apps":[{"name":"dufs","type":"http"}]}`, nil); rec.Code != http.StatusOK {
 		t.Fatalf("sync apps: status = %d (body %s)", rec.Code, rec.Body)
 	}
 	dialTunnel(t, srv, priv, app)
@@ -107,7 +107,7 @@ func (s *remoteSetup) cookies() map[string]string {
 func TestRemoteRequestReachesTheApplication(t *testing.T) {
 	s := remoteScenario(t, echoApp())
 
-	req := httptest.NewRequest(http.MethodPost, "/d/"+s.deviceID+"/copyparty/files/holiday?sort=name", strings.NewReader("hello"))
+	req := httptest.NewRequest(http.MethodPost, "/d/"+s.deviceID+"/dufs/files/holiday?sort=name", strings.NewReader("hello"))
 	req.Header.Set("Cookie", sessionCookie+"="+s.session+"; app_pref=dark")
 	req.Header.Set("Authorization", "Bearer "+s.session)
 	rec := httptest.NewRecorder()
@@ -120,7 +120,7 @@ func TestRemoteRequestReachesTheApplication(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode %q: %v", rec.Body, err)
 	}
-	if got.Path != "/copyparty/files/holiday" {
+	if got.Path != "/dufs/files/holiday" {
 		t.Errorf("agent saw path %q, want the same shape it serves on the LAN", got.Path)
 	}
 	if got.Query != "sort=name" || got.Method != http.MethodPost || got.Body != "hello" {
@@ -141,7 +141,7 @@ func TestRemoteRequestReachesTheApplication(t *testing.T) {
 // passing case proves that step alone refused.
 func TestRemoteRequestDenials(t *testing.T) {
 	s := remoteScenario(t, echoApp())
-	path := "/d/" + s.deviceID + "/copyparty/files"
+	path := "/d/" + s.deviceID + "/dufs/files"
 
 	if code := s.get(t, path, nil).Code; code != http.StatusUnauthorized {
 		t.Errorf("no session: status = %d, want 401", code)
@@ -214,17 +214,17 @@ func TestRemoteRequestCannotCrossToAnotherDevice(t *testing.T) {
 	// The neighbour's PC offers the same application, so the binding is the only thing
 	// between the caller and it.
 	priv := enrolKey(t, s.h, "neighbour@example.com", "pc2")
-	if rec := syncAppsReq(t, s.h, priv, `{"apps":[{"name":"copyparty","type":"http"}]}`, nil); rec.Code != http.StatusOK {
+	if rec := syncAppsReq(t, s.h, priv, `{"apps":[{"name":"dufs","type":"http"}]}`, nil); rec.Code != http.StatusOK {
 		t.Fatalf("sync apps on pc2: status = %d (body %s)", rec.Code, rec.Body)
 	}
 
-	rec := s.get(t, "/d/"+derivedDeviceID(priv)+"/copyparty/files", s.cookies())
+	rec := s.get(t, "/d/"+derivedDeviceID(priv)+"/dufs/files", s.cookies())
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("another user's device: status = %d, want 404 (body %s)", rec.Code, rec.Body)
 	}
 }
 
-// Copyparty moves large files, so the body must flow through rather than be collected
+// dufs moves large files, so the body must flow through rather than be collected
 // here. This is a smaller stream than the 2 GB of #88, run both ways against a real
 // socket; buffering either direction would hold it all at once.
 func TestRemoteRequestStreamsBothWays(t *testing.T) {
@@ -244,7 +244,7 @@ func TestRemoteRequestStreamsBothWays(t *testing.T) {
 	})
 	s := remoteScenario(t, app)
 
-	up, err := http.NewRequest(http.MethodPost, s.srv.URL+"/d/"+s.deviceID+"/copyparty/upload", io.LimitReader(repeating{}, size))
+	up, err := http.NewRequest(http.MethodPost, s.srv.URL+"/d/"+s.deviceID+"/dufs/upload", io.LimitReader(repeating{}, size))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func TestRemoteRequestStreamsBothWays(t *testing.T) {
 		t.Errorf("upload: agent received %q, want %q", got, want)
 	}
 
-	down, err := http.NewRequest(http.MethodGet, s.srv.URL+"/d/"+s.deviceID+"/copyparty/download", nil)
+	down, err := http.NewRequest(http.MethodGet, s.srv.URL+"/d/"+s.deviceID+"/dufs/download", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
