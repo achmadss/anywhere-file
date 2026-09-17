@@ -9,11 +9,13 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"log/slog"
+	"net"
 	"strings"
 	"sync"
 
-	"github.com/grandcat/zeroconf"
+	"github.com/hashicorp/mdns"
 )
 
 const (
@@ -42,7 +44,7 @@ type advertiser struct {
 	log  *slog.Logger
 
 	mu  sync.Mutex
-	srv *zeroconf.Server
+	srv *mdns.Server
 }
 
 func newAdvertiser(port int, log *slog.Logger) *advertiser {
@@ -56,16 +58,31 @@ func (a *advertiser) advertise(s *state, key deviceKey) error {
 		return err
 	}
 	text := txtRecords(s, key)
-	srv, err := zeroconf.Register(instance, mdnsService, mdnsDomain, a.port, text, nil)
+	// The host name is derived from the device id rather than taken from the machine,
+	// because a PC's own name can be anything and this one has to be a legal label. The
+	// addresses are passed in so nothing here depends on the machine resolving itself.
+	host := "af-" + key.deviceID()[:instanceIDLen] + "." + mdnsDomain
+	service, err := mdns.NewMDNSService(instance, mdnsService, mdnsDomain, host, a.port, localAddrs(), text)
 	if err != nil {
 		return fmt.Errorf("mdns: %w", err)
 	}
+	// hashicorp/mdns binds 5353 with net.ListenMulticastUDP, which sets SO_REUSEADDR on
+	// every platform and SO_REUSEPORT on the BSDs. That is what lets the agent listen
+	// beside Bonjour, Avahi and the Windows resolver instead of losing the port to them.
+	srv, err := mdns.NewServer(&mdns.Config{
+		Zone:   service,
+		Logger: log.New(slogWriter{a.log}, "", 0),
+	})
+	if err != nil {
+		return fmt.Errorf("mdns: %w", err)
+	}
+
 	a.mu.Lock()
 	old := a.srv
 	a.srv = srv
 	a.mu.Unlock()
 	if old != nil {
-		old.Shutdown()
+		_ = old.Shutdown()
 	}
 	a.log.Info("advertising on the LAN",
 		"instance", instance, "service", mdnsService, "port", a.port, "txt", text)
@@ -78,7 +95,7 @@ func (a *advertiser) close() {
 	a.srv = nil
 	a.mu.Unlock()
 	if srv != nil {
-		srv.Shutdown()
+		_ = srv.Shutdown()
 	}
 }
 
@@ -116,4 +133,41 @@ func appsTXT(names []string) string {
 		b.WriteString(name)
 	}
 	return b.String()
+}
+
+// localAddrs is every address a client could reach this PC on. Loopback is the fallback,
+// so a machine with nothing else still advertises a usable record.
+func localAddrs() []net.IP {
+	var ips []net.IP
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return []net.IP{net.IPv4(127, 0, 0, 1)}
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLinkLocalUnicast() {
+				ips = append(ips, ipnet.IP)
+			}
+		}
+	}
+	if len(ips) == 0 {
+		return []net.IP{net.IPv4(127, 0, 0, 1)}
+	}
+	return ips
+}
+
+// slogWriter sends what the mdns package writes with the standard logger into ours, so an
+// agent's output is one stream of structured lines.
+type slogWriter struct{ log *slog.Logger }
+
+func (w slogWriter) Write(p []byte) (int, error) {
+	w.log.Debug("mdns", "msg", strings.TrimRight(string(p), "\n"))
+	return len(p), nil
 }

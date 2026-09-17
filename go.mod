@@ -7,7 +7,7 @@ tool honnef.co/go/tools/cmd/staticcheck
 require (
 	github.com/danieljoos/wincred v1.2.3
 	github.com/godbus/dbus/v5 v5.2.2
-	github.com/grandcat/zeroconf v1.0.0
+	github.com/hashicorp/mdns v1.0.7
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/zalando/go-keyring v0.2.8
@@ -18,7 +18,6 @@ require (
 require (
 	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect

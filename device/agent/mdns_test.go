@@ -1,12 +1,13 @@
 package main
 
 import (
-	"context"
+	"io"
+	"log"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/grandcat/zeroconf"
+	"github.com/hashicorp/mdns"
 )
 
 // A name one byte over the DNS-SD limit is dropped in silence by every responder measured
@@ -96,7 +97,7 @@ func TestTheAdvertisedRecordIsFound(t *testing.T) {
 	if entry.Port != 7433 {
 		t.Errorf("port = %d, want the gateway's 7433", entry.Port)
 	}
-	text := strings.Join(entry.Text, " ")
+	text := strings.Join(entry.InfoFields, " ")
 	for _, want := range []string{"v=1", "name=" + s.Name, "apps=copyparty"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("TXT = %q, want it to carry %q", text, want)
@@ -111,7 +112,7 @@ func TestTheAdvertisedRecordIsFound(t *testing.T) {
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		entry := browse(t, key.deviceID(), 2*time.Second)
-		if entry != nil && strings.Contains(strings.Join(entry.Text, " "), "apps=copyparty,jellyfin") {
+		if entry != nil && strings.Contains(strings.Join(entry.InfoFields, " "), "apps=copyparty,jellyfin") {
 			return
 		}
 		if time.Now().After(deadline) {
@@ -122,25 +123,31 @@ func TestTheAdvertisedRecordIsFound(t *testing.T) {
 
 // browse looks for our own record and ignores anything else on the network, which on a
 // developer's LAN may include another PC running this agent.
-func browse(t *testing.T, deviceID string, within time.Duration) *zeroconf.ServiceEntry {
+func browse(t *testing.T, deviceID string, within time.Duration) *mdns.ServiceEntry {
 	t.Helper()
-	resolver, err := zeroconf.NewResolver()
-	if err != nil {
-		t.Fatalf("resolver: %v", err)
-	}
-	ctx, cancel := context.WithTimeout(t.Context(), within)
-	defer cancel()
-	entries := make(chan *zeroconf.ServiceEntry, 8)
-	if err := resolver.Browse(ctx, mdnsService, mdnsDomain, entries); err != nil {
-		t.Fatalf("browse: %v", err)
-	}
-	var found *zeroconf.ServiceEntry
-	for entry := range entries {
-		for _, txt := range entry.Text {
-			if txt == "id="+deviceID {
-				found = entry
+	entries := make(chan *mdns.ServiceEntry, 16)
+	done := make(chan *mdns.ServiceEntry, 1)
+	go func() {
+		var found *mdns.ServiceEntry
+		for entry := range entries {
+			for _, txt := range entry.InfoFields {
+				if txt == "id="+deviceID {
+					found = entry
+				}
 			}
 		}
+		done <- found
+	}()
+	err := mdns.QueryContext(t.Context(), &mdns.QueryParam{
+		Service: mdnsService,
+		Domain:  strings.TrimSuffix(mdnsDomain, "."),
+		Timeout: within,
+		Entries: entries,
+		Logger:  log.New(io.Discard, "", 0),
+	})
+	close(entries)
+	if err != nil {
+		t.Fatalf("query: %v", err)
 	}
-	return found
+	return <-done
 }
