@@ -57,10 +57,10 @@ go run ./device/agent key
 | `RFM_AGENT_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
 
 `auto` uses the OS keystore: Keychain on macOS, Credential Manager on Windows, the Secret
-Service on a Linux desktop. A Linux machine with no session bus, such as a NAS or a
-container, has no keystore, so the seed goes in a mode 0600 file in a mode 0700 directory
-and wider permissions are refused. On such a machine the device key is protected by
-filesystem permissions and by full disk encryption if the operator set one up, and by
+Service on a Linux desktop. A Linux machine with no Secret Service, such as a NAS, a server
+or a container, has no keystore, so the seed goes in a mode 0600 file in a mode 0700
+directory and wider permissions are refused. On such a machine the device key is protected
+by filesystem permissions and by full disk encryption if the operator set one up, and by
 nothing else. Set `RFM_AGENT_KEYSTORE` when the guess is wrong.
 
 A keystore that is locked or unreachable is a wait, not a new key. The agent retries and

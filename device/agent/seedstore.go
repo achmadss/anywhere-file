@@ -51,21 +51,25 @@ func openSeedStore(cfg config) (seedStore, error) {
 	}
 	// Only Linux has the headless case. macOS and Windows always have a store, and an
 	// error from one there means locked, which is a wait and never a new key.
-	if runtime.GOOS == "linux" && !hasSessionBus() {
+	if runtime.GOOS == "linux" && !hasKeystore() {
 		return fileStore{filepath.Join(cfg.dir, seedFileName)}, nil
 	}
 	return keyringStore{}, nil
 }
 
-// hasSessionBus reports whether a D-Bus session bus exists, which is what the Secret
-// Service runs on. Without one there is no keystore to be locked, so waiting for it to
-// unlock would wait forever.
-func hasSessionBus() bool {
-	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") != "" {
-		return true
+// hasKeystore reports whether this Linux machine has a Secret Service to keep the seed
+// in. Two ways it can be missing: no D-Bus session bus at all, which is a headless box,
+// and a session bus with nothing answering for org.freedesktop.secrets, which is a
+// minimal desktop or a container. Both are permanent, so the agent takes the seed file
+// rather than waiting for a keystore that is never coming.
+func hasKeystore() bool {
+	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
+		if _, err := os.Stat(fmt.Sprintf("/run/user/%d/bus", os.Getuid())); err != nil {
+			return false
+		}
 	}
-	_, err := os.Stat(fmt.Sprintf("/run/user/%d/bus", os.Getuid()))
-	return err == nil
+	_, err := keyringStore{}.load()
+	return !secretServiceMissing(err)
 }
 
 // keyringStore is the OS keystore: Keychain on macOS, Credential Manager on Windows, the
