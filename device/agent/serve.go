@@ -25,8 +25,12 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		return err
 	}
 
+	// The listener comes first, because the port it lands on is what the LAN is told.
+	ln, err := net.Listen("tcp", cfg.addr)
+	if err != nil {
+		return err
+	}
 	srv := &http.Server{
-		Addr:    cfg.addr,
 		Handler: newGateway(st, key, log),
 		// No write timeout: a download of a large file is the point of this service, and a
 		// deadline on the whole response would cut one off partway through.
@@ -34,10 +38,21 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
 	log.Info("gateway listening",
-		"addr", cfg.addr, "device", key.deviceID(), "name", st.Name, "apps", st.appNames())
+		"addr", ln.Addr().String(), "device", key.deviceID(), "name", st.Name, "apps", st.appNames())
+
+	if cfg.mdns {
+		ad := newAdvertiser(ln.Addr().(*net.TCPAddr).Port, log)
+		// A PC nobody can find is a PC with no local mode, so this is a startup failure
+		// and not a warning. Set RFM_AGENT_MDNS=off where there is no multicast to have.
+		if err := ad.advertise(st, key); err != nil {
+			_ = ln.Close()
+			return err
+		}
+		defer ad.close()
+	}
 
 	done := make(chan error, 1)
-	go func() { done <- srv.ListenAndServe() }()
+	go func() { done <- srv.Serve(ln) }()
 	select {
 	case err := <-done:
 		if errors.Is(err, http.ErrServerClosed) {

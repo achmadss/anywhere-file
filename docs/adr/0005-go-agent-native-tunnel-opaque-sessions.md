@@ -8,12 +8,20 @@ with it.
 
 | Piece | Choice |
 |---|---|
-| Agent | Go. Device key from `crypto/ed25519`, OS keystore through `zalando/go-keyring`, mDNS through `grandcat/zeroconf`, local gateway through `net/http/httputil.ReverseProxy`. |
+| Agent | Go. Device key from `crypto/ed25519`, OS keystore through `zalando/go-keyring`, mDNS through `hashicorp/mdns`, local gateway through `net/http/httputil.ReverseProxy`. |
 | Control plane | Go, unchanged. One Go module for both, so the request signing code is written once. |
 | Client | Kotlin, Compose Multiplatform, targeting Android, Windows, macOS and Linux. |
 | Tunnel | The agent opens one outbound TLS connection to the server, authenticated with its device key. The server sends HTTP requests down that connection over HTTP/2 (`golang.org/x/net/http2`), and the agent answers them through the same gateway it uses on the LAN. No Rathole, no sidecar. |
 | User sessions | Opaque random tokens, hash stored, looked up on every request. No JWT in the MVP. |
 | Payment | Stubbed. A subscription row with a status an operator sets. No provider. |
+
+The mDNS package changed from `grandcat/zeroconf` on 2026-09-17 with #93. Both are pure
+Go and the choice is not interesting on its own; the socket is. `zeroconf` binds 5353 with
+`net.ListenUDP`, which sets no reuse options, so on macOS the agent registered and then
+neither heard nor was heard beside mDNSResponder, measured on the macOS runner.
+`hashicorp/mdns` binds with `net.ListenMulticastUDP`, which sets `SO_REUSEADDR` on every
+platform and `SO_REUSEPORT` on the BSDs, which is what the requirement to coexist with
+Bonjour, Avahi and the Windows resolver actually needs.
 
 ## Why Go for the agent
 

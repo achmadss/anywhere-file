@@ -48,8 +48,9 @@ machine. The server derives `device_id` from the public key, so a replaced key i
 device and drops the PC out of every binding it had.
 
 ```sh
-go run ./device/agent key    # print the identity
-go run ./device/agent run    # serve the registered applications on the LAN
+go run ./device/agent key        # print the identity
+go run ./device/agent run       # serve the applications and announce this PC on the LAN
+go run ./device/agent discover  # list the agents this machine can see on the LAN
 ```
 
 | Variable | Default | What |
@@ -57,6 +58,7 @@ go run ./device/agent run    # serve the registered applications on the LAN
 | `RFM_AGENT_DIR` | the OS config directory, `%LocalAppData%` on Windows | where the agent keeps its own state |
 | `RFM_AGENT_ADDR` | `:7433` | the address the LAN gateway listens on |
 | `RFM_AGENT_KEYSTORE` | `auto` | `keyring` for the OS keystore, `file` for a seed file |
+| `RFM_AGENT_MDNS` | `on` | `off` on a machine with no multicast, such as some containers |
 | `RFM_AGENT_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
 
 `auto` uses the OS keystore: Keychain on macOS, Credential Manager on Windows, the Secret
@@ -96,6 +98,19 @@ served under, which for Copyparty is `--rp-loc`.
 
 `GET /.well-known/anywhere-file` returns the device id, the name and the application names,
 which is what a client reads after it finds the agent.
+
+### Discovery
+
+`agent run` advertises `_anywhere-file._tcp` on the LAN, with the gateway port in the SRV
+record and the device id, the display name, the application names and the protocol version
+in TXT. A client browses for it and needs no account and no Internet to do so.
+
+The display name is capped at 54 bytes, because it goes in a DNS-SD instance name with a
+piece of the device id after it and the whole thing has to fit in 63. Responders drop a
+longer one without saying anything, so the agent refuses to start instead.
+
+`agent discover` is the same browse from the command line, and is the first thing to run
+when a PC does not appear in the client.
 
 ## Running the control plane locally
 

@@ -86,8 +86,14 @@ func saveState(dir string, s *state) error {
 }
 
 func (s *state) validate() error {
-	if len(s.Name) > 64 {
-		return fmt.Errorf("name is %d bytes, the server accepts 64", len(s.Name))
+	if s.Name == "" {
+		return fmt.Errorf("name is empty")
+	}
+	// The limit is the LAN one: the name goes in a DNS-SD instance name with a piece of
+	// the device id after it, and anything longer is dropped in silence by the responders
+	// measured in docs/spikes/mdns.md. It is well under the 64 bytes the server takes.
+	if len(s.Name) > maxDeviceName {
+		return fmt.Errorf("name is %d bytes, the limit is %d", len(s.Name), maxDeviceName)
 	}
 	if len(s.Apps) > maxApps {
 		return fmt.Errorf("%d applications, the server accepts %d", len(s.Apps), maxApps)
@@ -119,8 +125,8 @@ func defaultDeviceName() string {
 	if err != nil || name == "" {
 		return "pc"
 	}
-	if len(name) > 64 {
-		name = name[:64]
+	if len(name) > maxDeviceName {
+		name = name[:maxDeviceName]
 	}
 	return name
 }
