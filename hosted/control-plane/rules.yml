@@ -1,98 +1,14 @@
-# Alert rules for the control plane and the relay fleet (issue #27).
-# Load this file from prometheus.yml with a rule_files entry. Thresholds that
-# are operator dials stay in the metrics themselves (rfm_relay_overcommit_ratio)
-# so the console, the rules, and the code read one number.
+# Alert rules for the control plane. Load this file from prometheus.yml with a
+# rule_files entry. The rules for the new model (tunnel churn, remote request
+# denials) land with #89.
 #
-# Assumed scrape job names, owned by the provisioning work in #28: the control
-# plane scrapes itself as "rfm-cloud" and each relay as "rfm-relay".
 # Assumed subscription job name: the state job overdue alert watches
 # job="subscription-state". Rename the label when that job lands.
 
 groups:
-  - name: rfm-relay-auth
-    interval: 30s
-    rules:
-      # The authorize endpoint is on the connection path and fails closed, so
-      # errors or slowness here are customers unable to relay.
-      - alert: RelayAuthorizeFailing
-        expr: |
-          (
-            sum(rate(rfm_relay_authorize_errors_total[5m]))
-            /
-            sum(rate(rfm_relay_authorize_requests_total[5m]))
-          ) > 0.01
-          or
-          histogram_quantile(0.99, sum(rate(rfm_relay_authorize_latency_seconds_bucket[5m])) by (le)) > 0.5
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Relay authorization is erroring or slow"
-          description: "Error ratio above 1% or p99 latency above 0.5s for 5 minutes. The endpoint fails closed, so affected devices cannot use relays."
-
-      # The earliest signal that a sync, a subscription job, or a deploy broke
-      # something: one reason suddenly dominates refusals.
-      - alert: RelayDenialSpike
-        expr: |
-          sum by (reason) (rate(rfm_relay_denials_total[5m]))
-          >
-          3 * sum by (reason) (rate(rfm_relay_denials_total[1h]))
-          and
-          sum by (reason) (rate(rfm_relay_denials_total[5m])) > 0.05
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Relay denials spiking for one reason"
-          description: "Denial rate for reason {{ $labels.reason }} is over 3x its hourly baseline. Check the latest deploy, sync, or subscription job."
-
-  - name: rfm-fleet
-    interval: 30s
-    rules:
-      # Actual throughput near measured capacity: the fleet is too small.
-      - alert: RelayThroughputNearCapacity
-        expr: rfm_relay_actual_bps / rfm_relay_capacity_bps > 0.85
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Relay {{ $labels.relay }} near capacity"
-          description: "Actual throughput above 85% of measured capacity for 10 minutes. Add a relay or move workspaces."
-
-      # Committed rate past the overcommit ratio: the same signal, earlier.
-      - alert: RelayCommittedOverRatio
-        expr: sum(rfm_relay_committed_bps) / sum(rfm_relay_capacity_bps) > scalar(rfm_relay_overcommit_ratio)
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Committed relay rate past overcommit ratio"
-          description: "Sold rate exceeds capacity times the operator overcommit setting. Same remedy as RelayThroughputNearCapacity, with more lead time."
-
-      - alert: RelayUnreachable
-        expr: up{job="rfm-relay"} == 0
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Relay target unreachable"
-          description: "Prometheus cannot reach a relay target. Relayed sessions for its workspaces retry other relays, then surface reconnecting."
-
-      - alert: RelayMetricsMissing
-        expr: absent(rfm_relay_actual_bps)
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "No relay throughput reported"
-          description: "No relay has reported throughput for 15 minutes. Either every relay is down or the scrape config lost them."
-
   - name: rfm-jobs
     interval: 30s
     rules:
-      # The subscription state job drives grace, suspension, and cleanup. The
-      # interval below assumes it runs at least hourly; confirm when the job
-      # lands and adjust the 3600s budget with it.
       - alert: SubscriptionJobStale
         expr: time() - rfm_subscription_job_last_run_unixtime > 3600
         for: 15m
@@ -100,4 +16,4 @@ groups:
           severity: warning
         annotations:
           summary: "Subscription job {{ $labels.job }} not run in its interval"
-          description: "No successful run recorded for over an hour. Grace and suspension transitions are not happening."
+          description: "No successful run recorded for over an hour. Subscription status changes are not happening."

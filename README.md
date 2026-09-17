@@ -50,7 +50,6 @@ cd hosted/control-plane
 docker compose up -d
 export RFM_DATABASE_URL='postgres://rfm:rfm@localhost:5433/rfm?sslmode=disable'
 go run . migrate up          # `migrate down [n]` reverses
-go run . seed                # a small development fixture
 go run . serve               # :8443, HTTP unless RFM_TLS_CERT and RFM_TLS_KEY are set
 curl -s localhost:8443/healthz
 ```
@@ -64,7 +63,7 @@ RFM_TEST_DATABASE_URL='postgres://rfm:rfm@localhost:5433/rfm?sslmode=disable' go
 ```
 
 Without it those tests skip, and a skip looks like a pass. CI runs them against PostgreSQL
-on the ubuntu runner and fails if the concurrency test did not actually run.
+on the ubuntu runner and fails if the invite race test did not actually run.
 
 ## History
 

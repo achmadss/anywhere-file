@@ -103,7 +103,7 @@ func mintTokenRow(t *testing.T, pool *pgxpool.Pool, table, accountID string, exp
 
 func TestSignupSigninMeRoundTrip(t *testing.T) {
 	pool := freshDB(t, 4)
-	h := newHandler(pool, discard, NewMetrics(1))
+	h := newHandler(pool, discard, NewMetrics())
 
 	if rec := signupReq(t, h, "alice@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
 		t.Fatalf("signup: status = %d, want 200 (body %s)", rec.Code, rec.Body)
@@ -140,7 +140,7 @@ func TestSignupSigninMeRoundTrip(t *testing.T) {
 
 func TestSigninWrongPasswordMatchesUnknownAddress(t *testing.T) {
 	pool := freshDB(t, 4)
-	h := newHandler(pool, discard, NewMetrics(1))
+	h := newHandler(pool, discard, NewMetrics())
 
 	if rec := signupReq(t, h, "bob@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
 		t.Fatalf("signup: status = %d (body %s)", rec.Code, rec.Body)
@@ -162,7 +162,7 @@ func TestSigninWrongPasswordMatchesUnknownAddress(t *testing.T) {
 
 func TestSignupEnumerationResistance(t *testing.T) {
 	pool := freshDB(t, 4)
-	h := newHandler(pool, discard, NewMetrics(1))
+	h := newHandler(pool, discard, NewMetrics())
 
 	first := signupReq(t, h, "carol@example.test", "correct-horse-123")
 	second := signupReq(t, h, "carol@example.test", "correct-horse-123")
@@ -185,7 +185,7 @@ func TestSignupEnumerationResistance(t *testing.T) {
 
 func TestPasswordResetEnumerationResistance(t *testing.T) {
 	pool := freshDB(t, 4)
-	h := newHandler(pool, discard, NewMetrics(1))
+	h := newHandler(pool, discard, NewMetrics())
 
 	if rec := signupReq(t, h, "dave@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
 		t.Fatalf("signup: status = %d (body %s)", rec.Code, rec.Body)
@@ -205,7 +205,7 @@ func TestPasswordResetEnumerationResistance(t *testing.T) {
 
 func TestVerifyExpiredTokenFails(t *testing.T) {
 	pool := freshDB(t, 4)
-	h := newHandler(pool, discard, NewMetrics(1))
+	h := newHandler(pool, discard, NewMetrics())
 
 	if rec := signupReq(t, h, "erin@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
 		t.Fatalf("signup: status = %d (body %s)", rec.Code, rec.Body)
@@ -222,7 +222,7 @@ func TestVerifyExpiredTokenFails(t *testing.T) {
 
 func TestVerifyTokenWorksOnce(t *testing.T) {
 	pool := freshDB(t, 4)
-	h := newHandler(pool, discard, NewMetrics(1))
+	h := newHandler(pool, discard, NewMetrics())
 
 	if rec := signupReq(t, h, "fred@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
 		t.Fatalf("signup: status = %d (body %s)", rec.Code, rec.Body)
@@ -253,7 +253,7 @@ func TestVerifyTokenWorksOnce(t *testing.T) {
 
 func TestResetLinkWorksOnceAndRotatesPassword(t *testing.T) {
 	pool := freshDB(t, 4)
-	h := newHandler(pool, discard, NewMetrics(1))
+	h := newHandler(pool, discard, NewMetrics())
 
 	if rec := signupReq(t, h, "gina@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
 		t.Fatalf("signup: status = %d (body %s)", rec.Code, rec.Body)
@@ -278,7 +278,7 @@ func TestResetLinkWorksOnceAndRotatesPassword(t *testing.T) {
 
 func TestResetConfirmExpiredTokenFails(t *testing.T) {
 	pool := freshDB(t, 4)
-	h := newHandler(pool, discard, NewMetrics(1))
+	h := newHandler(pool, discard, NewMetrics())
 
 	if rec := signupReq(t, h, "hank@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
 		t.Fatalf("signup: status = %d (body %s)", rec.Code, rec.Body)
@@ -295,7 +295,7 @@ func TestResetConfirmExpiredTokenFails(t *testing.T) {
 
 func TestSignoutRevokesSession(t *testing.T) {
 	pool := freshDB(t, 4)
-	h := newHandler(pool, discard, NewMetrics(1))
+	h := newHandler(pool, discard, NewMetrics())
 
 	if rec := signupReq(t, h, "iris@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
 		t.Fatalf("signup: status = %d (body %s)", rec.Code, rec.Body)
@@ -312,7 +312,7 @@ func TestSignoutRevokesSession(t *testing.T) {
 
 func TestAuthEndpointsAreRateLimited(t *testing.T) {
 	pool := freshDB(t, 4)
-	h := newHandler(pool, discard, NewMetrics(1))
+	h := newHandler(pool, discard, NewMetrics())
 
 	var last *httptest.ResponseRecorder
 	for i := range signupLimit + 1 {
@@ -349,8 +349,8 @@ func TestVerifyAgentSignature(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body := []byte(`{"workspace_id":"ws-1"}`)
-	req := httptest.NewRequest(http.MethodPost, "/v1/workspaces/ws-1/enable", strings.NewReader(string(body)))
+	body := []byte(`{"name":"pc1"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/devices/enrol", strings.NewReader(string(body)))
 	devicesig.Sign(req, priv, body)
 
 	got, err := verifyAgentSignature(req, pool, body)
@@ -364,7 +364,7 @@ func TestVerifyAgentSignature(t *testing.T) {
 		t.Error("replayed nonce accepted, want rejected")
 	}
 
-	bare := httptest.NewRequest(http.MethodPost, "/v1/workspaces/ws-1/enable", strings.NewReader(string(body)))
+	bare := httptest.NewRequest(http.MethodPost, "/v1/devices/enrol", strings.NewReader(string(body)))
 	if _, err := verifyAgentSignature(bare, pool, body); err == nil {
 		t.Error("unsigned request accepted, want rejected")
 	}
@@ -374,7 +374,7 @@ func TestVerifyAgentSignature(t *testing.T) {
 // Secure is the app's to set: a load balancer terminating TLS does not rewrite Set-Cookie.
 func TestSessionCookieIsSecureAndHTTPOnly(t *testing.T) {
 	pool := freshDB(t, 4)
-	h := newHandler(pool, discard, NewMetrics(1))
+	h := newHandler(pool, discard, NewMetrics())
 
 	if rec := signupReq(t, h, "carol@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
 		t.Fatalf("signup: status = %d, want 200 (body %s)", rec.Code, rec.Body)

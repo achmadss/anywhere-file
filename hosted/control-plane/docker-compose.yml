@@ -2,7 +2,7 @@
 #
 #   docker compose up -d
 #   export RFM_DATABASE_URL=postgres://rfm:rfm@localhost:5433/rfm?sslmode=disable
-#   go run . migrate up && go run . seed
+#   go run . migrate up
 #
 # Port 5433 on the host, so it does not collide with a PostgreSQL someone already runs on
 # 5432. The data volume is disposable: `docker compose down -v` resets everything.

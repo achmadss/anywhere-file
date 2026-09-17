@@ -79,15 +79,7 @@ func TestAlertRulesCoverRequiredSignals(t *testing.T) {
 		}
 	}
 
-	for _, want := range []string{
-		"RelayAuthorizeFailing",
-		"RelayDenialSpike",
-		"RelayThroughputNearCapacity",
-		"RelayCommittedOverRatio",
-		"RelayUnreachable",
-		"RelayMetricsMissing",
-		"SubscriptionJobStale",
-	} {
+	for _, want := range []string{"SubscriptionJobStale"} {
 		if !byName[want] {
 			t.Errorf("required alert %s missing from rules.yml", want)
 		}
@@ -100,7 +92,7 @@ func TestAlertRulesCoverRequiredSignals(t *testing.T) {
 func TestAlertRulesReferenceExportedSeries(t *testing.T) {
 	rf := loadRules(t)
 
-	m := NewMetrics(1)
+	m := NewMetrics()
 	exerciseAllSeries(m)
 	exported := parseExposition(t, scrape(t, m))
 
@@ -118,12 +110,7 @@ func TestAlertRulesReferenceExportedSeries(t *testing.T) {
 			t.Errorf("rule references %s, which /metrics does not export", token)
 		}
 	}
-	for _, token := range []string{
-		"rfm_relay_authorize_errors_total", "rfm_relay_authorize_requests_total",
-		"rfm_relay_authorize_latency_seconds_bucket", "rfm_relay_denials_total",
-		"rfm_relay_actual_bps", "rfm_relay_capacity_bps", "rfm_relay_committed_bps",
-		"rfm_relay_overcommit_ratio", "rfm_subscription_job_last_run_unixtime",
-	} {
+	for _, token := range []string{"rfm_subscription_job_last_run_unixtime"} {
 		if !seenRef[token] {
 			t.Errorf("no rule references exported series %s", token)
 		}
