@@ -26,7 +26,7 @@ docker network create --internal --subnet 10.77.0.0/24 "$NET" >/dev/null
 
 rm -rf /tmp/agent-a && mkdir -p /tmp/agent-a && chmod 700 /tmp/agent-a
 cat > /tmp/agent-a/agent.json <<'JSON'
-{"name":"pc-in-a-box","apps":[{"name":"copyparty","type":"http","address":"127.0.0.1:3923"}]}
+{"name":"pc-in-a-box","apps":[{"name":"dufs","type":"http","address":"127.0.0.1:5000"}]}
 JSON
 
 docker run -d --name rfm-advertiser --network "$NET" --cap-add NET_ADMIN \
@@ -50,4 +50,4 @@ out=$(docker run --rm --network "$NET" --cap-add NET_ADMIN -v /tmp/agent:/agent:
 echo "$out"
 
 echo "$out" | grep -q "pc-in-a-box" || { echo "the advertiser was not found"; exit 1; }
-echo "$out" | grep -q "copyparty" || { echo "the TXT record did not survive"; exit 1; }
+echo "$out" | grep -q "dufs" || { echo "the TXT record did not survive"; exit 1; }

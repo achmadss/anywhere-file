@@ -1,6 +1,6 @@
 # anywhere-file
 
-An agent on each of your PCs runs and exposes local applications, starting with Copyparty.
+An agent on each of your PCs runs and exposes local applications, starting with dufs.
 A client app finds the agent on the LAN and connects to it directly, with no account and no
 Internet. Away from home, the same client goes through our server, which checks who you are
 and which devices you may reach, then forwards the request down a tunnel the agent keeps
@@ -84,7 +84,7 @@ starting one on first run.
 {
   "name": "pc1",
   "apps": [
-    { "name": "copyparty", "type": "http", "address": "127.0.0.1:3923" }
+    { "name": "dufs", "type": "http", "address": "127.0.0.1:5000" }
   ]
 }
 ```
@@ -95,9 +95,9 @@ address comes from there, which is what keeps the agent from being an open proxy
 address stays on the PC and is never sent to the server, which only ever learns the name
 and the type.
 
-An application is reached at its own root, so `/copyparty/files/a.txt` arrives as
+An application is reached at its own root, so `/dufs/files/a.txt` arrives as
 `/files/a.txt`. An application that writes absolute links has to be told the prefix it is
-served under, which for Copyparty is `--rp-loc`.
+served under.
 
 `GET /.well-known/anywhere-file` returns the device id, the name and the application names,
 which is what a client reads after it finds the agent.

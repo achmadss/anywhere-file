@@ -46,17 +46,17 @@ func TestInstanceNameIsCappedAtTheDNSSDLimit(t *testing.T) {
 func TestTXTCarriesWhatTheClientNeeds(t *testing.T) {
 	key := testKey(t)
 	s := &state{Name: "pc1", Apps: []app{
-		{Name: "copyparty", Type: "http", Address: "127.0.0.1:3923"},
+		{Name: "dufs", Type: "http", Address: "127.0.0.1:5000"},
 		{Name: "jellyfin", Type: "http", Address: "127.0.0.1:8096"},
 	}}
 	text := strings.Join(txtRecords(s, key), " ")
-	for _, want := range []string{"v=1", "id=" + key.deviceID(), "name=pc1", "apps=copyparty,jellyfin"} {
+	for _, want := range []string{"v=1", "id=" + key.deviceID(), "name=pc1", "apps=dufs,jellyfin"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("TXT = %q, want it to carry %q", text, want)
 		}
 	}
 	// The one thing that never leaves the PC.
-	if strings.Contains(text, "3923") {
+	if strings.Contains(text, "5000") {
 		t.Errorf("TXT = %q, want no application address in it", text)
 	}
 
@@ -79,7 +79,7 @@ func TestTXTCarriesWhatTheClientNeeds(t *testing.T) {
 // every runner and is the check the issue asks for.
 func TestTheResponderBindsBesideTheSystemOne(t *testing.T) {
 	key := testKey(t)
-	s := &state{Name: "pc1", Apps: []app{{Name: "copyparty", Type: "http", Address: "127.0.0.1:3923"}}}
+	s := &state{Name: "pc1", Apps: []app{{Name: "dufs", Type: "http", Address: "127.0.0.1:5000"}}}
 
 	ad := newAdvertiser(7433, discard)
 	if err := ad.advertise(s, key); err != nil {
@@ -108,7 +108,7 @@ func TestTheAdvertisedRecordIsFound(t *testing.T) {
 		t.Skip("set RFM_TEST_MULTICAST on a machine whose network carries multicast")
 	}
 	key := testKey(t)
-	s := &state{Name: "pc-" + key.deviceID()[:6], Apps: []app{{Name: "copyparty", Type: "http", Address: "127.0.0.1:3923"}}}
+	s := &state{Name: "pc-" + key.deviceID()[:6], Apps: []app{{Name: "dufs", Type: "http", Address: "127.0.0.1:5000"}}}
 
 	ad := newAdvertiser(7433, discard)
 	if err := ad.advertise(s, key); err != nil {
@@ -123,8 +123,8 @@ func TestTheAdvertisedRecordIsFound(t *testing.T) {
 	if entry.Version != "1" {
 		t.Errorf("v = %q, want 1", entry.Version)
 	}
-	if strings.Join(entry.Apps, ",") != "copyparty" {
-		t.Errorf("apps = %v, want copyparty", entry.Apps)
+	if strings.Join(entry.Apps, ",") != "dufs" {
+		t.Errorf("apps = %v, want dufs", entry.Apps)
 	}
 	if !strings.HasSuffix(entry.Address, ":7433") {
 		t.Errorf("address = %q, want the gateway port", entry.Address)
@@ -138,7 +138,7 @@ func TestTheAdvertisedRecordIsFound(t *testing.T) {
 	deadline := time.Now().Add(10 * time.Second)
 	for {
 		entry := mustFind(t, key.deviceID(), 2*time.Second)
-		if strings.Join(entry.Apps, ",") == "copyparty,jellyfin" {
+		if strings.Join(entry.Apps, ",") == "dufs,jellyfin" {
 			return
 		}
 		if time.Now().After(deadline) {

@@ -147,7 +147,7 @@ func TestTunnelCarriesARequestToItsDevice(t *testing.T) {
 	}))
 	waitOnline(t, reg, deviceID, true)
 
-	req, err := http.NewRequest(http.MethodGet, "http://device/copyparty/files", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://device/dufs/files", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestTunnelCarriesARequestToItsDevice(t *testing.T) {
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK || string(body) != "agent answered /copyparty/files" {
+	if resp.StatusCode != http.StatusOK || string(body) != "agent answered /dufs/files" {
 		t.Errorf("tunnel response = %d %q", resp.StatusCode, body)
 	}
 
