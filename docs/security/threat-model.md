@@ -76,6 +76,13 @@ Anyone who can reach the agent on the LAN can use every application it exposes.
 MVP still guarantees is C1: the surface is the registered applications and nothing else.
 V2 adds a local user check without changing the gateway.
 
+Enrolment is on the same footing. `/enrol` on the gateway takes a server address and a
+token from anyone who can reach it, so someone on the LAN can bind the PC to their own
+account, and a PC already enrolled can be re-bound. `docs/new-arch.md` asks for enrolment
+from the client over the LAN and the MVP has no local user check to gate it with. The
+device key never leaves the PC either way, so this is a binding an admin can revoke and
+not a key anyone can take.
+
 Related: the agent serves plain HTTP on the LAN in the MVP. Traffic can be read by anyone on
 the same network. TLS with the device key and a client that pins it is a separate issue,
 after the MVP.

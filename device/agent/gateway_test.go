@@ -49,7 +49,7 @@ func gatewayWithApp(t *testing.T, name string, h http.Handler) (*httptest.Server
 	t.Cleanup(backend.Close)
 
 	st := &state{Name: "pc1", Apps: []app{{Name: name, Type: "http", Address: hostPort(t, backend.URL)}}}
-	gw := httptest.NewServer(newGateway(st, testKey(t), discard))
+	gw := httptest.NewServer(newGateway(newAgent(t.TempDir(), testKey(t), st, discard)))
 	t.Cleanup(gw.Close)
 	return gw, seen
 }
@@ -169,7 +169,7 @@ func TestGatewayRefusesWhatIsNotRegistered(t *testing.T) {
 
 func TestUnreachableApplicationIsABadGateway(t *testing.T) {
 	st := &state{Name: "pc1", Apps: []app{{Name: "copyparty", Type: "http", Address: "127.0.0.1:1"}}}
-	gw := httptest.NewServer(newGateway(st, testKey(t), discard))
+	gw := httptest.NewServer(newGateway(newAgent(t.TempDir(), testKey(t), st, discard)))
 	t.Cleanup(gw.Close)
 	if resp := get(t, gw, "/copyparty/"); resp.StatusCode != http.StatusBadGateway {
 		t.Errorf("status = %d, want 502", resp.StatusCode)
@@ -183,7 +183,7 @@ func TestDiscoveryDocument(t *testing.T) {
 		{Name: "copyparty", Type: "http", Address: "127.0.0.1:3923"},
 		{Name: "jellyfin", Type: "http", Address: "127.0.0.1:8096"},
 	}}
-	gw := httptest.NewServer(newGateway(st, key, discard))
+	gw := httptest.NewServer(newGateway(newAgent(t.TempDir(), key, st, discard)))
 	t.Cleanup(gw.Close)
 
 	resp := get(t, gw, discoveryPath)
