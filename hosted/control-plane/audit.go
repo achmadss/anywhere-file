@@ -11,7 +11,7 @@ import (
 
 // Audit actions, one per privileged cloud operation. The strings are stored in
 // audit_events.action, so they are frozen once used. Add new ones, never rename or reuse
-// an old one. The actions of the new model land with their features (#89).
+// an old one.
 const (
 	ActionAccountDeleted = "account.deleted"
 	ActionDeviceEnrolled = "device.enrolled"
@@ -24,6 +24,7 @@ const (
 
 	ActionTunnelConnected    = "tunnel.connected"
 	ActionTunnelDisconnected = "tunnel.disconnected"
+	ActionRemoteDenied       = "remote.denied"
 
 	ActionSubscriptionChanged = "subscription.changed"
 )
@@ -42,6 +43,7 @@ var validActions = map[string]bool{
 
 	ActionTunnelConnected:    true,
 	ActionTunnelDisconnected: true,
+	ActionRemoteDenied:       true,
 
 	ActionSubscriptionChanged: true,
 }
