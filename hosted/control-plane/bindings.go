@@ -22,11 +22,11 @@ const (
 
 var errLastAdmin = errors.New("last admin")
 
-func registerBindingRoutes(mux *http.ServeMux, db *pgxpool.Pool, log *slog.Logger) {
+func registerBindingRoutes(mux *http.ServeMux, db *pgxpool.Pool, log *slog.Logger, reg *tunnelRegistry) {
 	wrap := func(limit int, h http.HandlerFunc) http.Handler {
 		return newRateLimiter(limit, rateWindow).middleware(h)
 	}
-	mux.Handle("GET /v1/devices", wrap(listDevicesLimit, requireSession(db, listDevices(db))))
+	mux.Handle("GET /v1/devices", wrap(listDevicesLimit, requireSession(db, listDevices(db, reg))))
 	mux.Handle("GET /v1/devices/{id}/users", wrap(listUsersLimit, requireSession(db, listDeviceUsers(db))))
 	mux.Handle("POST /v1/devices/{id}/users/{user}/revoke", wrap(revokeLimit, requireSession(db, revokeBinding(db, log))))
 }
@@ -43,7 +43,7 @@ func isActiveAdmin(ctx context.Context, db querer, deviceID, accountID string) (
 
 // listDevices answers with every device the caller is bound to, revoked bindings included,
 // so a client can show "access removed" rather than a device silently vanishing.
-func listDevices(db *pgxpool.Pool) http.HandlerFunc {
+func listDevices(db *pgxpool.Pool, reg *tunnelRegistry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		a, _, ok := accountFromContext(r.Context())
 		if !ok {
@@ -65,6 +65,7 @@ func listDevices(db *pgxpool.Pool) http.HandlerFunc {
 			Status    string     `json:"status"`
 			Role      string     `json:"role"`
 			RevokedAt *time.Time `json:"revoked_at"`
+			Online    bool       `json:"online"`
 		}
 		out := []device{}
 		for rows.Next() {
@@ -73,6 +74,7 @@ func listDevices(db *pgxpool.Pool) http.HandlerFunc {
 				writeAuthError(w, http.StatusInternalServerError, "try again later")
 				return
 			}
+			d.Online = reg.online(d.DeviceID)
 			out = append(out, d)
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"devices": out})

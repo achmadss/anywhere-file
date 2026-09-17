@@ -13,15 +13,22 @@ import (
 // newHandler builds the HTTP surface. net/http's ServeMux routes by method and pattern since
 // Go 1.22, which is all this service needs; no router dependency.
 func newHandler(db *pgxpool.Pool, log *slog.Logger, m *Metrics) http.Handler {
+	return newHandlerWithTunnels(db, log, m, newTunnelRegistry())
+}
+
+// newHandlerWithTunnels takes the tunnel registry from the caller, so a test can read the
+// live connections the handler registers.
+func newHandlerWithTunnels(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *tunnelRegistry) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", health(db))
 	mux.Handle("GET /metrics", m.Handler())
 	registerAuthRoutes(mux, db, log)
 	registerDeviceRoutes(mux, db, log)
-	registerBindingRoutes(mux, db, log)
+	registerBindingRoutes(mux, db, log, reg)
 	registerAppRoutes(mux, db, log)
 	registerInviteRoutes(mux, db, log)
 	registerSubscriptionRoutes(mux, db, log, m)
+	registerTunnelRoutes(mux, db, log, reg)
 	return logRequests(mux, log)
 }
 
@@ -63,6 +70,10 @@ type statusRecorder struct {
 	http.ResponseWriter
 	status int
 }
+
+// Unwrap lets http.ResponseController reach the server's own writer, which is where the
+// tunnel handler hijacks the connection.
+func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
 
 func (r *statusRecorder) WriteHeader(code int) {
 	r.status = code
