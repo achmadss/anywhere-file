@@ -3,8 +3,9 @@
 //
 // Subcommands:
 //
-//	agent run   serve the registered applications on the LAN (the default)
-//	agent key   print the device's public key, device id and fingerprint
+//	agent run      serve the registered applications on the LAN (the default)
+//	agent key      print the device's public key, device id and fingerprint
+//	agent discover list the agents this machine can see on the LAN
 //
 // Configuration is environment only, see config.go.
 package main
@@ -16,6 +17,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
@@ -44,9 +46,25 @@ func run(ctx context.Context, args []string, out, logTo io.Writer) error {
 		return serve(ctx, cfg, log)
 	case "key":
 		return printKey(ctx, cfg, log, out)
+	case "discover":
+		return printDiscovered(ctx, log, out)
 	default:
 		return fmt.Errorf("unknown command %q", command)
 	}
+}
+
+// printDiscovered is the first thing to run when a PC does not appear in the client: it
+// says whether this machine can see it either.
+func printDiscovered(ctx context.Context, log *slog.Logger, out io.Writer) error {
+	seen, err := discover(ctx, discoverTimeout, log)
+	if err != nil {
+		return err
+	}
+	for _, f := range seen {
+		fmt.Fprintf(out, "%s\t%s\t%s\tv%s\t%s\n", f.Address, f.DeviceID, f.Name, f.Version, strings.Join(f.Apps, ","))
+	}
+	fmt.Fprintf(out, "%d found\n", len(seen))
+	return nil
 }
 
 // printKey is what an operator runs to read the identity off a PC, and what the client
