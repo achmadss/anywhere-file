@@ -5,7 +5,6 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -16,7 +15,7 @@ import (
 // anything here: the thing under test is a PostgreSQL constraint and PostgreSQL's own
 // behaviour when two transactions race for it.
 //
-//	cd cloud && docker compose up -d
+//	cd hosted/control-plane && docker compose up -d
 //	RFM_TEST_DATABASE_URL=postgres://rfm:rfm@localhost:5433/rfm?sslmode=disable go test ./...
 const testDatabaseURLEnv = "RFM_TEST_DATABASE_URL"
 
@@ -93,10 +92,9 @@ func TestMigrationsRunForwardAndBack(t *testing.T) {
 	ctx := t.Context()
 
 	want := []string{
-		"accounts", "agent_messages", "audit_events", "device_authorizations", "device_nonces",
-		"devices", "email_verification_tokens", "job_heartbeats", "pairing_requests",
-		"password_reset_tokens", "schema_migrations", "sessions", "subscriptions",
-		"transfer_requests", "workspace_associations", "workspace_members",
+		"accounts", "audit_events", "device_apps", "device_nonces", "device_users", "devices",
+		"email_verification_tokens", "invites", "job_heartbeats", "password_reset_tokens",
+		"schema_migrations", "sessions", "subscriptions",
 	}
 	got := tableNames(t, pool)
 	if len(got) != len(want) {
@@ -150,42 +148,40 @@ func TestMigrateUpIsIdempotent(t *testing.T) {
 	}
 }
 
-// The mirror comment is a requirement of #19, so it is asserted rather than trusted to
-// survive the next person's edit.
-func TestDeviceAuthorizationsIsDocumentedAsAMirror(t *testing.T) {
-	pool := freshDB(t, 4)
-
-	var comment string
-	err := pool.QueryRow(t.Context(),
-		`SELECT obj_description('device_authorizations'::regclass, 'pg_class')`).Scan(&comment)
-	if err != nil {
-		t.Fatalf("read comment: %v", err)
-	}
-	if !strings.Contains(comment, "NEVER AUTHORITATIVE") || !strings.Contains(comment, "trust list") {
-		t.Fatalf("device_authorizations comment does not say it is a mirror: %q", comment)
-	}
-}
-
-func TestSeedIsIdempotent(t *testing.T) {
+// The rules #82 puts in the schema rather than in Go, each proven to bite once.
+func TestSchemaConstraints(t *testing.T) {
 	pool := freshDB(t, 4)
 	ctx := t.Context()
 
-	for i := range 2 {
-		if err := seed(ctx, pool, discard); err != nil {
-			t.Fatalf("seed %d: %v", i+1, err)
-		}
+	var deviceID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO devices (public_key) VALUES (repeat('ab', 32)) RETURNING device_id`).Scan(&deviceID); err != nil {
+		t.Fatalf("insert device: %v", err)
+	}
+	if deviceID == "" || deviceID == "abababababababababababababababababababababababababababababababab" {
+		t.Errorf("device_id = %q, want a value derived from the key", deviceID)
+	}
+	var user string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO accounts (email) VALUES ('u@example.test') RETURNING id::text`).Scan(&user); err != nil {
+		t.Fatalf("insert account: %v", err)
+	}
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO device_users (device_id, user_id, role) VALUES ($1, $2::uuid, 'admin')`, deviceID, user); err != nil {
+		t.Fatalf("insert binding: %v", err)
 	}
 
-	for table, want := range map[string]int{
-		"accounts": 2, "subscriptions": 1, "workspace_associations": 1,
-		"workspace_members": 2, "devices": 3, "device_authorizations": 3, "audit_events": 1,
+	for name, sql := range map[string]string{
+		"agent-supplied device_id":       `INSERT INTO devices (public_key, device_id) VALUES (repeat('cd', 32), 'chosen')`,
+		"public key not lowercase hex":   `INSERT INTO devices (public_key) VALUES ('ABCD')`,
+		"unknown device status":          `UPDATE devices SET status = 'lost' WHERE device_id = '` + deviceID + `'`,
+		"unknown role":                   `INSERT INTO device_users (device_id, user_id, role) VALUES ('` + deviceID + `', '` + user + `'::uuid, 'owner')`,
+		"second row per device and user": `INSERT INTO device_users (device_id, user_id, role) VALUES ('` + deviceID + `', '` + user + `'::uuid, 'guest')`,
+		"invite used_by without used_at": `INSERT INTO invites (device_id, created_by, code_hash, role, expires_at, used_by)
+			VALUES ('` + deviceID + `', '` + user + `'::uuid, 'h', 'guest', now(), '` + user + `'::uuid)`,
 	} {
-		var n int
-		if err := pool.QueryRow(ctx, `SELECT count(*) FROM `+table).Scan(&n); err != nil {
-			t.Fatalf("count %s: %v", table, err)
-		}
-		if n != want {
-			t.Errorf("after two seeds, %s has %d rows, want %d", table, n, want)
+		if _, err := pool.Exec(ctx, sql); err == nil {
+			t.Errorf("%s: accepted, want the schema to reject it", name)
 		}
 	}
 }

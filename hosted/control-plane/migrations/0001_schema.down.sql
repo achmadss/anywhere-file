@@ -1,0 +1,16 @@
+DROP TABLE IF EXISTS job_heartbeats;
+DROP TRIGGER IF EXISTS audit_events_no_write ON audit_events;
+DROP FUNCTION IF EXISTS reject_audit_write();
+DROP TABLE IF EXISTS audit_events;
+DROP TABLE IF EXISTS device_nonces;
+DROP TABLE IF EXISTS device_apps;
+DROP TRIGGER IF EXISTS invites_single_use ON invites;
+DROP FUNCTION IF EXISTS reject_invite_reuse();
+DROP TABLE IF EXISTS invites;
+DROP TABLE IF EXISTS device_users;
+DROP TABLE IF EXISTS devices;
+DROP TABLE IF EXISTS password_reset_tokens;
+DROP TABLE IF EXISTS email_verification_tokens;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS subscriptions;
+DROP TABLE IF EXISTS accounts;

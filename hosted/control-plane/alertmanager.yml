@@ -1,4 +1,4 @@
-# Alertmanager routing for the control plane and the relay fleet (issue #27).
+# Alertmanager routing for the control plane.
 # Alertmanager owns routing, grouping, silences, and escalation. Nothing in the
 # control plane reimplements any of that.
 #

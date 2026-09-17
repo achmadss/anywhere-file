@@ -73,9 +73,9 @@ jobs:
       - run: go test ./...
       # A skipped test reports as a pass. Fail the job if the database tests did not run.
       - if: runner.os == 'Linux'
-        run: go test -run TestConcurrentAssociationsLeaveExactlyOneRow -v ./hosted/control-plane/ | tee race.log
+        run: go test -run TestConcurrentInviteRedeemsConsumeOnce -v ./hosted/control-plane/ | tee race.log
       - if: runner.os == 'Linux'
-        run: "grep -q -- '--- PASS: TestConcurrentAssociationsLeaveExactlyOneRow' race.log"
+        run: "grep -q -- '--- PASS: TestConcurrentInviteRedeemsConsumeOnce' race.log"
 
   prose:
     # AGENTS.md bans em and en dashes in anything a person reads. A rule with no check is a

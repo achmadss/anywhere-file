@@ -17,7 +17,6 @@ func newHandler(db *pgxpool.Pool, log *slog.Logger, m *Metrics) http.Handler {
 	mux.HandleFunc("GET /healthz", health(db))
 	mux.Handle("GET /metrics", m.Handler())
 	registerAuthRoutes(mux, db, log)
-	registerAgentRoutes(mux, db)
 	return logRequests(mux, log)
 }
 
@@ -69,7 +68,7 @@ func (r *statusRecorder) WriteHeader(code int) {
 func serve(ctx context.Context, cfg config, db *pgxpool.Pool, log *slog.Logger) error {
 	srv := &http.Server{
 		Addr:              cfg.addr,
-		Handler:           newHandler(db, log, NewMetrics(cfg.overcommitRatio)),
+		Handler:           newHandler(db, log, NewMetrics()),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
