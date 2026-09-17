@@ -350,6 +350,11 @@ func signup(db *pgxpool.Pool, log *slog.Logger) http.HandlerFunc {
 			return
 		}
 
+		if err := seedSubscription(ctx, db, accountID); err != nil {
+			writeAuthError(w, http.StatusInternalServerError, "try again later")
+			return
+		}
+
 		raw, tokenHash, err := newRawToken()
 		if err != nil {
 			writeAuthError(w, http.StatusInternalServerError, "try again later")
