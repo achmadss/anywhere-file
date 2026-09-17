@@ -22,6 +22,7 @@ type Metrics struct {
 	reg *prometheus.Registry
 
 	subscriptionTransition *prometheus.CounterVec
+	remoteDenial           *prometheus.CounterVec
 	jobLastRun             *prometheus.GaugeVec
 }
 
@@ -32,17 +33,26 @@ func NewMetrics() *Metrics {
 		Namespace: "rfm", Name: "subscription_transitions_total",
 		Help: "Subscription state changes by previous and new status.",
 	}, []string{"from_status", "to_status"})
+	m.remoteDenial = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "rfm", Name: "remote_denials_total",
+		Help: "Remote requests refused, by the check that refused them.",
+	}, []string{"reason"})
 	m.jobLastRun = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "rfm", Name: "subscription_job_last_run_unixtime",
 		Help: "Last successful run of a periodic job, as unix time.",
 	}, []string{"job"})
-	m.reg.MustRegister(m.subscriptionTransition, m.jobLastRun)
+	m.reg.MustRegister(m.subscriptionTransition, m.remoteDenial, m.jobLastRun)
 	return m
 }
 
 // RecordSubscriptionTransition counts one subscription status change.
 func (m *Metrics) RecordSubscriptionTransition(fromStatus, toStatus string) {
 	m.subscriptionTransition.WithLabelValues(fromStatus, toStatus).Inc()
+}
+
+// RecordRemoteDenial counts one refused remote request.
+func (m *Metrics) RecordRemoteDenial(reason string) {
+	m.remoteDenial.WithLabelValues(reason).Inc()
 }
 
 // RecordJobRun sets the last-run gauge for a periodic job.
