@@ -14,12 +14,16 @@ import (
 // an old one. The actions of the new model land with their features (#89).
 const (
 	ActionAccountDeleted = "account.deleted"
+	ActionDeviceEnrolled = "device.enrolled"
+	ActionDeviceDisabled = "device.disabled"
 )
 
 // validActions is the closed set appendAudit accepts. A typo in a caller fails
 // at write time rather than silently recording a row nothing will ever query.
 var validActions = map[string]bool{
 	ActionAccountDeleted: true,
+	ActionDeviceEnrolled: true,
+	ActionDeviceDisabled: true,
 }
 
 // AuditDetails is the detail payload of one audit row. The field set is fixed:
