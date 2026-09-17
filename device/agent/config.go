@@ -18,6 +18,7 @@ type config struct {
 	mdns       bool          // RFM_AGENT_MDNS
 	tunnel     bool          // RFM_AGENT_TUNNEL
 	logLevel   slog.Level    // RFM_AGENT_LOG_LEVEL
+	logFile    string        // RFM_AGENT_LOG_FILE, empty for stderr
 	storeRetry time.Duration // how long to wait between retries on a locked key store
 }
 
@@ -33,6 +34,7 @@ func loadConfig() (config, error) {
 		keystore:   env("RFM_AGENT_KEYSTORE", "auto"),
 		mdns:       env("RFM_AGENT_MDNS", "on") != "off",
 		tunnel:     env("RFM_AGENT_TUNNEL", "on") != "off",
+		logFile:    os.Getenv("RFM_AGENT_LOG_FILE"),
 		storeRetry: storeRetry,
 	}
 	if c.dir == "" {
