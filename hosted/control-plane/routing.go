@@ -13,6 +13,7 @@ import (
 	"net/http/httputil"
 	"time"
 
+	"github.com/achmadss/anywhere-file/internal/appname"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -88,7 +89,7 @@ func remoteRequest(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *tunnelRe
 			deny(http.StatusUnauthorized, denyNoSession, "unauthorized")
 			return
 		}
-		if validateToken("device_id", deviceID) != nil || !validAppToken(app) {
+		if validateToken("device_id", deviceID) != nil || !appname.Valid(app) {
 			deny(http.StatusNotFound, denyBadTarget, "not found")
 			return
 		}

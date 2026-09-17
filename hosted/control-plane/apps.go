@@ -5,8 +5,8 @@ package main
 // application listens stays in the agent's config and never crosses the wire, so a
 // compromised server cannot learn a loopback address it was never given.
 //
-// A name reaches a URL, so it is checked here before it is stored: lowercase letters,
-// digits and hyphens only, which leaves no room for a path, a query or an escape.
+// A name reaches a URL, so it is checked before it is stored, against the rule in
+// internal/appname that the agent's gateway resolves by.
 
 import (
 	"context"
@@ -15,8 +15,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"regexp"
 
+	"github.com/achmadss/anywhere-file/internal/appname"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -24,10 +24,7 @@ import (
 const (
 	appsSyncLimit = 30
 	maxApps       = 32
-	maxAppNameLen = 32
 )
-
-var appNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 
 var errAppsDeviceDisabled = errors.New("device disabled")
 
@@ -45,11 +42,6 @@ func deviceAppAllowed(ctx context.Context, db querer, deviceID, name string) (bo
 		`SELECT EXISTS (SELECT 1 FROM device_apps WHERE device_id = $1 AND name = $2)`,
 		deviceID, name).Scan(&ok)
 	return ok, err
-}
-
-// validAppToken accepts a short lowercase word. Both the name and the type go through it.
-func validAppToken(s string) bool {
-	return len(s) <= maxAppNameLen && appNamePattern.MatchString(s)
 }
 
 // syncApps replaces the device's rows with the list it sends. It is the whole state, not
@@ -85,7 +77,7 @@ func syncApps(db *pgxpool.Pool, log *slog.Logger) http.HandlerFunc {
 		types := make([]string, 0, len(in.Apps))
 		seen := map[string]bool{}
 		for _, app := range in.Apps {
-			if !validAppToken(app.Name) || !validAppToken(app.Type) {
+			if !appname.Valid(app.Name) || !appname.Valid(app.Type) {
 				writeAuthError(w, http.StatusBadRequest, "application name and type must be lowercase letters, digits and hyphens")
 				return
 			}

@@ -24,7 +24,8 @@ the customer's phone or laptop, and `hosted/` on hardware we pay for. Anything u
 | `internal/` | Go shared by the agent and the control plane, starting with request signing | Go |
 | `client/` | the client app for Android, Windows, macOS and Linux | Kotlin, Compose Multiplatform |
 
-The agent holds its device key so far, and `client/` does not exist. The work is broken
+The agent holds its device key and serves its applications on the LAN so far, and
+`client/` does not exist. The work is broken
 down in the issue tracker, starting at the
 [epic](https://github.com/achmadss/anywhere-file/issues/41).
 
@@ -47,12 +48,14 @@ machine. The server derives `device_id` from the public key, so a replaced key i
 device and drops the PC out of every binding it had.
 
 ```sh
-go run ./device/agent key
+go run ./device/agent key    # print the identity
+go run ./device/agent run    # serve the registered applications on the LAN
 ```
 
 | Variable | Default | What |
 |---|---|---|
 | `RFM_AGENT_DIR` | the OS config directory, `%LocalAppData%` on Windows | where the agent keeps its own state |
+| `RFM_AGENT_ADDR` | `:7433` | the address the LAN gateway listens on |
 | `RFM_AGENT_KEYSTORE` | `auto` | `keyring` for the OS keystore, `file` for a seed file |
 | `RFM_AGENT_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
 
@@ -66,6 +69,33 @@ nothing else. Set `RFM_AGENT_KEYSTORE` when the guess is wrong.
 A keystore that is locked or unreachable is a wait, not a new key. The agent retries and
 says so in the log rather than generating an identity that would silently replace the
 machine's.
+
+### The application registry
+
+`agent.json` in the agent's directory lists what this PC offers. The agent writes a
+starting one on first run.
+
+```json
+{
+  "name": "pc1",
+  "apps": [
+    { "name": "copyparty", "type": "http", "address": "127.0.0.1:3923" }
+  ]
+}
+```
+
+The gateway serves each application at `/{name}/` and answers 404 everywhere else. A
+request cannot name a host, a port or a scheme: the name is looked up in this file and the
+address comes from there, which is what keeps the agent from being an open proxy. The
+address stays on the PC and is never sent to the server, which only ever learns the name
+and the type.
+
+An application is reached at its own root, so `/copyparty/files/a.txt` arrives as
+`/files/a.txt`. An application that writes absolute links has to be told the prefix it is
+served under, which for Copyparty is `--rp-loc`.
+
+`GET /.well-known/anywhere-file` returns the device id, the name and the application names,
+which is what a client reads after it finds the agent.
 
 ## Running the control plane locally
 
