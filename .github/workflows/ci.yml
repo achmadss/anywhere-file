@@ -134,11 +134,13 @@ jobs:
           sudo loginctl enable-linger "$USER"
           echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
       - name: install
-        run: "$AGENT" install
+        run: |
+          "$AGENT" install
       - name: the service answers on its own
         run: .github/scripts/service-up.sh up
       - name: uninstall
-        run: "$AGENT" uninstall
+        run: |
+          "$AGENT" uninstall
       - name: and stops answering
         run: .github/scripts/service-up.sh down
 
