@@ -62,5 +62,5 @@ A tool that silently matches nothing reports success.
 
 ## Commands
 
-Build, test and lint commands for all three languages are in the README. Toolchains are
-pinned in `rust-toolchain.toml`, `hosted/control-plane/go.mod` and `.nvmrc`.
+Build, test and lint commands are in the README. The Go version is pinned by the `go`
+directive in `hosted/control-plane/go.mod`.

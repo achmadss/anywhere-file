@@ -1,5 +1,8 @@
 # Spike #2: OS keystore for the Ed25519 device key
 
+> The Rust code this report describes was removed on 2026-09-17 with the change of design.
+> The per-OS findings stand and the Go agent is held to them. See `README.md` in this directory.
+
 Issue: [#2](https://github.com/achmadss/anywhere-file/issues/2). The throwaway crate that
 produced the output below lived in `spikes/keystore/` and was deleted once the design landed
 in `device/core/src/identity/` (#6). `git log -- spikes/keystore` has it.

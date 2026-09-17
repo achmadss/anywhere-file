@@ -1,19 +1,11 @@
-# rust
-/target
-/spikes/*/target/
-**/*.rs.bk
-
 # go
 /hosted/control-plane/bin/
 /hosted/control-plane/control-plane
 
-# node
-node_modules/
-dist/
-*.tsbuildinfo
-
-# relay: vendored upstream source, fetched by hosted/relay/apply.sh
-/hosted/relay/src/
+# kotlin / gradle
+/client/.gradle/
+/client/**/build/
+/client/local.properties
 
 # editors / os
 .DS_Store
@@ -28,6 +20,3 @@ dist/
 
 # claude code worktrees
 .claude/worktrees/
-
-# spike scratch builds
-/spikes/*/target/

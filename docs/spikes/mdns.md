@@ -1,5 +1,8 @@
 # Spike #3: DNS-SD coverage without Bonjour or Avahi, and the unplugged-router test
 
+> The Rust code this report describes was removed on 2026-09-17 with the change of design.
+> The per-OS findings stand and the Go agent is held to them. See `README.md` in this directory.
+
 Issue [#3](https://github.com/achmadss/anywhere-file/issues/3). The throwaway harness that
 produced the output below lived in `spikes/mdns/` and was deleted once the design landed in
 `device/core/src/discovery/` (#9). `git log -- spikes/mdns` has it.
