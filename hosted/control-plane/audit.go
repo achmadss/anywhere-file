@@ -19,6 +19,8 @@ const (
 	ActionBindingRevoked = "binding.revoked"
 
 	ActionDeviceAppsSynced = "device.apps_synced"
+	ActionInviteCreated    = "invite.created"
+	ActionInviteRedeemed   = "invite.redeemed"
 
 	ActionSubscriptionChanged = "subscription.changed"
 )
@@ -32,6 +34,8 @@ var validActions = map[string]bool{
 	ActionBindingRevoked: true,
 
 	ActionDeviceAppsSynced: true,
+	ActionInviteCreated:    true,
+	ActionInviteRedeemed:   true,
 
 	ActionSubscriptionChanged: true,
 }
