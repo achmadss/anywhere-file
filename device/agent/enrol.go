@@ -148,19 +148,25 @@ func (a *agent) post(ctx context.Context, server, path string, body []byte, out 
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		var e struct {
-			Error string `json:"error"`
-		}
-		_ = json.Unmarshal(answer, &e)
-		if e.Error == "" {
-			e.Error = http.StatusText(resp.StatusCode)
-		}
-		return serverError{status: resp.StatusCode, message: e.Error}
+		return serverAnswerError(resp.StatusCode, answer)
 	}
 	if out == nil {
 		return nil
 	}
 	return json.Unmarshal(answer, out)
+}
+
+// serverAnswerError turns a refusal into an error carrying what the server said, so the
+// person waiting reads "enrolment token expired" rather than "400".
+func serverAnswerError(status int, answer []byte) error {
+	var e struct {
+		Error string `json:"error"`
+	}
+	_ = json.Unmarshal(answer, &e)
+	if e.Error == "" {
+		e.Error = http.StatusText(status)
+	}
+	return serverError{status: status, message: e.Error}
 }
 
 // cleanServerURL takes what a person typed and returns the origin to talk to. A path, a

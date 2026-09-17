@@ -60,6 +60,7 @@ go run ./device/agent enrol https://cloud.example.com <token>
 | `RFM_AGENT_ADDR` | `:7433` | the address the LAN gateway listens on |
 | `RFM_AGENT_KEYSTORE` | `auto` | `keyring` for the OS keystore, `file` for a seed file |
 | `RFM_AGENT_MDNS` | `on` | `off` on a machine with no multicast, such as some containers |
+| `RFM_AGENT_TUNNEL` | `on` | `off` to keep the PC on the LAN only, with no outbound connection |
 | `RFM_AGENT_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
 
 `auto` uses the OS keystore: Keychain on macOS, Credential Manager on Windows, the Secret
@@ -123,6 +124,23 @@ The client does this over the LAN by posting to `/enrol` on the gateway. `agent 
 the same thing from a terminal, for a PC with no screen. Either way the server address and
 the device id are written to `agent.json` only after the server has accepted, so a bad or
 expired token leaves the PC as it was.
+
+### The tunnel
+
+An enrolled PC keeps one outbound connection to the server open, so remote access needs no
+inbound port, no port forwarding and no fixed address. The agent signs the request that
+opens it, the server answers by handing the connection over, and from then on the server
+sends requests down it and the same gateway answers them. Nothing the LAN cannot reach is
+reachable this way either.
+
+The connection drops whenever the network does. The agent dials again, waiting a second
+and doubling to a minute, with the wait spread out so a server coming back does not take
+every agent it dropped in the same instant. An unenrolled PC does the same until it is
+enrolled, and being offline is logged rather than treated as a failure.
+
+The server sends a ping every 30 seconds. A connection that carries nothing for 90 seconds
+is treated as gone from the agent's side too, because a broken path can leave a socket
+looking open for minutes.
 
 ## Running the control plane locally
 
