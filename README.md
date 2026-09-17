@@ -62,6 +62,7 @@ go run ./device/agent enrol https://cloud.example.com <token>
 | `RFM_AGENT_MDNS` | `on` | `off` on a machine with no multicast, such as some containers |
 | `RFM_AGENT_TUNNEL` | `on` | `off` to keep the PC on the LAN only, with no outbound connection |
 | `RFM_AGENT_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
+| `RFM_AGENT_LOG_FILE` | empty | a file to append the log to, instead of standard error |
 
 `auto` uses the OS keystore: Keychain on macOS, Credential Manager on Windows, the Secret
 Service on a Linux desktop. A Linux machine with no Secret Service, such as a NAS, a server
@@ -158,7 +159,11 @@ lives in the user's keystore and a machine-wide service cannot read it. On Windo
 rules out a real service, which runs in session 0 with no access to the user's credentials.
 
 A service starts with no shell, so the `RFM_AGENT_*` variables set when `install` runs are
-written into the manifest. Change one and install again.
+written into the manifest as arguments: `agent run RFM_AGENT_MDNS=off`. The command line is
+the one place all three schedulers agree on. Change a variable and install again.
+
+The log goes where each OS looks for it: a file next to the agent's state on macOS and
+Windows, the journal on Linux (`journalctl --user -u anywhere-file-agent`).
 
 On Linux the user's services stop at logout unless the account lingers. `install` asks for
 lingering and carries on with a warning if it is refused, which leaves an agent that runs

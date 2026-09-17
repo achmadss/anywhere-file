@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,8 +16,8 @@ func testPlanInput(goos string) planInput {
 	return planInput{
 		goos: goos,
 		exe:  "/opt/anywhere-file/agent",
-		dir:  "/home/ana/.config/anywhere-file",
-		home: "/home/ana",
+		dir:  filepath.FromSlash("/home/ana/.config/anywhere-file"),
+		home: filepath.FromSlash("/home/ana"),
 		user: `WORK\ana`,
 		env:  [][2]string{{"RFM_AGENT_ADDR", ":7433"}, {"RFM_AGENT_MDNS", "off"}},
 	}
@@ -69,7 +70,7 @@ func TestUninstallRemovesWhatInstallWrote(t *testing.T) {
 			t.Fatalf("%s writes no files", goos)
 		}
 		for _, f := range p.files {
-			if !strings.HasPrefix(f.path, "/home/ana") {
+			if !strings.HasPrefix(f.path, filepath.FromSlash("/home/ana")) {
 				t.Errorf("%s writes %s, want it under the user's own directories", goos, f.path)
 			}
 		}
@@ -81,16 +82,13 @@ func TestUninstallRemovesWhatInstallWrote(t *testing.T) {
 func TestAPathWithMarkupInItIsEscaped(t *testing.T) {
 	for _, goos := range []string{"darwin", "windows"} {
 		in := testPlanInput(goos)
-		in.exe = "/opt/tom & jerry/agent"
-		in.dir = "/opt/tom & jerry"
+		in.exe = filepath.FromSlash("/opt/tom & jerry/agent")
+		in.dir = filepath.FromSlash("/opt/tom & jerry")
 		p, err := servicePlanFor(in)
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, f := range p.files {
-			if strings.HasSuffix(f.path, ".cmd") {
-				continue // a batch file, not XML
-			}
 			if strings.Contains(f.body, "tom & jerry") {
 				t.Errorf("%s manifest has a raw ampersand in it:\n%s", goos, f.body)
 			}
@@ -129,6 +127,32 @@ func TestTheWindowsTaskIsUTF16(t *testing.T) {
 	}
 }
 
+// A scheduled task has nowhere to put an environment, and a wrapper script that sets one
+// becomes the process the scheduler owns, so stopping the task leaves the agent running.
+// The settings travel as arguments instead, and the agent is told where to log.
+func TestTheWindowsTaskRunsTheAgentItself(t *testing.T) {
+	in := testPlanInput("windows")
+	in.dir = filepath.FromSlash("/home/ana/Local Settings/anywhere-file")
+	p, err := servicePlanFor(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.files) != 1 {
+		t.Fatalf("files = %v, want the task definition and nothing to wrap it", p.files)
+	}
+	body := p.files[0].body
+	for _, want := range []string{
+		"<Command>" + in.exe + "</Command>",
+		"RFM_AGENT_MDNS=off",
+		// Quoted, because Local Settings is two words to a command line.
+		`&#34;RFM_AGENT_LOG_FILE=` + filepath.Join(in.dir, "agent.log") + `&#34;`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the task is missing %s:\n%s", want, body)
+		}
+	}
+}
+
 // The service has no shell to inherit from, so the settings travel in the manifest. What
 // else the installing shell holds is none of the service's business.
 func TestOnlyTheAgentsOwnSettingsTravelIntoTheService(t *testing.T) {
@@ -164,6 +188,18 @@ func TestATemporaryBuildIsRefused(t *testing.T) {
 	}
 	if temporaryBuild(filepath.Join(t.TempDir()+"-elsewhere", "agent"), tmp) {
 		t.Error("an installed binary beside the temporary directory was refused")
+	}
+}
+
+// The other half of carrying settings as arguments: the agent has to read them back.
+func TestSettingsGivenAsArgumentsBecomeTheEnvironment(t *testing.T) {
+	t.Setenv("RFM_AGENT_MDNS", "on")
+	rest := applyEnvArgs([]string{"RFM_AGENT_MDNS=off", "somethingelse"})
+	if got := os.Getenv("RFM_AGENT_MDNS"); got != "off" {
+		t.Errorf("RFM_AGENT_MDNS = %q after the argument, want off", got)
+	}
+	if len(rest) != 1 || rest[0] != "somethingelse" {
+		t.Errorf("rest = %v, want everything that is not ours left for the command", rest)
 	}
 }
 

@@ -34,16 +34,31 @@ func main() {
 }
 
 func run(ctx context.Context, args []string, out, logTo io.Writer) error {
-	cfg, err := loadConfig()
-	if err != nil {
-		return err
-	}
-	log := slog.New(slog.NewJSONHandler(logTo, &slog.HandlerOptions{Level: cfg.logLevel}))
-
 	command := "run"
 	if len(args) > 0 {
 		command, args = args[0], args[1:]
 	}
+	// `RFM_AGENT_X=y` arguments are how an installed service carries its settings. A
+	// Windows scheduled task has nowhere to put an environment, and a wrapper script that
+	// sets one ends up being the process the scheduler owns, which leaves the agent
+	// running after the task is stopped.
+	args = applyEnvArgs(args)
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return err
+	}
+	// ponytail: no rotation. The agent logs events, not requests, so the file grows slowly.
+	// Rotate when a PC turns up with one worth rotating.
+	if cfg.logFile != "" {
+		f, err := os.OpenFile(cfg.logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+		if err != nil {
+			return fmt.Errorf("RFM_AGENT_LOG_FILE: %w", err)
+		}
+		defer f.Close()
+		logTo = f
+	}
+	log := slog.New(slog.NewJSONHandler(logTo, &slog.HandlerOptions{Level: cfg.logLevel}))
 	switch command {
 	case "run":
 		return serve(ctx, cfg, log)
@@ -63,6 +78,22 @@ func run(ctx context.Context, args []string, out, logTo io.Writer) error {
 	default:
 		return fmt.Errorf("unknown command %q", command)
 	}
+}
+
+// applyEnvArgs sets the agent's own variables from the command line and returns what is
+// left. Anything that is not one of ours stays an argument, so a typo reaches the command
+// that can complain about it.
+func applyEnvArgs(args []string) []string {
+	var rest []string
+	for _, a := range args {
+		key, value, ok := strings.Cut(a, "=")
+		if ok && strings.HasPrefix(key, envPrefix) {
+			_ = os.Setenv(key, value)
+			continue
+		}
+		rest = append(rest, a)
+	}
+	return rest
 }
 
 // printDiscovered is the first thing to run when a PC does not appear in the client: it

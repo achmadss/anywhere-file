@@ -23,6 +23,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -93,6 +94,9 @@ var darwinPlist = template.Must(template.New("plist").Funcs(template.FuncMap{"x"
 	<array>
 		<string>{{x .Exe}}</string>
 		<string>run</string>
+{{- range .Args}}
+		<string>{{x .}}</string>
+{{- end}}
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
@@ -100,15 +104,6 @@ var darwinPlist = template.Must(template.New("plist").Funcs(template.FuncMap{"x"
 	<true/>
 	<key>ProcessType</key>
 	<string>Background</string>
-{{- if .Env}}
-	<key>EnvironmentVariables</key>
-	<dict>
-{{- range .Env}}
-		<key>{{x (index . 0)}}</key>
-		<string>{{x (index . 1)}}</string>
-{{- end}}
-	</dict>
-{{- end}}
 	<key>StandardOutPath</key>
 	<string>{{x .Log}}</string>
 	<key>StandardErrorPath</key>
@@ -123,7 +118,7 @@ func darwinPlan(in planInput) servicePlan {
 		"Label": serviceLabel,
 		"Exe":   in.exe,
 		"Log":   filepath.Join(in.dir, "agent.log"),
-		"Env":   in.env,
+		"Args":  envArgs(in.env),
 	})
 	return servicePlan{
 		files: []planFile{{path: path, body: body}},
@@ -144,12 +139,9 @@ Description=anywhere-file agent
 After=network-online.target
 
 [Service]
-ExecStart={{.Exe}} run
+ExecStart={{.Exe}} run{{range .Args}} {{.}}{{end}}
 Restart=always
 RestartSec=5
-{{- range .Env}}
-Environment="{{index . 0}}={{index . 1}}"
-{{- end}}
 
 [Install]
 WantedBy=default.target
@@ -158,7 +150,7 @@ WantedBy=default.target
 func linuxPlan(in planInput) servicePlan {
 	unit := serviceName + ".service"
 	path := filepath.Join(in.home, ".config", "systemd", "user", unit)
-	body := render(linuxUnit, map[string]any{"Exe": in.exe, "Env": in.env})
+	body := render(linuxUnit, map[string]any{"Exe": in.exe, "Args": quoted(envArgs(in.env))})
 	return servicePlan{
 		files: []planFile{{path: path, body: body}},
 		install: []planCmd{
@@ -175,16 +167,6 @@ func linuxPlan(in planInput) servicePlan {
 		},
 	}
 }
-
-// The task runs a wrapper rather than the agent, because a scheduled task has nowhere to
-// put environment variables. The wrapper sets them and redirects the agent's log.
-var windowsWrapper = template.Must(template.New("cmd").Parse(
-	`@echo off
-{{- range .Env}}
-set "{{index . 0}}={{index . 1}}"
-{{- end}}
-"{{.Exe}}" run >> "{{.Log}}" 2>&1
-`))
 
 var windowsTask = template.Must(template.New("task").Funcs(template.FuncMap{"x": xmlEscape}).Parse(
 	`<?xml version="1.0" encoding="UTF-16"?>
@@ -224,25 +206,29 @@ var windowsTask = template.Must(template.New("task").Funcs(template.FuncMap{"x":
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>{{x .Wrapper}}</Command>
+      <Command>{{x .Exe}}</Command>
+      <Arguments>{{x .Arguments}}</Arguments>
     </Exec>
   </Actions>
 </Task>
 `))
 
 func windowsPlan(in planInput) servicePlan {
-	wrapper := filepath.Join(in.dir, "service", serviceName+".cmd")
 	task := filepath.Join(in.dir, "service", serviceName+".xml")
+	// The scheduler captures nothing a program writes, so on Windows the agent is told
+	// where to keep its log. launchd redirects it and systemd has the journal.
+	env := slices.Clone(in.env)
+	if !hasKey(env, "RFM_AGENT_LOG_FILE") {
+		env = append(env, [2]string{"RFM_AGENT_LOG_FILE", filepath.Join(in.dir, "agent.log")})
+		sort.Slice(env, func(i, j int) bool { return env[i][0] < env[j][0] })
+	}
+	args := append([]string{"run"}, quoted(envArgs(env))...)
 	return servicePlan{
 		files: []planFile{
-			{path: wrapper, body: render(windowsWrapper, map[string]any{
-				"Exe": in.exe,
-				"Log": filepath.Join(in.dir, "agent.log"),
-				"Env": in.env,
-			})},
 			{path: task, utf16: true, body: render(windowsTask, map[string]any{
-				"User":    in.user,
-				"Wrapper": wrapper,
+				"User":      in.user,
+				"Exe":       in.exe,
+				"Arguments": strings.Join(args, " "),
 			})},
 		},
 		install: []planCmd{
@@ -255,6 +241,37 @@ func windowsPlan(in planInput) servicePlan {
 			{argv: []string{"schtasks", "/Delete", "/TN", serviceName, "/F"}, optional: true},
 		},
 	}
+}
+
+// envArgs is how the settings reach an installed service: as arguments, because the one
+// place all three schedulers agree on is the command line.
+func envArgs(env [][2]string) []string {
+	args := make([]string, 0, len(env))
+	for _, kv := range env {
+		args = append(args, kv[0]+"="+kv[1])
+	}
+	return args
+}
+
+// quoted wraps what a shell or a Windows command line would otherwise split in two.
+func quoted(args []string) []string {
+	out := make([]string, 0, len(args))
+	for _, a := range args {
+		if strings.ContainsAny(a, " \t") {
+			a = `"` + a + `"`
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+func hasKey(env [][2]string, key string) bool {
+	for _, kv := range env {
+		if kv[0] == key {
+			return true
+		}
+	}
+	return false
 }
 
 // currentPlan reads what this machine has to offer the manifests.
