@@ -221,6 +221,13 @@ Secure Enclave could not be that signer for an Ed25519 identity.
 
 ## Windows: READ only, untested
 
+> Settled in Go on 2026-09-17 with #90. `zalando/go-keyring` writes through
+> `danieljoos/wincred`, whose `NewGenericCredential` sets `PersistLocalMachine`
+> (`wincred.go:40`), so the roaming problem below is specific to the Rust crate and DPAPI is
+> not needed. `device/agent/seedstore_windows_test.go` reads the credential back on the
+> Windows runner and fails if the persistence is anything else.
+
+
 Crate: `keyring` 3.6.3 with `windows-native`, which uses Windows Credential Manager generic
 credentials through `CredWriteW` / `CredReadW` / `CredDeleteW`
 (`keyring-3.6.3/src/windows.rs:50-54`). Credential Manager blobs are encrypted with DPAPI
