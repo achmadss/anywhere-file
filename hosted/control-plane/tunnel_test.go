@@ -229,7 +229,7 @@ func TestSecondTunnelReplacesTheFirst(t *testing.T) {
 func TestTunnelWithoutHeartbeatIsRemoved(t *testing.T) {
 	pool := freshDB(t, 4)
 	h, reg, srv := tunnelHandler(t, pool)
-	reg.pingEvery, reg.pingTimeout = 50*time.Millisecond, 100*time.Millisecond
+	reg.setPing(50*time.Millisecond, 100*time.Millisecond)
 	priv := enrolKey(t, h, "owner@example.com", "pc1")
 	deviceID := derivedDeviceID(priv)
 

@@ -1,6 +1,6 @@
 # Alert rules for the control plane. Load this file from prometheus.yml with a
-# rule_files entry. The rules for the new model (tunnel churn, remote request
-# denials) land with #89.
+# rule_files entry. CI checks the file with promtool, Prometheus's own rule
+# checker, whenever it changes.
 #
 # Assumed subscription job name: the state job overdue alert watches
 # job="subscription-state". Rename the label when that job lands.
@@ -17,3 +17,19 @@ groups:
         annotations:
           summary: "Subscription job {{ $labels.job }} not run in its interval"
           description: "No successful run recorded for over an hour. Subscription status changes are not happening."
+
+  - name: rfm-tunnels
+    interval: 30s
+    rules:
+      - alert: TunnelChurn
+        # Agents hold one long connection each, so connects should be rare next to the
+        # number of live tunnels. Many connects against few live ones means agents are
+        # reconnecting in a loop: a crash, a bad deploy or a network the tunnel cannot
+        # keep. This replaces the relay denial spike alert of the old design.
+        expr: increase(rfm_tunnel_connects_total[15m]) > 5 * (rfm_tunnels_live + 1)
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agents are reconnecting far more often than they stay connected"
+          description: "Connects in the last 15 minutes are well above the number of live tunnels. Check tunnel disconnect reasons and the agent logs."

@@ -25,6 +25,11 @@ func scrape(t *testing.T, m *Metrics) string {
 // test below proves each series renders rather than trusting the renderer.
 func exerciseAllSeries(m *Metrics) {
 	m.RecordSubscriptionTransition("active", "suspended")
+	m.RecordRemoteRequest(http.StatusOK, 300*time.Millisecond)
+	m.RecordRemoteDenial(denyNoBinding)
+	m.RecordTunnelConnect()
+	m.RecordTunnelDisconnect(reasonTimeout)
+	m.SetLiveTunnels(1)
 	m.RecordJobRun("subscription-state", time.Unix(1_700_000_000, 0))
 }
 

@@ -2,13 +2,14 @@ package main
 
 // Prometheus series, built on github.com/prometheus/client_golang. Each Metrics holds
 // its own registry, so tests stay isolated from each other and from the process. The
-// series of the new model (remote requests, tunnels, denials) land with #89; what is
-// here is the part that survived the r3 removal.
+// series describe the new model (#89): remote requests, the tunnels they travel down and
+// the checks that refuse them.
 
 import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -22,7 +23,12 @@ type Metrics struct {
 	reg *prometheus.Registry
 
 	subscriptionTransition *prometheus.CounterVec
+	remoteRequest          *prometheus.CounterVec
+	remoteDuration         prometheus.Histogram
 	remoteDenial           *prometheus.CounterVec
+	tunnelConnect          prometheus.Counter
+	tunnelDisconnect       *prometheus.CounterVec
+	tunnelsLive            prometheus.Gauge
 	jobLastRun             *prometheus.GaugeVec
 }
 
@@ -33,6 +39,29 @@ func NewMetrics() *Metrics {
 		Namespace: "rfm", Name: "subscription_transitions_total",
 		Help: "Subscription state changes by previous and new status.",
 	}, []string{"from_status", "to_status"})
+	m.remoteRequest = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "rfm", Name: "remote_requests_total",
+		Help: "Remote requests by response status, refusals included.",
+	}, []string{"status"})
+	m.remoteDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "rfm", Name: "remote_request_duration_seconds",
+		Help: "Time from arrival to the last byte of the response.",
+		// Wide buckets: this path serves both a directory listing and a file that takes
+		// minutes, and one histogram covers them.
+		Buckets: []float64{0.05, 0.25, 1, 5, 30, 120, 600},
+	})
+	m.tunnelConnect = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "rfm", Name: "tunnel_connects_total",
+		Help: "Tunnels opened by an agent.",
+	})
+	m.tunnelDisconnect = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "rfm", Name: "tunnel_disconnects_total",
+		Help: "Tunnels closed, by why they closed.",
+	}, []string{"reason"})
+	m.tunnelsLive = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "rfm", Name: "tunnels_live",
+		Help: "Devices with a live tunnel right now.",
+	})
 	m.remoteDenial = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "rfm", Name: "remote_denials_total",
 		Help: "Remote requests refused, by the check that refused them.",
@@ -41,7 +70,8 @@ func NewMetrics() *Metrics {
 		Namespace: "rfm", Name: "subscription_job_last_run_unixtime",
 		Help: "Last successful run of a periodic job, as unix time.",
 	}, []string{"job"})
-	m.reg.MustRegister(m.subscriptionTransition, m.remoteDenial, m.jobLastRun)
+	m.reg.MustRegister(m.subscriptionTransition, m.remoteRequest, m.remoteDuration,
+		m.remoteDenial, m.tunnelConnect, m.tunnelDisconnect, m.tunnelsLive, m.jobLastRun)
 	return m
 }
 
@@ -49,6 +79,24 @@ func NewMetrics() *Metrics {
 func (m *Metrics) RecordSubscriptionTransition(fromStatus, toStatus string) {
 	m.subscriptionTransition.WithLabelValues(fromStatus, toStatus).Inc()
 }
+
+// RecordRemoteRequest counts one finished remote request and its duration. Refusals count
+// here too, under the status they answered with.
+func (m *Metrics) RecordRemoteRequest(status int, d time.Duration) {
+	m.remoteRequest.WithLabelValues(strconv.Itoa(status)).Inc()
+	m.remoteDuration.Observe(d.Seconds())
+}
+
+// RecordTunnelConnect counts one tunnel opening.
+func (m *Metrics) RecordTunnelConnect() { m.tunnelConnect.Inc() }
+
+// RecordTunnelDisconnect counts one tunnel closing, by reason.
+func (m *Metrics) RecordTunnelDisconnect(reason string) {
+	m.tunnelDisconnect.WithLabelValues(reason).Inc()
+}
+
+// SetLiveTunnels publishes how many devices are reachable right now.
+func (m *Metrics) SetLiveTunnels(n int) { m.tunnelsLive.Set(float64(n)) }
 
 // RecordRemoteDenial counts one refused remote request.
 func (m *Metrics) RecordRemoteDenial(reason string) {

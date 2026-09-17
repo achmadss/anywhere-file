@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -64,6 +65,8 @@ func remoteScenario(t *testing.T, app http.Handler) *remoteSetup {
 	reg := newTunnelRegistry()
 	m := NewMetrics()
 	h := newHandlerWithTunnels(pool, discard, m, reg)
+	// A dead tunnel is noticed in milliseconds here rather than in half a minute.
+	reg.setPing(50*time.Millisecond, 200*time.Millisecond)
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 
@@ -179,9 +182,9 @@ func TestRemoteRequestDenials(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Offline last: it takes the tunnel away for good. A tunnel that dies between the
-	// lookup and the request going down it must answer the same way, so the connection
-	// is killed first and unmapped after.
+	// Offline last: it takes the tunnel away for good. The answer is the same whether the
+	// connection died a moment ago and is still mapped or the heartbeat has already
+	// removed it, so the connection is killed first and unmapped after.
 	live := s.reg.get(s.deviceID)
 	live.close()
 	if code := s.get(t, path, s.cookies()).Code; code != http.StatusServiceUnavailable {

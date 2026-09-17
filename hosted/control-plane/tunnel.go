@@ -101,12 +101,30 @@ func (reg *tunnelRegistry) online(deviceID string) bool {
 	return reg.get(deviceID) != nil
 }
 
+// count is how many devices are reachable right now, which is what the gauge publishes.
+func (reg *tunnelRegistry) count() int {
+	reg.mu.Lock()
+	defer reg.mu.Unlock()
+	return len(reg.live)
+}
+
+// setPing changes the heartbeat, which tests turn down so a dead tunnel is noticed inside
+// a test rather than inside half a minute.
+func (reg *tunnelRegistry) setPing(every, timeout time.Duration) {
+	reg.mu.Lock()
+	defer reg.mu.Unlock()
+	reg.pingEvery, reg.pingTimeout = every, timeout
+}
+
 // watch pings the agent until it stops answering, and returns why the tunnel ended.
 func (reg *tunnelRegistry) watch(t *tunnel) string {
-	tick := time.NewTicker(reg.pingEvery)
-	defer tick.Stop()
-	for range tick.C {
-		ctx, cancel := context.WithTimeout(context.Background(), reg.pingTimeout)
+	for {
+		reg.mu.Lock()
+		every, timeout := reg.pingEvery, reg.pingTimeout
+		reg.mu.Unlock()
+
+		time.Sleep(every)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		err := t.cc.Ping(ctx)
 		cancel()
 		switch {
@@ -117,17 +135,16 @@ func (reg *tunnelRegistry) watch(t *tunnel) string {
 			return reasonClosed
 		}
 	}
-	return reasonClosed
 }
 
-func registerTunnelRoutes(mux *http.ServeMux, db *pgxpool.Pool, log *slog.Logger, reg *tunnelRegistry) {
+func registerTunnelRoutes(mux *http.ServeMux, db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *tunnelRegistry) {
 	limiter := newRateLimiter(tunnelLimit, rateWindow)
-	mux.Handle("POST /v1/tunnel", limiter.middleware(openTunnel(db, log, reg)))
+	mux.Handle("POST /v1/tunnel", limiter.middleware(openTunnel(db, log, m, reg)))
 }
 
 // openTunnel authenticates the agent, takes the connection over and holds it. The handler
 // returns when the tunnel ends, which is the connection's whole life.
-func openTunnel(db *pgxpool.Pool, log *slog.Logger, reg *tunnelRegistry) http.HandlerFunc {
+func openTunnel(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *tunnelRegistry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 4<<10))
 		if err != nil {
@@ -182,13 +199,18 @@ func openTunnel(db *pgxpool.Pool, log *slog.Logger, reg *tunnelRegistry) http.Ha
 		t := &tunnel{deviceID: deviceID, cc: cc, conn: conn}
 		if old := reg.put(t); old != nil {
 			old.close()
+			m.RecordTunnelDisconnect(reasonReplaced)
 			reg.record(ctx, db, log, old, ActionTunnelDisconnected, reasonReplaced)
 		}
+		m.RecordTunnelConnect()
+		m.SetLiveTunnels(reg.count())
 		reg.record(ctx, db, log, t, ActionTunnelConnected, "")
 
 		reason := reg.watch(t)
 		t.close()
 		if reg.drop(t) {
+			m.RecordTunnelDisconnect(reason)
+			m.SetLiveTunnels(reg.count())
 			reg.record(ctx, db, log, t, ActionTunnelDisconnected, reason)
 		}
 	}

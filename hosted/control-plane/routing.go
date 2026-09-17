@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -40,14 +41,37 @@ func registerRoutingRoutes(mux *http.ServeMux, db *pgxpool.Pool, log *slog.Logge
 
 func remoteRequest(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *tunnelRegistry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		started := time.Now()
 		requestID := newRequestID()
 		deviceID, app := r.PathValue("device"), r.PathValue("app")
 
+		// Every request leaves one counter sample, refusals included, and the histogram
+		// sees it once however it ended.
+		answered := false
+		finish := func(status int) {
+			if answered {
+				return
+			}
+			answered = true
+			m.RecordRemoteRequest(status, time.Since(started))
+		}
+
+		// A refusal before the target is known writes no audit row: an unauthenticated
+		// flood would otherwise write history faster than anyone can read it. Those
+		// refusals are counted and logged instead.
+		actor, auditable := "", false
 		deny := func(status int, reason, message string) {
 			m.RecordRemoteDenial(reason)
 			log.Info("remote request denied",
 				"request_id", requestID, "reason", reason, "status", status,
-				"device", deviceID, "app", app)
+				"device", deviceID, "app", app, "account", actor)
+			if auditable {
+				if err := appendAudit(r.Context(), db, deviceID, actor, ActionRemoteDenied,
+					AuditDetails{AccountID: actor, Reason: reason}); err != nil {
+					log.Error("remote denial audit", "request_id", requestID, "err", err)
+				}
+			}
+			finish(status)
 			writeAuthError(w, status, message)
 		}
 
@@ -72,6 +96,8 @@ func remoteRequest(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *tunnelRe
 		// One round trip for the binding, the application and the device's owner. The
 		// owner is the first admin the device ever had, revoked or not, because that is
 		// the account the subscription belongs to.
+		actor, auditable = a.id, true
+
 		var bound, hasApp bool
 		var owner *string
 		err = db.QueryRow(ctx,
@@ -145,7 +171,9 @@ func remoteRequest(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *tunnelRe
 			},
 			ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelWarn),
 		}
-		proxy.ServeHTTP(w, r)
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		proxy.ServeHTTP(rec, r)
+		finish(rec.status)
 	}
 }
 

@@ -79,7 +79,7 @@ func TestAlertRulesCoverRequiredSignals(t *testing.T) {
 		}
 	}
 
-	for _, want := range []string{"SubscriptionJobStale"} {
+	for _, want := range []string{"SubscriptionJobStale", "TunnelChurn"} {
 		if !byName[want] {
 			t.Errorf("required alert %s missing from rules.yml", want)
 		}
@@ -110,7 +110,7 @@ func TestAlertRulesReferenceExportedSeries(t *testing.T) {
 			t.Errorf("rule references %s, which /metrics does not export", token)
 		}
 	}
-	for _, token := range []string{"rfm_subscription_job_last_run_unixtime"} {
+	for _, token := range []string{"rfm_subscription_job_last_run_unixtime", "rfm_tunnel_connects_total", "rfm_tunnels_live"} {
 		if !seenRef[token] {
 			t.Errorf("no rule references exported series %s", token)
 		}
