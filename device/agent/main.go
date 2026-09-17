@@ -3,6 +3,7 @@
 //
 // Subcommands:
 //
+//	agent run   serve the registered applications on the LAN (the default)
 //	agent key   print the device's public key, device id and fingerprint
 //
 // Configuration is environment only, see config.go.
@@ -34,11 +35,13 @@ func run(ctx context.Context, args []string, out, logTo io.Writer) error {
 	}
 	log := slog.New(slog.NewJSONHandler(logTo, &slog.HandlerOptions{Level: cfg.logLevel}))
 
-	command := "key"
+	command := "run"
 	if len(args) > 0 {
 		command = args[0]
 	}
 	switch command {
+	case "run":
+		return serve(ctx, cfg, log)
 	case "key":
 		return printKey(ctx, cfg, log, out)
 	default:

@@ -13,16 +13,21 @@ import (
 // so an agent installed by the client's enrolment flow needs no file edited by hand.
 type config struct {
 	dir        string        // RFM_AGENT_DIR
+	addr       string        // RFM_AGENT_ADDR, the LAN gateway
 	keystore   string        // RFM_AGENT_KEYSTORE: auto, keyring or file
 	logLevel   slog.Level    // RFM_AGENT_LOG_LEVEL
 	storeRetry time.Duration // how long to wait between retries on a locked key store
 }
 
-const storeRetry = 5 * time.Second
+const (
+	storeRetry      = 5 * time.Second
+	shutdownTimeout = 20 * time.Second
+)
 
 func loadConfig() (config, error) {
 	c := config{
 		dir:        os.Getenv("RFM_AGENT_DIR"),
+		addr:       env("RFM_AGENT_ADDR", ":7433"),
 		keystore:   env("RFM_AGENT_KEYSTORE", "auto"),
 		storeRetry: storeRetry,
 	}
