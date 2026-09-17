@@ -13,7 +13,7 @@ Where this document and that record disagree, the record wins.
 
 ## Overview
 
-The system installs an Agent on each managed PC. The Agent can run and expose local applications such as Copyparty.
+The system installs an Agent on each managed PC. The Agent can run and expose local applications such as dufs.
 
 The architecture has two access modes:
 
@@ -208,7 +208,7 @@ Client
 PC1 Agent
   │
   ▼
-Copyparty
+dufs
 ```
 
 No central server is required.
@@ -367,8 +367,8 @@ Example:
 ```text
 device_id = pc1
 name = file-manager
-type = copyparty
-config = 127.0.0.1:3923
+type = dufs
+config = 127.0.0.1:5000
 ```
 
 The Agent resolves:
@@ -376,7 +376,7 @@ The Agent resolves:
 ```text
 file-manager
     ↓
-127.0.0.1:3923
+127.0.0.1:5000
 ```
 
 This prevents the remote API from becoming an unrestricted reverse proxy or SSRF primitive.
@@ -789,7 +789,7 @@ Remote access can use the central server for authentication and authorization, w
                             │
                     ┌───────┴────────┐
                     │                │
-                Copyparty          Other apps
+                  dufs          Other apps
 
 
 Local:

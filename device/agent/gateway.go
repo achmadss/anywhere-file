@@ -107,8 +107,8 @@ func appProxy(a app, log *slog.Logger) http.Handler {
 		ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelWarn),
 	}
 	// The application is reached at its own root, the way a reverse proxy location works,
-	// so it does not have to know the name it is registered under. Copyparty is told the
-	// prefix separately so the links it writes carry it.
+	// so it does not have to know the name it is registered under. An application that
+	// writes absolute links is told the prefix separately, so the links carry it.
 	stripped := http.StripPrefix(prefix, proxy)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == prefix {

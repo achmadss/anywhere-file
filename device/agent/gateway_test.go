@@ -78,11 +78,11 @@ func get(t *testing.T, gw *httptest.Server, path string) *http.Response {
 }
 
 func TestGatewayForwardsToARegisteredApplication(t *testing.T) {
-	gw, seen := gatewayWithApp(t, "copyparty", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	gw, seen := gatewayWithApp(t, "dufs", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "the file")
 	}))
 
-	resp := get(t, gw, "/copyparty/files/a%20b.txt?dl=1")
+	resp := get(t, gw, "/dufs/files/a%20b.txt?dl=1")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}
@@ -101,12 +101,12 @@ func TestGatewayForwardsToARegisteredApplication(t *testing.T) {
 // The agent's root is the application's root. The server sends `/{app}` with no trailing
 // slash for this case, and a redirect would send the caller somewhere that does not exist.
 func TestApplicationRootIsForwarded(t *testing.T) {
-	gw, seen := gatewayWithApp(t, "copyparty", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	gw, seen := gatewayWithApp(t, "dufs", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "index")
 	}))
 	gw.Client().CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 
-	resp := get(t, gw, "/copyparty")
+	resp := get(t, gw, "/dufs")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200 and not a redirect to %q", resp.StatusCode, resp.Header.Get("Location"))
 	}
@@ -118,13 +118,13 @@ func TestApplicationRootIsForwarded(t *testing.T) {
 // The gateway forwards to names it knows and to nothing else. Everything here would be a
 // way to reach a host the registry never named.
 func TestGatewayRefusesWhatIsNotRegistered(t *testing.T) {
-	gw, seen := gatewayWithApp(t, "copyparty", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	gw, seen := gatewayWithApp(t, "dufs", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 
 	for what, path := range map[string]string{
 		"an unregistered name":      "/jellyfin/",
 		"the root":                  "/",
 		"a name that is not a name": "/..%2f..%2fetc%2fpasswd",
-		"a nested unknown name":     "/copyparty2/files",
+		"a nested unknown name":     "/dufs2/files",
 	} {
 		if resp := get(t, gw, path); resp.StatusCode != http.StatusNotFound {
 			t.Errorf("%s: status = %d, want 404", what, resp.StatusCode)
@@ -138,7 +138,7 @@ func TestGatewayRefusesWhatIsNotRegistered(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer conn.Close()
-	fmt.Fprint(conn, "GET http://example.com/copyparty/ HTTP/1.1\r\nHost: example.com\r\n\r\n")
+	fmt.Fprint(conn, "GET http://example.com/dufs/ HTTP/1.1\r\nHost: example.com\r\n\r\n")
 	status, err := readStatusLine(conn)
 	if err != nil {
 		t.Fatal(err)
@@ -149,7 +149,7 @@ func TestGatewayRefusesWhatIsNotRegistered(t *testing.T) {
 
 	// A Host header naming another machine decides nothing: the address comes from the
 	// registry, and that is where the request goes.
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, gw.URL+"/copyparty/", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, gw.URL+"/dufs/", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,10 +168,10 @@ func TestGatewayRefusesWhatIsNotRegistered(t *testing.T) {
 }
 
 func TestUnreachableApplicationIsABadGateway(t *testing.T) {
-	st := &state{Name: "pc1", Apps: []app{{Name: "copyparty", Type: "http", Address: "127.0.0.1:1"}}}
+	st := &state{Name: "pc1", Apps: []app{{Name: "dufs", Type: "http", Address: "127.0.0.1:1"}}}
 	gw := httptest.NewServer(newGateway(newAgent(t.TempDir(), testKey(t), st, discard)))
 	t.Cleanup(gw.Close)
-	if resp := get(t, gw, "/copyparty/"); resp.StatusCode != http.StatusBadGateway {
+	if resp := get(t, gw, "/dufs/"); resp.StatusCode != http.StatusBadGateway {
 		t.Errorf("status = %d, want 502", resp.StatusCode)
 	}
 }
@@ -180,7 +180,7 @@ func TestUnreachableApplicationIsABadGateway(t *testing.T) {
 func TestDiscoveryDocument(t *testing.T) {
 	key := testKey(t)
 	st := &state{Name: "pc1", Apps: []app{
-		{Name: "copyparty", Type: "http", Address: "127.0.0.1:3923"},
+		{Name: "dufs", Type: "http", Address: "127.0.0.1:5000"},
 		{Name: "jellyfin", Type: "http", Address: "127.0.0.1:8096"},
 	}}
 	gw := httptest.NewServer(newGateway(newAgent(t.TempDir(), key, st, discard)))
@@ -210,11 +210,11 @@ func TestDiscoveryDocument(t *testing.T) {
 	if doc.Name != "pc1" || doc.V != protocolVersion {
 		t.Errorf("name = %q, v = %d, want pc1 and %d", doc.Name, doc.V, protocolVersion)
 	}
-	if strings.Join(doc.Apps, ",") != "copyparty,jellyfin" {
-		t.Errorf("apps = %v, want copyparty and jellyfin", doc.Apps)
+	if strings.Join(doc.Apps, ",") != "dufs,jellyfin" {
+		t.Errorf("apps = %v, want dufs and jellyfin", doc.Apps)
 	}
 	// The loopback address is the one thing that never leaves the PC.
-	if strings.Contains(string(body), "3923") {
+	if strings.Contains(string(body), "5000") {
 		t.Error("the discovery document carries an application's address")
 	}
 }
@@ -227,7 +227,7 @@ func TestGatewayStreamsBothWays(t *testing.T) {
 	second := make(chan struct{})
 	var once sync.Once
 	release := func() { once.Do(func() { close(second) }) }
-	gw, seen := gatewayWithApp(t, "copyparty", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	gw, seen := gatewayWithApp(t, "dufs", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// A declared length is the ordinary case for a file download, and it is the case
 		// a proxy is free to buffer unless it is told not to.
 		w.Header().Set("Content-Length", strconv.Itoa(len(head)+size))
@@ -245,7 +245,7 @@ func TestGatewayStreamsBothWays(t *testing.T) {
 	// application has finished writing it never arrives here at all.
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, gw.URL+"/copyparty/up", io.LimitReader(zeros{}, size))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, gw.URL+"/dufs/up", io.LimitReader(zeros{}, size))
 	if err != nil {
 		t.Fatal(err)
 	}
