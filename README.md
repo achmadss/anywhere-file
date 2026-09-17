@@ -142,6 +142,31 @@ The server sends a ping every 30 seconds. A connection that carries nothing for 
 is treated as gone from the agent's side too, because a broken path can leave a socket
 looking open for minutes.
 
+### Running as a service
+
+```sh
+go build -o agent ./device/agent
+./agent install
+```
+
+`agent install` hands the binary to whatever starts programs on this OS and asks for it
+back after a reboot: a launchd agent on macOS, a logon-triggered scheduled task on
+Windows, a systemd user unit on Linux. Each one restarts the agent if it exits.
+
+It installs into the user's own session everywhere, never machine wide. The device key
+lives in the user's keystore and a machine-wide service cannot read it. On Windows that
+rules out a real service, which runs in session 0 with no access to the user's credentials.
+
+A service starts with no shell, so the `RFM_AGENT_*` variables set when `install` runs are
+written into the manifest. Change one and install again.
+
+On Linux the user's services stop at logout unless the account lingers. `install` asks for
+lingering and carries on with a warning if it is refused, which leaves an agent that runs
+now and does not come back after a reboot. `sudo loginctl enable-linger $USER` fixes it.
+
+`agent uninstall` removes the manifest and stops the service. The device key, the registry
+and the log stay where they are, so reinstalling gets the same device back.
+
 ## Running the control plane locally
 
 `hosted/control-plane/` needs PostgreSQL. `hosted/control-plane/docker-compose.yml` brings one up on host

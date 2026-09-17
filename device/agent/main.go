@@ -7,6 +7,8 @@
 //	agent key                    print the device's public key, device id and fingerprint
 //	agent discover               list the agents this machine can see on the LAN
 //	agent enrol <server> <token> register this PC with an account, for a headless machine
+//	agent install                start at logon and keep running, as a user-level service
+//	agent uninstall              stop doing that, leaving the key and the registry alone
 //
 // Configuration is environment only, see config.go.
 package main
@@ -54,6 +56,10 @@ func run(ctx context.Context, args []string, out, logTo io.Writer) error {
 			return fmt.Errorf("enrol needs a server address and an enrolment token")
 		}
 		return enrolCommand(ctx, cfg, log, out, args[0], args[1])
+	case "install":
+		return installService(cfg, log, out)
+	case "uninstall":
+		return uninstallService(cfg, log, out)
 	default:
 		return fmt.Errorf("unknown command %q", command)
 	}

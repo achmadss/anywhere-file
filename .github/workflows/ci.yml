@@ -94,6 +94,54 @@ jobs:
         if: runner.os == 'Linux'
         run: .github/scripts/mdns-containers.sh
 
+  service:
+    # #33's acceptance: the OS starts the agent and keeps it, with nothing typed into a
+    # window. A runner cannot be rebooted, so what is checked here is that the manifest
+    # installs, the service comes up on its own, and uninstalling takes it away again.
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      # No multicast and no server on a runner, and the keystore has no unlocked session
+      # behind it, so the service gets the settings that leave only the gateway.
+      RFM_AGENT_ADDR: 127.0.0.1:7433
+      RFM_AGENT_MDNS: "off"
+      RFM_AGENT_TUNNEL: "off"
+      RFM_AGENT_KEYSTORE: file
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: build
+        run: |
+          agent="$RUNNER_TEMP/agent"
+          [ "$RUNNER_OS" = Windows ] && agent="$agent.exe"
+          go build -o "$agent" ./device/agent
+          echo "AGENT=$agent" >> "$GITHUB_ENV"
+      # A systemd user manager exists on the runner only once the user lingers, and it is
+      # reached through XDG_RUNTIME_DIR. On a desktop both are already true.
+      - if: runner.os == 'Linux'
+        run: |
+          sudo loginctl enable-linger "$USER"
+          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+      - name: install
+        run: "$AGENT" install
+      - name: the service answers on its own
+        run: .github/scripts/service-up.sh up
+      - name: uninstall
+        run: "$AGENT" uninstall
+      - name: and stops answering
+        run: .github/scripts/service-up.sh down
+
   rules:
     # promtool is Prometheus's own rule checker: it parses every expression, which the Go
     # test cannot do. It runs only when the rules change, because it costs a release
@@ -145,7 +193,7 @@ jobs:
   ci-ok:
     # The one check branch protection requires. Green when every job that ran passed, and
     # when a job was skipped because nothing in its language changed.
-    needs: [changes, go, rules, blockers, prose]
+    needs: [changes, go, service, rules, blockers, prose]
     if: always()
     runs-on: ubuntu-latest
     steps:
