@@ -20,6 +20,7 @@ func newHandler(db *pgxpool.Pool, log *slog.Logger, m *Metrics) http.Handler {
 	registerDeviceRoutes(mux, db, log)
 	registerBindingRoutes(mux, db, log)
 	registerAppRoutes(mux, db, log)
+	registerInviteRoutes(mux, db, log)
 	registerSubscriptionRoutes(mux, db, log, m)
 	return logRequests(mux, log)
 }
