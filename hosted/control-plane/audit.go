@@ -16,6 +16,7 @@ const (
 	ActionAccountDeleted = "account.deleted"
 	ActionDeviceEnrolled = "device.enrolled"
 	ActionDeviceDisabled = "device.disabled"
+	ActionBindingRevoked = "binding.revoked"
 )
 
 // validActions is the closed set appendAudit accepts. A typo in a caller fails
@@ -24,6 +25,7 @@ var validActions = map[string]bool{
 	ActionAccountDeleted: true,
 	ActionDeviceEnrolled: true,
 	ActionDeviceDisabled: true,
+	ActionBindingRevoked: true,
 }
 
 // AuditDetails is the detail payload of one audit row. The field set is fixed:

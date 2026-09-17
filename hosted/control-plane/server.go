@@ -18,6 +18,7 @@ func newHandler(db *pgxpool.Pool, log *slog.Logger, m *Metrics) http.Handler {
 	mux.Handle("GET /metrics", m.Handler())
 	registerAuthRoutes(mux, db, log)
 	registerDeviceRoutes(mux, db, log)
+	registerBindingRoutes(mux, db, log)
 	return logRequests(mux, log)
 }
 
