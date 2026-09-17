@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # Two hosts on a network with no route off it find each other over mDNS, which is the last
 # acceptance case of #93. A Docker internal network is that: the containers can reach each
-# other and nothing else, and nothing resolves names for them.
+# other and nothing else.
+#
+# Each container gets a route for the multicast range, because Linux sends a datagram by
+# looking up its destination and a host with no default route has nothing that matches
+# 224.0.0.251. A LAN machine normally gets that from its default route. This is the same
+# hole the acceptance case is about, so the script opens it the way an operator would
+# rather than pretending it is not there.
 set -euo pipefail
 
-IMAGE=gcr.io/distroless/static-debian12
+IMAGE=alpine:3.21
 NET=rfm-mdns
 
 CGO_ENABLED=0 go build -o /tmp/agent ./device/agent
@@ -23,10 +29,10 @@ cat > /tmp/agent-a/agent.json <<'JSON'
 {"name":"pc-in-a-box","apps":[{"name":"copyparty","type":"http","address":"127.0.0.1:3923"}]}
 JSON
 
-docker run -d --name rfm-advertiser --network "$NET" \
+docker run -d --name rfm-advertiser --network "$NET" --cap-add NET_ADMIN \
   -v /tmp/agent:/agent:ro -v /tmp/agent-a:/state \
   -e RFM_AGENT_DIR=/state -e RFM_AGENT_KEYSTORE=file -e RFM_AGENT_ADDR=:7433 \
-  "$IMAGE" /agent run >/dev/null
+  "$IMAGE" sh -c 'ip route add 224.0.0.0/4 dev eth0 && exec /agent run' >/dev/null
 
 for i in $(seq 30); do
   docker logs rfm-advertiser 2>&1 | grep -q "advertising on the LAN" && break
@@ -38,9 +44,9 @@ docker logs rfm-advertiser 2>&1 | grep -q "advertising on the LAN" || {
 
 # `agent discover` gives up after two seconds, so finding the record at all is finding it
 # inside the two seconds the issue asks for.
-out=$(docker run --rm --network "$NET" -v /tmp/agent:/agent:ro \
+out=$(docker run --rm --network "$NET" --cap-add NET_ADMIN -v /tmp/agent:/agent:ro \
   -e RFM_AGENT_DIR=/state -e RFM_AGENT_KEYSTORE=file \
-  "$IMAGE" /agent discover)
+  "$IMAGE" sh -c 'ip route add 224.0.0.0/4 dev eth0 && exec /agent discover')
 echo "$out"
 
 echo "$out" | grep -q "pc-in-a-box" || { echo "the advertiser was not found"; exit 1; }
