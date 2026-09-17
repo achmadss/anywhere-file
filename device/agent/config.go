@@ -15,6 +15,7 @@ type config struct {
 	dir        string        // RFM_AGENT_DIR
 	addr       string        // RFM_AGENT_ADDR, the LAN gateway
 	keystore   string        // RFM_AGENT_KEYSTORE: auto, keyring or file
+	mdns       bool          // RFM_AGENT_MDNS
 	logLevel   slog.Level    // RFM_AGENT_LOG_LEVEL
 	storeRetry time.Duration // how long to wait between retries on a locked key store
 }
@@ -29,6 +30,7 @@ func loadConfig() (config, error) {
 		dir:        os.Getenv("RFM_AGENT_DIR"),
 		addr:       env("RFM_AGENT_ADDR", ":7433"),
 		keystore:   env("RFM_AGENT_KEYSTORE", "auto"),
+		mdns:       env("RFM_AGENT_MDNS", "on") != "off",
 		storeRetry: storeRetry,
 	}
 	if c.dir == "" {
