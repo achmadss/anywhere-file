@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"log"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -121,6 +122,31 @@ func TestTheAdvertisedRecordIsFound(t *testing.T) {
 	}
 }
 
+// multicastInterface is an interface that can carry multicast on IPv4.
+func multicastInterface(t *testing.T) *net.Interface {
+	t.Helper()
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagMulticast == 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && ipnet.IP.To4() != nil {
+				return &iface
+			}
+		}
+	}
+	t.Fatal("no interface on this machine can carry IPv4 multicast")
+	return nil
+}
+
 // browse looks for our own record and ignores anything else on the network, which on a
 // developer's LAN may include another PC running this agent.
 func browse(t *testing.T, deviceID string, within time.Duration) *mdns.ServiceEntry {
@@ -143,7 +169,11 @@ func browse(t *testing.T, deviceID string, within time.Duration) *mdns.ServiceEn
 		Domain:  strings.TrimSuffix(mdnsDomain, "."),
 		Timeout: within,
 		Entries: entries,
-		Logger:  log.New(io.Discard, "", 0),
+		// Naming the interface sets IP_MULTICAST_IF. Without it a machine with no route
+		// for 224.0.0.251, which a CI runner is, cannot send the query at all.
+		Interface:   multicastInterface(t),
+		DisableIPv6: true,
+		Logger:      log.New(io.Discard, "", 0),
 	})
 	close(entries)
 	if err != nil {
