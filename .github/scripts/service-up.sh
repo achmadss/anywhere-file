@@ -3,12 +3,14 @@
 # `up` is #33's acceptance: nobody started this process, the OS did.
 set -euo pipefail
 
-url="http://${RFM_AGENT_ADDR:-127.0.0.1:7433}/.well-known/anywhere-file"
+# -k because the certificate is the device's own, and the key in it is what lan-tls.sh
+# checks. This is a liveness check.
+url="https://${RFM_AGENT_ADDR:-127.0.0.1:7433}/.well-known/anywhere-file"
 
 case "${1:-up}" in
 up)
 	for _ in $(seq 30); do
-		if answer=$(curl -fsS --max-time 2 "$url"); then
+		if answer=$(curl -fsSk --max-time 2 "$url"); then
 			echo "$answer"
 			exit 0
 		fi
@@ -19,7 +21,7 @@ up)
 	;;
 down)
 	for _ in $(seq 15); do
-		if ! curl -fsS --max-time 2 "$url" >/dev/null; then
+		if ! curl -fsSk --max-time 2 "$url" >/dev/null; then
 			exit 0
 		fi
 		sleep 2

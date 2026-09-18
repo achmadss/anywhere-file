@@ -57,7 +57,7 @@ go run ./device/agent enrol https://cloud.example.com <token>
 | Variable | Default | What |
 |---|---|---|
 | `RFM_AGENT_DIR` | the OS config directory, `%LocalAppData%` on Windows | where the agent keeps its own state |
-| `RFM_AGENT_ADDR` | `:7433` | the address the LAN gateway listens on |
+| `RFM_AGENT_ADDR` | `:7433` | the address the LAN gateway listens on, HTTPS |
 | `RFM_AGENT_KEYSTORE` | `auto` | `keyring` for the OS keystore, `file` for a seed file |
 | `RFM_AGENT_MDNS` | `on` | `off` on a machine with no multicast, such as some containers |
 | `RFM_AGENT_TUNNEL` | `on` | `off` to keep the PC on the LAN only, with no outbound connection |
@@ -123,6 +123,25 @@ the gateway refuses would be reachable around it.
 
 `GET /.well-known/anywhere-file` returns the device id, the name and the application names,
 which is what a client reads after it finds the agent.
+
+### TLS on the LAN
+
+The gateway serves HTTPS. The certificate is the agent's own, signed with the device key
+and made fresh at every start, so the key a client sees in the handshake is the key the
+`device_id` is derived from.
+
+There is no certificate authority to check it against. A client pins the public key the
+first time it connects and refuses a different one afterwards, the way ssh does with a host
+key, so a second PC claiming a device id it has seen is refused at the handshake. mDNS
+carries no key and is not trusted for one.
+
+The certificate names the device `<device_id>.anywhere-file` and covers this machine's
+addresses, so a client that checks the name against the address it dialled finds it there.
+`curl -k` is how to reach the gateway by hand; the fingerprint to compare is what
+`agent key` prints.
+
+Applications stay on plain HTTP on loopback behind the gateway. What crosses the network is
+the gateway's connection.
 
 ### Discovery
 

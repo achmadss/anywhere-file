@@ -9,7 +9,7 @@ Where this document and that record disagree, the record wins.
 - The tunnel is our own: one outbound TLS connection from the Agent, authenticated with the device key, carrying HTTP/2 from the server. Rathole is not used and `device_tunnel_credentials` does not exist.
 - User sessions are opaque tokens looked up on the server. The JWT sections below describe V2 offline LAN authorization, not the MVP.
 - Payment and billing are stubbed: a subscription row with an operator-set status.
-- Two risks are accepted for the MVP and written into `security/threat-model.md`: LAN access is open and unencrypted, and the server sees remote traffic in plaintext.
+- Two risks are accepted for the MVP and written into `security/threat-model.md`: LAN access is open to anyone who can reach the agent, and the server sees remote traffic in plaintext. The LAN is encrypted with the device key (#96).
 
 ## Overview
 

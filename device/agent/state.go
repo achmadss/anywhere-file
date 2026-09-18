@@ -26,8 +26,9 @@ const (
 	stateFileName = "agent.json"
 	maxApps       = 32
 	// protocolVersion is what a client checks before it talks to this agent. It appears
-	// in the discovery document and in the mDNS record (#93).
-	protocolVersion = 1
+	// in the discovery document and in the mDNS record (#93). Version 2 is HTTPS on the
+	// LAN, with the device key in the certificate (#96); version 1 was plain HTTP.
+	protocolVersion = 2
 )
 
 // state is the agent's own file, read at startup and written back by enrolment.
