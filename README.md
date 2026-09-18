@@ -57,7 +57,7 @@ go run ./device/agent enrol https://cloud.example.com <token>
 | Variable | Default | What |
 |---|---|---|
 | `RFM_AGENT_DIR` | the OS config directory, `%LocalAppData%` on Windows | where the agent keeps its own state |
-| `RFM_AGENT_ADDR` | `:7433` | the address the LAN gateway listens on |
+| `RFM_AGENT_ADDR` | `:7433` | the address the LAN gateway listens on, HTTPS |
 | `RFM_AGENT_KEYSTORE` | `auto` | `keyring` for the OS keystore, `file` for a seed file |
 | `RFM_AGENT_MDNS` | `on` | `off` on a machine with no multicast, such as some containers |
 | `RFM_AGENT_TUNNEL` | `on` | `off` to keep the PC on the LAN only, with no outbound connection |
@@ -123,6 +123,31 @@ the gateway refuses would be reachable around it.
 
 `GET /.well-known/anywhere-file` returns the device id, the name and the application names,
 which is what a client reads after it finds the agent.
+
+### TLS on the LAN
+
+The gateway serves HTTPS with a certificate it signs itself. There is no authority to check
+it against, so the device key is what a client trusts instead. The discovery document
+carries the device's public key and that key's signature over the certificate's public key,
+so a client:
+
+1. checks that the digest of the public key is the `device_id` it was looking for,
+2. checks that the signature covers the certificate the connection is actually using.
+
+Another PC can copy the document and cannot serve a certificate to match it. mDNS carries
+no key and is not trusted for one.
+
+The certificate holds a P-256 key derived from the device key, one per PC and the same
+after every restart, so a client may pin it as well. It is a derived key because an
+Ed25519 certificate is refused outright by Schannel on Windows, by LibreSSL on macOS and
+by browser engines. The agent replaces the certificate a month before it runs out.
+
+It names the device `<device_id>.anywhere-file` and covers this machine's addresses, so a
+client that checks the name against the address it dialled finds it there. By hand,
+`curl -k https://localhost:7433/.well-known/anywhere-file` is the whole document.
+
+Applications stay on plain HTTP on loopback behind the gateway. What crosses the network is
+the gateway's connection.
 
 ### Discovery
 

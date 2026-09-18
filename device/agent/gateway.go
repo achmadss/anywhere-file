@@ -32,13 +32,22 @@ func newGateway(ag *agent) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+discoveryPath, func(w http.ResponseWriter, r *http.Request) {
 		s := ag.snapshot()
-		writeJSON(w, http.StatusOK, map[string]any{
+		doc := map[string]any{
 			"v":         protocolVersion,
 			"device_id": ag.key.deviceID(),
 			"name":      s.Name,
 			"apps":      s.appNames(),
 			"enrolled":  s.enrolled(),
-		})
+		}
+		// What ties the certificate on this connection to the device id above (#96). It
+		// costs a signature per document, and a client reads one document per PC.
+		if proof, err := deviceProof(ag.key); err == nil {
+			doc["public_key"] = ag.key.publicHex()
+			doc["tls_proof"] = proof
+		} else {
+			ag.log.Error("the discovery document has no proof of this device's certificate", "err", err)
+		}
+		writeJSON(w, http.StatusOK, doc)
 	})
 	mux.HandleFunc("POST "+enrolPath, enrolHandler(ag))
 	for _, a := range ag.snapshot().Apps {

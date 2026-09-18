@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"log/slog"
 	"net"
@@ -32,6 +33,16 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	// The port, taken before the listener is wrapped, is what the LAN is told below.
+	port := ln.Addr().(*net.TCPAddr).Port
+	// Made here rather than on the first handshake, so a PC that cannot build one says so
+	// at startup instead of refusing every client later.
+	cert := &lanCert{key: key}
+	if _, err := cert.get(nil); err != nil {
+		_ = ln.Close()
+		return err
+	}
+	ln = tls.NewListener(ln, lanTLS(cert))
 	handler := newGateway(ag)
 	srv := &http.Server{
 		Handler: handler,
@@ -41,11 +52,11 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
 	log.Info("gateway listening",
-		"addr", ln.Addr().String(), "device", key.deviceID(), "name", st.Name,
+		"addr", "https://"+ln.Addr().String(), "device", key.deviceID(), "name", st.Name,
 		"apps", st.appNames(), "enrolled", st.enrolled())
 
 	if cfg.mdns {
-		ad := newAdvertiser(ln.Addr().(*net.TCPAddr).Port, log)
+		ad := newAdvertiser(port, log)
 		// A PC nobody can find is a PC with no local mode, so this is a startup failure
 		// and not a warning. Set RFM_AGENT_MDNS=off where there is no multicast to have.
 		if err := ad.advertise(st, key); err != nil {

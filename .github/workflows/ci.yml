@@ -138,6 +138,11 @@ jobs:
           "$AGENT" install
       - name: the service answers on its own
         run: .github/scripts/service-up.sh up
+      # #96: the certificate on the LAN is the one the device key signed, so a client that
+      # knows a device id can tell whether it is talking to that PC.
+      - name: the device key signed the certificate
+        if: runner.os == 'Linux'
+        run: .github/scripts/lan-tls.sh
       - name: uninstall
         run: |
           "$AGENT" uninstall

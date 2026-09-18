@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -50,7 +51,7 @@ func TestTXTCarriesWhatTheClientNeeds(t *testing.T) {
 		{Name: "jellyfin", Type: "http", Address: "127.0.0.1:8096"},
 	}}
 	text := strings.Join(txtRecords(s, key), " ")
-	for _, want := range []string{"v=1", "id=" + key.deviceID(), "name=pc1", "apps=dufs,jellyfin"} {
+	for _, want := range []string{fmt.Sprintf("v=%d", protocolVersion), "id=" + key.deviceID(), "name=pc1", "apps=dufs,jellyfin"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("TXT = %q, want it to carry %q", text, want)
 		}
@@ -120,8 +121,8 @@ func TestTheAdvertisedRecordIsFound(t *testing.T) {
 	if entry.Name != s.Name {
 		t.Errorf("name = %q, want %q", entry.Name, s.Name)
 	}
-	if entry.Version != "1" {
-		t.Errorf("v = %q, want 1", entry.Version)
+	if entry.Version != fmt.Sprint(protocolVersion) {
+		t.Errorf("v = %q, want %d", entry.Version, protocolVersion)
 	}
 	if strings.Join(entry.Apps, ",") != "dufs" {
 		t.Errorf("apps = %v, want dufs", entry.Apps)
