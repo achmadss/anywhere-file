@@ -9,10 +9,6 @@ jmdns = "3.6.3"
 serialization = "1.11.0"
 
 [libraries]
-compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose" }
-compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose" }
-compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose" }
-compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose" }
 jmdns = { module = "org.jmdns:jmdns", version.ref = "jmdns" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }

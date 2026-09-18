@@ -21,10 +21,10 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            api(libs.compose.runtime)
-            api(libs.compose.foundation)
-            api(libs.compose.material3)
-            api(libs.compose.ui)
+            api(compose.runtime)
+            api(compose.foundation)
+            api(compose.material3)
+            api(compose.ui)
             implementation(libs.kotlinx.serialization.json)
         }
         commonTest.dependencies {

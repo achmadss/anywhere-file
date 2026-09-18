@@ -153,6 +153,14 @@ The display name is capped at 54 bytes, because it goes in a DNS-SD instance nam
 piece of the device id after it and the whole thing has to fit in 63. Responders drop a
 longer one without saying anything, so the agent refuses to start instead.
 
+The client browses for that record on the desktop with jmdns and on Android through the
+platform's `NsdManager`, lists what it finds, then reads each PC's discovery document over
+the gateway's TLS and shows the name and applications from the document. On Android 17 the
+system asks the person before an app may look around the local network
+(`ACCESS_LOCAL_NETWORK`). The client explains why before asking. When the answer is no, it
+offers Android's own picker instead, which shows the PCs the system can see and hands over
+the one chosen.
+
 `agent discover` is the same browse from the command line, and is the first thing to run
 when a PC does not appear in the client.
 
