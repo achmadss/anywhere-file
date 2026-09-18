@@ -24,6 +24,7 @@ the customer's phone or laptop, and `hosted/` on hardware we pay for. Anything u
 | `internal/` | Go shared by the agent and the control plane, starting with request signing | Go |
 | `client/` | the client app for Android, Windows, macOS and Linux | Kotlin, Compose Multiplatform |
 | `qa/` | the failure suite: real processes, one test per row of the table in #40 | Go |
+| `packaging/` | a package per operating system, and the scripts that install and reverse it | shell |
 
 The agent holds its device key and serves its applications on the LAN so far, and
 `client/` does not exist. The work is broken
@@ -135,6 +136,10 @@ The command runs as written. The agent fills nothing in, so the port appears twi
 the command the application listens with, once in the address the gateway dials. An entry
 with no command is an application something else starts, which the agent only forwards to.
 
+The program is looked for on the PATH and then next to the agent's own binary. A service
+starts with the system's PATH and none of yours, so `dufs` in the registry finds the dufs a
+package installed beside the agent without anything being said about where it is.
+
 The address of an application the agent starts has to be a loopback one. An application
 listening on the LAN can be reached without going through the gateway at all, so everything
 the gateway refuses would be reachable around it.
@@ -236,6 +241,49 @@ now and does not come back after a reboot. `sudo loginctl enable-linger $USER` f
 
 `agent uninstall` removes the manifest and stops the service. The device key, the registry
 and the log stay where they are, so reinstalling gets the same device back.
+
+### Installing from a package
+
+`packaging/` builds one package per operating system. Each one places the agent and the dufs
+binary, runs `agent install` so the service starts at logon, and reverses both. They land in
+`dist/`.
+
+```sh
+./packaging/macos/build.sh    # a pkg, universal, for both kinds of Mac
+./packaging/linux/build.sh    # a tarball and a deb, amd64 and arm64
+```
+
+On macOS the pkg installs `anywhere-file.app` into `/Applications` and starts the service for
+whoever is logged in. Nothing is signed yet, so macOS calls it an unidentified developer and
+refuses to open it on the first try. Open it anyway: System Settings, Privacy and Security,
+scroll down to Security, press Open Anyway, then open the pkg again. The first run also asks
+whether the agent may use the local network, and the answer is kept in the same panel under
+Privacy, Local Network. Saying no leaves the Mac serving and unannounced, so a client has to
+be given its address rather than finding it by itself.
+`/Applications/anywhere-file.app/Contents/MacOS/uninstall` takes it all away again.
+
+On Linux the deb puts both binaries in `/usr/lib/anywhere-file`, links the agent into
+`/usr/bin` as `anywhere-file-agent`, and ships a firewalld service file. Opening the ports is
+left to whoever runs the machine:
+
+```sh
+sudo firewall-cmd --permanent --add-service=anywhere-file && sudo firewall-cmd --reload
+sudo ufw allow proto tcp to any port 7433   # ufw instead, plus 5353/udp for discovery
+```
+
+The tarball is the same thing under `~/.local` with no root anywhere: `./install.sh` to put
+it there, `./uninstall.sh` to take it away.
+
+A service starts with no shell, so settings go into the package when it is built rather than
+when it is installed. This is also the only way a package installed by double-clicking can
+carry any:
+
+```sh
+AGENT_ENV="RFM_AGENT_MDNS=off RFM_AGENT_KEYSTORE=file" ./packaging/linux/build.sh
+```
+
+Uninstalling leaves the device key and the agent's directory alone, so a PC that is
+reinstalled is the same PC to the server and keeps every binding it had.
 
 ## Running the control plane locally
 

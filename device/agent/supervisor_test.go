@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -190,3 +191,31 @@ func logToBuffer() (*slog.Logger, func() string) {
 type writerFunc func([]byte) (int, error)
 
 func (f writerFunc) Write(p []byte) (int, error) { return f(p) }
+
+// The installers put dufs next to the agent, so a registry that says `dufs` has to find it
+// there when PATH does not have it.
+func TestAnApplicationBesideTheAgentIsFoundWithoutAPath(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const name = "anywhere-file-fake-app"
+	path := filepath.Join(filepath.Dir(exe), name)
+	if runtime.GOOS == "windows" {
+		path += ".exe"
+	}
+	if err := os.WriteFile(path, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Skipf("the test binary's own directory is not writable: %v", err)
+	}
+	t.Cleanup(func() { os.Remove(path) })
+
+	if got := program(name); got != path {
+		t.Errorf("program(%q) = %q, want %q", name, got, path)
+	}
+	// Nothing of that name anywhere is left as it was, so the error the caller gets names
+	// the program the registry asked for.
+	const missing = "anywhere-file-no-such-app"
+	if got := program(missing); got != missing {
+		t.Errorf("program(%q) = %q, want it unchanged", missing, got)
+	}
+}

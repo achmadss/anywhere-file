@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<service>
+  <short>anywhere-file</short>
+  <description>The anywhere-file agent: its gateway, which is how a client on this network
+  reaches the applications this PC offers, and mDNS, which is how the client finds the PC
+  at all. The gateway port is the default one; change it here as well if the agent was
+  given RFM_AGENT_ADDR.</description>
+  <port protocol="tcp" port="7433"/>
+  <port protocol="udp" port="5353"/>
+</service>

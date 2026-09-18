@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
@@ -86,7 +87,7 @@ func superviseApp(ctx context.Context, a app, log *slog.Logger) {
 // agent's log under the application's name, because a service has no window to write to
 // and the agent's log is the one place an operator is told to look.
 func runApp(ctx context.Context, a app, log *slog.Logger) error {
-	cmd := exec.CommandContext(ctx, a.Command[0], a.Command[1:]...)
+	cmd := exec.CommandContext(ctx, program(a.Command[0]), a.Command[1:]...)
 	cmd.Stdout = &appLog{log: log}
 	cmd.Stderr = &appLog{log: log}
 	// Ask before killing. Windows has no signal to ask with, so there it is the kill.
@@ -132,4 +133,28 @@ func (w *appLog) line(b []byte) {
 	if line := string(bytes.TrimRight(b, "\r")); line != "" {
 		w.log.Info(line)
 	}
+}
+
+// program finds the program a command names. An application that ships with the agent sits
+// next to the agent's own binary, and that directory is on nobody's PATH: a launchd job
+// inside an app bundle, a systemd unit and a scheduled task each start with the system's
+// PATH and nothing of the user's. So PATH is asked first, and this directory second.
+func program(name string) string {
+	if filepath.Base(name) != name {
+		return name
+	}
+	if _, err := exec.LookPath(name); err == nil {
+		return name
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return name
+	}
+	// LookPath again rather than os.Stat: on Windows it is what adds .exe, and everywhere
+	// it is what refuses a file that cannot be run.
+	beside := filepath.Join(filepath.Dir(exe), name)
+	if found, err := exec.LookPath(beside); err == nil {
+		return found
+	}
+	return name
 }
