@@ -7,9 +7,9 @@ being chosen, with an amendments block on top listing where
 [ADR 0005](adr/0005-go-agent-native-tunnel-opaque-sessions.md) had overruled it. The body now
 matches the record, so that block is gone.
 
-Built: the agent, its settings UI (#136), the control plane, and the website's account and
-device approval pages (#137, #139). Not built: the client (#97 to #103), the agent's own sign
-in and sign out (#141) and the downloads (#138). Where a section describes something not yet
+Built: the agent, its settings UI (#136), signing a PC in and out of an account (#139, #141),
+the control plane, and the website's account pages (#137). Not built: the client (#97 to
+#103) and the downloads (#138). Where a section describes something not yet
 written, it names the issue.
 
 ## Overview
@@ -231,8 +231,8 @@ of this is #127, which pins the device key the way ssh pins a host key.
 
 A PC works on the LAN with no account. Enrolling it adds remote access.
 
-The person approves the PC in a browser while signed in to the website. The server side of
-this is built (#139); the agent's half, which asks and then polls, is #141. This is the
+The person approves the PC in a browser while signed in to the website. Both halves are
+built: the server's (#139) and the agent's, which asks and then polls (#141). This is the
 OAuth device authorization grant in shape, and it is that shape because a `device_id` is not
 a secret: it travels in the mDNS record and the discovery document, so a link carrying only a
 device id would let anyone who has seen a PC enrol it to their own account.
@@ -409,7 +409,7 @@ second deployment and no build step.
 - Signup, email verification and password reset, with the mailer that sends both links
   (#137). Built.
 - The device approval page, with the enrolment and sign out endpoints behind it (#139).
-  Built. The agent's half of the flow is #141.
+  Built, and so is the agent's half of the flow (#141).
 - The downloads for each operating system (#138).
 
 ## Database model

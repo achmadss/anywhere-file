@@ -37,6 +37,10 @@ type agent struct {
 
 	mu sync.Mutex
 	st *state
+	// login is the sign in in progress, or what the last one left behind (#141). It is
+	// held here rather than written down: a code outlives neither the agent nor the ten
+	// minutes the server gives it.
+	login login
 
 	// onApps is what the rest of the agent does when the application list changes: rebuild
 	// the gateway's routes and start or stop what serves them. It is set by `agent run`

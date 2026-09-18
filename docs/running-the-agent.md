@@ -8,6 +8,8 @@ device and drops the PC out of every binding it had.
 go run ./device/agent key        # print the identity
 go run ./device/agent run       # serve the applications and announce this PC on the LAN
 go run ./device/agent discover  # list the agents this machine can see on the LAN
+go run ./device/agent login https://cloud.example.com  # approve this PC in a browser
+go run ./device/agent logout
 go run ./device/agent enrol https://cloud.example.com <token>
 go run ./device/agent settings  # open the settings page in a browser
 go run ./device/agent share add ~/Shared --name files
@@ -154,19 +156,42 @@ longer one without saying anything, so the agent refuses to start instead.
 `agent discover` is the same browse from the command line, and is the first thing to run
 when a PC does not appear in the client.
 
-## Enrolment
+## Signing a PC in
 
-A PC works on the LAN with no account. Enrolling it adds remote access: the client mints a
-short-lived token for the signed-in account and hands it to the agent, which signs the
-enrolment request with its device key and pushes its application list.
+A PC works on the LAN with no account. Signing it in adds remote access. The password never
+reaches the agent: the browser signs the person in, and the device key proves which PC is
+asking (#139, #141, ADR 0006).
 
-`agent enrol` does this from a terminal. The server address and the device id are written
-to `agent.json` only after the server has accepted, so a bad or expired token leaves the PC
-as it was.
+`agent login https://cloud.example.com` asks the server for a code, opens a browser at the
+address that comes back and waits. The settings page has the same thing behind a button,
+and shows the code and the address while it waits. Someone signed in on the website
+approves it, and the PC finishes signing itself in.
+
+- The code lives ten minutes and works once.
+- A refusal or an expiry is an answer. The agent says which one and stops asking.
+- The server address and the device id are written to `agent.json` only after the server
+  has accepted. No session and no password is written anywhere.
+- A PC with no screen has nothing to open the address with, so the code and the address are
+  printed and the approval happens from a phone.
+
+`agent logout` takes the PC off the account. It is signed with the device key, which is why
+it needs nobody signed in anywhere: a PC can always remove itself. The bindings are revoked
+and remote requests for it stop. What it shares on the LAN is untouched.
+
+The settings endpoint answers `GET /v1/account`, `POST /v1/account/login` and
+`POST /v1/account/logout`, behind the same token as the rest of it. The page and the
+command both go through the running agent when there is one, for the reason `agent share`
+does.
+
+## Enrolment with a token
+
+`agent enrol <server> <token>` is the older path, for a PC set up from a token minted
+somewhere else. The failure suite uses it. As above, nothing is written until the server
+has accepted, so a bad or expired token leaves the PC as it was.
 
 The gateway also accepts a POST on `/enrol`, which was there for the client to call. That is
-going away (#140), because enrolment moves to an approval the person makes in a browser
-(#139, ADR 0006). Do not build anything new against it.
+going away (#140), now that a person can approve a PC in a browser instead. Do not build
+anything new against it.
 
 ## The tunnel
 

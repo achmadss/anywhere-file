@@ -84,7 +84,7 @@ asked. A signed-in person approves that code in the browser, which writes down w
 and binds nothing. The agent then polls, signed again, and only then is an enrolment token
 minted for the account that approved. Every lookup on the way has the device key in it, so a
 code read over a shoulder answers the same as a code that was never minted
-(`hosted/control-plane/enrol.go`, `verified`).
+(`hosted/control-plane/enrol.go`, `device/agent/login.go`, `verified`).
 
 A code is eight characters, which is about 34 bits, so guessing is bounded by the rate limit
 on each route that takes one and by the ten minute expiry rather than by entropy. The page
@@ -106,9 +106,9 @@ V2 adds a local user check without changing the gateway.
 Enrolment used to be on the same footing, and is being taken off it. `/enrol` on the gateway
 accepts a server address and a token from anyone who can reach the LAN, so someone on the
 network can bind the PC to their own account or re-bind one already enrolled. It was there for
-the client to call (#101, closed). #139 has built the browser approval: a PC asks, a
-person approves it while signed in, and the PC finishes with its own key. #140 removes the
-LAN endpoint, which ends this half of A1. The device key
+the client to call (#101, closed). The browser approval is built on both sides now (#139,
+#141): the PC asks, a person approves it while signed in, and the PC finishes with its own
+key. #140 removes the LAN endpoint, which ends this half of A1. The device key
 never leaves the PC either way, so what was exposed is a binding an admin can revoke.
 
 LAN traffic is encrypted (#96). The gateway serves HTTPS with a certificate the device key
