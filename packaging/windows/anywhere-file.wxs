@@ -58,7 +58,7 @@
 
     <!-- Impersonated, so the scheduled task and the device key belong to the person who
          installed rather than to the account the installer service happens to run as. -->
-    <CustomAction Id="InstallAgentService" FileRef="agent.exe" ExeCommand="key"
+    <CustomAction Id="InstallAgentService" FileRef="agent.exe" ExeCommand="install [AGENTENV]"
                   Execute="deferred" Impersonate="yes" Return="ignore" />
     <CustomAction Id="UninstallAgentService" FileRef="agent.exe" ExeCommand="uninstall"
                   Execute="deferred" Impersonate="yes" Return="ignore" />

@@ -76,6 +76,7 @@ if [ -x "$agent" ]; then
 	exit 1
 fi
 if declare -f firewall_rules >/dev/null; then
+	powershell -NoProfile -Command "New-NetFirewallRule -DisplayName 'anywhere-file stray' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 7433 | Out-Null"
 	rules=$(firewall_rules)
 	if [ "$rules" != 0 ]; then
 		echo "$rules firewall rules are still there after the uninstall, want none"
