@@ -213,15 +213,15 @@ jobs:
         run: .github/scripts/failure-suite.sh
 
   package:
-    # #124: the installer for each OS, checked by installing what it just built. A runner
-    # cannot be rebooted, so what is proven here is the rest of the acceptance: the package
-    # starts the service, the uninstall stops it, and a reinstall is the same device.
+    # #124 and #130: the installer for each OS, checked by installing what it just built. A
+    # runner cannot be rebooted, so what is proven here is the rest of the acceptance: the
+    # package starts the service, the uninstall stops it, and a reinstall is the same device.
     needs: changes
     if: needs.changes.outputs.package == 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
