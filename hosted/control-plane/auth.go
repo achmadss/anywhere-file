@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -79,15 +80,15 @@ func accountFromContext(ctx context.Context) (account, string, bool) {
 
 // registerAuthRoutes adds every account endpoint. Each auth route gets its own limiter:
 // rate limiting covers every auth endpoint, with no shared bucket to dodge through.
-func registerAuthRoutes(mux *http.ServeMux, db *pgxpool.Pool, log *slog.Logger) {
+func registerAuthRoutes(mux *http.ServeMux, db *pgxpool.Pool, log *slog.Logger, mail *mailer) {
 	wrap := func(limit int, h http.HandlerFunc) http.Handler {
 		return newRateLimiter(limit, rateWindow).middleware(h)
 	}
-	mux.Handle("POST /v1/auth/signup", wrap(signupLimit, signup(db, log)))
+	mux.Handle("POST /v1/auth/signup", wrap(signupLimit, signup(db, mail)))
 	mux.Handle("POST /v1/auth/signin", wrap(signinLimit, signin(db, log)))
 	mux.Handle("POST /v1/auth/signout", wrap(signoutLimit, requireSession(db, signout(db))))
 	mux.Handle("POST /v1/auth/verify", wrap(verifyLimit, verifyEmail(db)))
-	mux.Handle("POST /v1/auth/password-reset/request", wrap(resetReqLimit, resetRequest(db, log)))
+	mux.Handle("POST /v1/auth/password-reset/request", wrap(resetReqLimit, resetRequest(db, mail)))
 	mux.Handle("POST /v1/auth/password-reset/confirm", wrap(resetConfirmLimit, resetConfirm(db)))
 	mux.Handle("GET /v1/me", wrap(meLimit, requireSession(db, me)))
 	mux.Handle("DELETE /v1/account", wrap(deleteLimit, requireSession(db, deleteAccount(db, log))))
@@ -124,9 +125,14 @@ func normalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
 
+// notPrintable covers the space, every control character and delete. A line break in an
+// address would become a header of its own in the message the mailer builds, so the check
+// lives here, where every caller already passes.
+func notPrintable(r rune) bool { return r <= ' ' || r == 0x7f }
+
 func validEmail(email string) bool {
 	email = normalizeEmail(email)
-	if email == "" || len(email) > 254 || strings.Contains(email, " ") {
+	if email == "" || len(email) > 254 || strings.ContainsFunc(email, notPrintable) {
 		return false
 	}
 	local, domain, ok := strings.Cut(email, "@")
@@ -310,7 +316,7 @@ func requireSession(db *pgxpool.Pool, next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func signup(db *pgxpool.Pool, log *slog.Logger) http.HandlerFunc {
+func signup(db *pgxpool.Pool, mail *mailer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			Email    string `json:"email"`
@@ -368,10 +374,10 @@ func signup(db *pgxpool.Pool, log *slog.Logger) http.HandlerFunc {
 			writeAuthError(w, http.StatusInternalServerError, "try again later")
 			return
 		}
-		// No mailer exists yet; #137 adds one. Until then the
-		// token is in the operator log, never in a response, so it cannot leak to
-		// anyone who did not already hold the signup request.
-		log.Info("verification link minted", "account", accountID, "token", raw)
+		mail.send(email, "Confirm your address",
+			"Someone signed up for anywhere-file with this address. Confirm it here:\n\n"+
+				linkBase(r)+"/verify?token="+url.QueryEscape(raw)+
+				"\n\nThe link works once and stops working after a day. If this was not you, ignore it.")
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	}
 }
@@ -468,7 +474,7 @@ func verifyEmail(db *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-func resetRequest(db *pgxpool.Pool, log *slog.Logger) http.HandlerFunc {
+func resetRequest(db *pgxpool.Pool, mail *mailer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			Email string `json:"email"`
@@ -488,9 +494,10 @@ func resetRequest(db *pgxpool.Pool, log *slog.Logger) http.HandlerFunc {
 						 VALUES ($1, $2, now() + $3::interval)`,
 						accountID, tokenHash, fmt.Sprintf("%d seconds", int(resetTTL.Seconds())))
 					if err == nil {
-						// Same story as signup: no mailer yet, so the log carries
-						// the link until #137 sends it.
-						log.Info("password reset minted", "account", accountID, "token", raw)
+						mail.send(email, "Reset your password",
+							"Someone asked to reset the anywhere-file password for this address. Set a new one here:\n\n"+
+								linkBase(r)+"/reset/confirm?token="+url.QueryEscape(raw)+
+								"\n\nThe link works once and stops working after an hour. If this was not you, ignore it.")
 					}
 				}
 			}

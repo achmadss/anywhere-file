@@ -22,6 +22,7 @@ application on a PC without an authorized user asking it to.
 | Server to agent, down the tunnel | HTTP requests for a named application | A request the server did not authorize against `device_users` and `device_apps` | remote routing |
 | Agent to OS keystore | The device seed | An exportable copy leaving the machine | agent identity |
 | A local user to the agent's settings | What this PC shares, and which account it belongs to | Any change from a second local account on a shared PC | agent settings listener (`device/agent/settings.go`) |
+| A browser to the account pages | Signup, a verification link, a password reset | That link's token to another origin, or a line break into a mail header | account pages (`hosted/control-plane/web.go`), `validEmail` in `hosted/control-plane/auth.go` |
 
 ## Attackers
 

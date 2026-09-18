@@ -7,9 +7,9 @@ being chosen, with an amendments block on top listing where
 [ADR 0005](adr/0005-go-agent-native-tunnel-opaque-sessions.md) had overruled it. The body now
 matches the record, so that block is gone.
 
-Built: the agent and the control plane. Not built: the client (#97 to #103), the agent's
-settings UI (#136), and the website (#137, #138, #139). Where a section describes something
-not yet written, it names the issue.
+Built: the agent, its settings UI (#136), the control plane, and the account pages on the
+website (#137). Not built: the client (#97 to #103), the device approval page (#139) and the
+downloads (#138). Where a section describes something not yet written, it names the issue.
 
 ## Overview
 
@@ -398,11 +398,14 @@ A request id correlates a remote request with its response through the logs.
 
 ## The website
 
-Small on purpose. It is not an operator console and carries no account, billing or device
-management, because those are client screens.
+Small on purpose. It carries no account, billing or device management, because those are
+client screens.
+
+The control plane serves the pages itself, with `html/template` and `embed`, so there is no
+second deployment and no build step.
 
 - Signup, email verification and password reset, with the mailer that sends both links
-  (#137).
+  (#137). Built.
 - The device approval page (#139).
 - The downloads for each operating system (#138).
 
