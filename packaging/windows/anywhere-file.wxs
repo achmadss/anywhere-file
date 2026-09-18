@@ -33,18 +33,6 @@
           <!-- Scoped to this program and to the local subnet, on the two profiles a home
                or office network gets. Public is left alone on purpose: a laptop on a cafe
                network should answer nobody. Uninstalling removes all four. -->
-          <firewall:FirewallException Id="GatewayPrivate" Name="anywhere-file gateway (private)"
-                                      Port="7433" Protocol="tcp" Profile="private" Scope="localSubnet"
-                                      Description="Clients on this network reach the applications this PC offers." />
-          <firewall:FirewallException Id="GatewayDomain" Name="anywhere-file gateway (domain)"
-                                      Port="7433" Protocol="tcp" Profile="domain" Scope="localSubnet"
-                                      Description="Clients on this network reach the applications this PC offers." />
-          <firewall:FirewallException Id="DiscoveryPrivate" Name="anywhere-file discovery (private)"
-                                      Port="5353" Protocol="udp" Profile="private" Scope="localSubnet"
-                                      Description="mDNS, which is how a client finds this PC without being told its address." />
-          <firewall:FirewallException Id="DiscoveryDomain" Name="anywhere-file discovery (domain)"
-                                      Port="5353" Protocol="udp" Profile="domain" Scope="localSubnet"
-                                      Description="mDNS, which is how a client finds this PC without being told its address." />
         </File>
       </Component>
       <Component Id="Dufs">
