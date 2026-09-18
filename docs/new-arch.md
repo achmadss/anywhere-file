@@ -11,6 +11,13 @@ Where this document and that record disagree, the record wins.
 - Payment and billing are stubbed: a subscription row with an operator-set status.
 - Two risks are accepted for the MVP and written into `security/threat-model.md`: LAN access is open to anyone who can reach the agent, and the server sees remote traffic in plaintext. The LAN is encrypted with the device key (#96).
 
+Decided 2026-09-18, from the issues named on each line.
+
+- A `device_id` is the digest of the device's public key, 64 hex characters. The `dev_pc1_abc123` shape under "Device registration" below was never built.
+- The agent has its own settings UI and command line on the PC it runs on, for choosing what that PC shares and for signing it in and out (#136). The client only consumes. It never configures a PC.
+- A PC is bound to an account by approving it in a browser while signed in there (#139). That replaces the enrolment token the client used to hand over the LAN, and `/enrol` on the gateway goes with it (#140).
+- There is a website. It serves signup, email verification, password reset (#137), the device approval page (#139) and the downloads (#138). It is not an operator console and carries no account, billing or device management.
+
 ## Overview
 
 The system installs an Agent on each managed PC. The Agent can run and expose local applications such as dufs.

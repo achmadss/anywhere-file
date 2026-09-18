@@ -1,10 +1,10 @@
 # Threat model
 
-**Status:** written 2026-09-17 against `docs/new-arch.md` and ADR 0005. The agent and the
-client do not exist yet and the control plane holds only accounts and sessions, so most of
-this describes what the code must do. Each claim is marked `verified` (someone read the code
-that makes it true), `by design` (an issue says it, no code yet) or `accepted` (a risk we
-are choosing to carry, on purpose, for the MVP).
+**Status:** written 2026-09-17 against `docs/new-arch.md` and ADR 0005, reviewed 2026-09-18.
+The agent and the control plane are built. The client is not, so the claims that depend on it
+are still ahead of the code. Each claim is marked `verified` (someone read the code that makes
+it true), `by design` (an issue says it, no code yet) or `accepted` (a risk we are choosing to
+carry, on purpose, for the MVP).
 
 ## What is being defended
 
@@ -21,6 +21,7 @@ application on a PC without an authorized user asking it to.
 | Agent to server | Enrolment and app registry, signed with the device key; the tunnel | The device private key | control plane, agent tunnel |
 | Server to agent, down the tunnel | HTTP requests for a named application | A request the server did not authorize against `device_users` and `device_apps` | remote routing |
 | Agent to OS keystore | The device seed | An exportable copy leaving the machine | agent identity |
+| A local user to the agent's settings | What this PC shares, and which account it belongs to | Any change from a second local account on a shared PC | agent settings listener (#136) |
 
 ## Attackers
 
@@ -55,19 +56,23 @@ same signed request, checked before the connection is handed over
 ### C3. Remote routing checks the user, the binding and the app on every request
 
 Session, then `device_users` for that user and device with `revoked_at` null, then
-`device_apps` for that device and app name, then the live tunnel. Any miss is a denial with a
-generic body. `by design`.
+`device_apps` for that device and app name, then the owner's subscription, then the live
+tunnel. Any miss is a denial with a generic body
+(`hosted/control-plane/routing.go`, `verified`).
 
 ### C4. Revocation does not wait for anything to expire
 
 Sessions are rows and are deleted. Bindings set `revoked_at` and the routing check reads it.
-A revoked user's next request fails; a request already in flight completes. `by design`.
+A revoked user's next request fails; a request already in flight completes
+(`hosted/control-plane/bindings.go`, `hosted/control-plane/routing.go`, `verified`).
 
 ### C5. The device key never leaves the PC
 
 It lives in the OS keystore and is used in process to sign. The agent refuses to start with a
-fresh key when the store is locked or unreachable, because a new key is a new device.
-`by design`; the keystore spike in `docs/spikes/keystore.md` measured what each OS does.
+fresh key when the store is locked or unreachable, because a new key is a new device
+(`device/agent/identity.go`, `device/agent/seedstore.go`, `verified`). On a machine with no
+keystore the seed is a mode 0600 file in a mode 0700 directory and wider permissions are
+refused. The keystore spike in `docs/spikes/keystore.md` measured what each OS does.
 
 ## Accepted risks
 
@@ -80,12 +85,12 @@ Anyone who can reach the agent on the LAN can use every application it exposes.
 MVP still guarantees is C1: the surface is the registered applications and nothing else.
 V2 adds a local user check without changing the gateway.
 
-Enrolment is on the same footing. `/enrol` on the gateway takes a server address and a
-token from anyone who can reach it, so someone on the LAN can bind the PC to their own
-account, and a PC already enrolled can be re-bound. `docs/new-arch.md` asks for enrolment
-from the client over the LAN and the MVP has no local user check to gate it with. The
-device key never leaves the PC either way, so this is a binding an admin can revoke and
-not a key anyone can take.
+Enrolment used to be on the same footing, and is being taken off it. `/enrol` on the gateway
+accepts a server address and a token from anyone who can reach the LAN, so someone on the
+network can bind the PC to their own account or re-bind one already enrolled. It was there for
+the client to call (#101, closed). #139 moves enrolment to a browser approval the person makes
+while signed in, and #140 removes the endpoint, which ends this half of A1. The device key
+never leaves the PC either way, so what was exposed is a binding an admin can revoke.
 
 LAN traffic is encrypted (#96). The gateway serves HTTPS with a certificate the device key
 signed, and the discovery document carries the proof, so a client that knows a device id
@@ -101,7 +106,16 @@ the cost of a central server that authorizes per request. End-to-end encryption 
 client and agent through the server is possible later, and would move authorization to the
 agent. Not in the MVP.
 
-### A3. Payment is stubbed
+### A3. The settings endpoint trusts the local machine
+
+The agent's settings listener (#136) binds `127.0.0.1`, which keeps it off the network and
+leaves it reachable by every account on a shared PC. A token in a mode 0600 file in the
+agent's directory gates it, which is the same protection the registry and the seed file
+already have (`device/agent/state.go`, `device/agent/seedstore.go`, `verified`). Anyone who
+can read another user's mode 0600 files is already that user or root, and on such a machine
+the device key is gone too. `by design` until #136 lands.
+
+### A4. Payment is stubbed
 
 The subscription status is set by an operator. Nothing enforces payment. Remote access is
 gated on `status = active`, so the gate exists and the thing behind it does not.

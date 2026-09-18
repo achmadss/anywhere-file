@@ -26,9 +26,10 @@ the customer's phone or laptop, and `hosted/` on hardware we pay for. Anything u
 | `qa/` | the failure suite: real processes, one test per row of the table in #40 | Go |
 | `packaging/` | a package per operating system, and the scripts that install and reverse it | shell |
 
-The agent holds its device key and serves its applications on the LAN so far, and
-`client/` does not exist. The work is broken
-down in the issue tracker, starting at the
+The agent and the control plane are built: a PC holds its device key, serves its
+applications on the LAN over TLS, announces itself, enrols with the server and keeps a tunnel
+open to it, and installs from a package on all three systems. `client/` does not exist yet,
+and neither does the website. The work is broken down in the issue tracker, starting at the
 [epic](https://github.com/achmadss/anywhere-file/issues/41).
 
 ## Building
