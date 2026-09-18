@@ -37,6 +37,9 @@ class JmdnsDiscovery(private val devices: Devices) : Discovery {
         thread(isDaemon = true, name = "jmdns") {
             val dns = JmDNS.create()
             jmdns = dns
+            // Which interface the browse is on. A PC with several (a VPN, a container
+            // bridge) can end up browsing the wrong one, and this is the line that shows it.
+            System.err.println("jmdns browsing from ${dns.inetAddress} on ${java.net.NetworkInterface.getByInetAddress(dns.inetAddress)?.name}")
             dns.addServiceListener("$SERVICE_TYPE.local.", listener)
         }
     }

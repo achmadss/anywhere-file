@@ -17,6 +17,7 @@ class AgentOnTheLanTest {
             return
         }
         val devices = Devices()
+        found = devices
         val discovery = JmdnsDiscovery(devices)
         discovery.start()
         try {
@@ -36,8 +37,8 @@ class AgentOnTheLanTest {
             get()?.let { return it }
             Thread.sleep(200)
         }
-        fail("$what did not turn up in 15 s, list is ${devices()}")
+        fail("$what did not turn up in 15 s, list is ${found?.found?.toList()}")
     }
 
-    private fun devices() = "" // for the message only
+    private var found: Devices? = null // for the message only
 }

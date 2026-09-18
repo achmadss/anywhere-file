@@ -324,7 +324,11 @@ jobs:
       # A test that skips reports as a pass. Fail the job if it did not find the agent.
       - run: grep -q "found agent" common/build/test-results/desktopTest/TEST-*AgentOnTheLanTest.xml
       - if: failure()
-        run: cat "$RUNNER_TEMP/agent.log"
+        run: |
+          cat "$RUNNER_TEMP/agent.log"
+          cat common/build/test-results/desktopTest/TEST-*AgentOnTheLanTest.xml
+          ip -4 addr
+          getent hosts "$(hostname)"
       - run: ls -l androidApp/build/outputs/apk/debug/*.apk desktopApp/build/libs/*.jar
 
   prose:
