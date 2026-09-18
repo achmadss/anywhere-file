@@ -8,9 +8,9 @@ being chosen, with an amendments block on top listing where
 matches the record, so that block is gone.
 
 Built: the agent, its settings UI (#136), signing a PC in and out of an account (#139, #141),
-the control plane, the website's account pages (#137) and the downloads (#138). Not built:
-the client (#97 to #103). Where a section describes something not yet written, it names the
-issue.
+the control plane, the website's account pages (#137), the downloads (#138) and the client's
+build for Android and the desktop (#97). Not built: what the client does (#98 to #103).
+Where a section describes something not yet written, it names the issue.
 
 ## Overview
 

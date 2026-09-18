@@ -32,8 +32,9 @@ installs from a package on all three systems, takes the folders it shares from a
 page or a terminal, and is signed in and out of an account from either. The server also
 serves the pages a browser needs, for signup, email verification, password reset, and
 approving a PC that asks to join an account, and a download page that lists the packages
-on the current release, which a version tag publishes. `client/` does not exist yet. The work is
-broken down in the issue tracker, starting at the
+on the current release, which a version tag publishes. `client/` builds for Android and the
+desktop and shows one line of text (#97); finding a PC and opening what it shares are #98
+onward. The work is broken down in the issue tracker, starting at the
 [epic](https://github.com/achmadss/anywhere-file/issues/41).
 
 ## Building
@@ -47,6 +48,29 @@ go build ./...
 
 Test and lint from the root: `go test ./...`, `go vet ./...`, `go tool staticcheck ./...`,
 `gofmt -l .`. CI runs them on ubuntu, macOS and Windows.
+
+### The client
+
+`client/` is a Gradle build with three modules: `common` holds the UI and networking, and
+`androidApp` and `desktopApp` wrap it for each platform. It needs a JDK 17 or later and,
+for the Android app, the Android SDK found through `ANDROID_HOME`. The versions are pinned
+in `client/gradle/libs.versions.toml` and `client/gradle/wrapper/gradle-wrapper.properties`:
+
+| Tool | Version |
+|---|---|
+| Gradle | 9.5.0 |
+| Kotlin | 2.4.10 |
+| Compose Multiplatform | 1.12.0 |
+| Android Gradle plugin | 9.2.1 |
+
+```sh
+cd client
+./gradlew build                     # both apps, lint and the tests
+./gradlew :desktopApp:run           # opens the window
+./gradlew :androidApp:installDebug  # onto the connected device or emulator
+```
+
+CI builds both apps on ubuntu.
 
 ### The failure suite
 
