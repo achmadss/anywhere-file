@@ -23,6 +23,7 @@ the customer's phone or laptop, and `hosted/` on hardware we pay for. Anything u
 | `hosted/control-plane/` | accounts, device registry, authorization, invitations, tunnel endpoint, audit | Go |
 | `internal/` | Go shared by the agent and the control plane, starting with request signing | Go |
 | `client/` | the client app for Android, Windows, macOS and Linux | Kotlin, Compose Multiplatform |
+| `qa/` | the failure suite: real processes, one test per row of the table in #40 | Go |
 
 The agent holds its device key and serves its applications on the LAN so far, and
 `client/` does not exist. The work is broken
@@ -40,6 +41,23 @@ go build ./...
 
 Test and lint from the root: `go test ./...`, `go vet ./...`, `go tool staticcheck ./...`,
 `gofmt -l .`. CI runs them on ubuntu, macOS and Windows.
+
+### The failure suite
+
+`qa/` is what happens when things break. It starts the control plane, an agent and dufs as
+real processes, puts a switchboard between the PC and the server, and then cuts the
+network, kills the server, runs two agents on one device key and shoots the agent in the
+middle of an upload. Each case is one test.
+
+It needs PostgreSQL and dufs on the PATH, and runs only when it is told where the database
+is. The schema is created by the suite, so point it at a throwaway:
+
+```sh
+RFM_E2E_DATABASE_URL='postgres://rfm:rfm@localhost:5433/rfm?sslmode=disable' go test ./qa/
+```
+
+Without the variable it does nothing. CI checks that every case ran by name, because a test
+that never ran reports the same green tick as one that passed.
 
 ## Running the agent
 
