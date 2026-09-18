@@ -9,12 +9,17 @@ go run ./device/agent key        # print the identity
 go run ./device/agent run       # serve the applications and announce this PC on the LAN
 go run ./device/agent discover  # list the agents this machine can see on the LAN
 go run ./device/agent enrol https://cloud.example.com <token>
+go run ./device/agent settings  # open the settings page in a browser
+go run ./device/agent share add ~/Shared --name files
+go run ./device/agent share list
+go run ./device/agent share rm files
 ```
 
 | Variable | Default | What |
 |---|---|---|
 | `RFM_AGENT_DIR` | the OS config directory, `%LocalAppData%` on Windows | where the agent keeps its own state |
 | `RFM_AGENT_ADDR` | `:7433` | the address the LAN gateway listens on, HTTPS |
+| `RFM_AGENT_SETTINGS_ADDR` | `127.0.0.1:7434` | the settings endpoint, loopback only, `off` to turn it off |
 | `RFM_AGENT_KEYSTORE` | `auto` | `keyring` for the OS keystore, `file` for a seed file |
 | `RFM_AGENT_MDNS` | `on` | `off` on a machine with no multicast, such as some containers |
 | `RFM_AGENT_TUNNEL` | `on` | `off` to keep the PC on the LAN only, with no outbound connection |
@@ -62,6 +67,32 @@ The name stays on the path, so `/files/holiday/a.txt` reaches the application wi
 `/files` still on it. An application has to be told the prefix it is served under anyway,
 or the links it writes land nowhere, and one that is told strips the prefix itself. dufs is
 told with `--path-prefix`.
+
+## Choosing what this PC shares
+
+`agent.json` can be written by hand, and nobody should have to. The agent serves a settings
+page on `127.0.0.1:7434` that lists what this PC shares, walks the filesystem so a folder
+can be picked, and removes one. `agent settings` opens it in a browser. A directory chosen
+there becomes the dufs entry above, with the port and the command line filled in.
+
+`agent share add`, `share list` and `share rm` do the same from a terminal, which is the
+whole of setting up a PC with no screen over ssh.
+
+Both go through the running agent. It holds the registry and builds the gateway's routes
+from it, so a command that edited the file itself would leave the agent serving the old
+list. A change takes effect at once: the routes are rebuilt, and the application for a
+folder that was added is started and the one for a folder that was removed is stopped.
+With the agent stopped, `agent share` writes the file directly, because nothing is running
+to fall out of step with it.
+
+The endpoint listens on loopback and refuses to start anywhere else. That is not on its own
+an authorization, because every account on a shared PC can reach `127.0.0.1`, so it also
+takes a token from `settings.token` in the agent's directory, mode 0600. The CLI reads that
+file. `agent settings` puts the token in the address it opens, and the page sends it as a
+header from then on.
+
+`agent install` writes a `.desktop` entry on Linux, so the page is in the applications menu.
+The macOS menu bar item and the Windows tray icon are #142.
 
 ## Running an application
 

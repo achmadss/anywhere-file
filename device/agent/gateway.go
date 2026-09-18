@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
+	"sync/atomic"
 )
 
 // discoveryPath is what a client reads after it finds the agent, to learn which device
@@ -24,11 +25,34 @@ const discoveryPath = "/.well-known/anywhere-file"
 // enrolPath is the local endpoint the client posts a server address and a token to.
 const enrolPath = "/enrol"
 
-// newGateway builds the handler for the applications the agent is configured for. The
-// routes are fixed here, because the application list changes by editing the registry and
-// restarting. What the agent learns at runtime, the server it belongs to, is read on each
-// request instead.
-func newGateway(ag *agent) http.Handler {
+// gateway serves the applications the agent is configured for. The routes come from the
+// registry, and the registry changes while the agent runs (#136), so they are rebuilt on a
+// change and swapped in whole. A request in flight goes on using the routes it started on.
+type gateway struct {
+	ag *agent
+	h  atomic.Pointer[http.Handler]
+}
+
+func newGateway(ag *agent) *gateway {
+	g := &gateway{ag: ag}
+	g.rebuild()
+	return g
+}
+
+func (g *gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	(*g.h.Load()).ServeHTTP(w, r)
+}
+
+// rebuild reads the registry again and replaces the routes. The settings endpoint calls it
+// after it has written a change.
+func (g *gateway) rebuild() {
+	h := buildGateway(g.ag)
+	g.h.Store(&h)
+}
+
+// buildGateway makes the routes for one version of the registry. What the agent learns at
+// runtime, the server it belongs to, is read on each request instead.
+func buildGateway(ag *agent) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+discoveryPath, func(w http.ResponseWriter, r *http.Request) {
 		s := ag.snapshot()

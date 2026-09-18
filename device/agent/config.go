@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -14,6 +15,7 @@ import (
 type config struct {
 	dir        string        // RFM_AGENT_DIR
 	addr       string        // RFM_AGENT_ADDR, the LAN gateway
+	settings   string        // RFM_AGENT_SETTINGS_ADDR, loopback only, "off" to turn it off
 	keystore   string        // RFM_AGENT_KEYSTORE: auto, keyring or file
 	mdns       bool          // RFM_AGENT_MDNS
 	tunnel     bool          // RFM_AGENT_TUNNEL
@@ -31,6 +33,7 @@ func loadConfig() (config, error) {
 	c := config{
 		dir:        os.Getenv("RFM_AGENT_DIR"),
 		addr:       env("RFM_AGENT_ADDR", ":7433"),
+		settings:   env("RFM_AGENT_SETTINGS_ADDR", "127.0.0.1:7434"),
 		keystore:   env("RFM_AGENT_KEYSTORE", "auto"),
 		mdns:       env("RFM_AGENT_MDNS", "on") != "off",
 		tunnel:     env("RFM_AGENT_TUNNEL", "on") != "off",
@@ -44,10 +47,32 @@ func loadConfig() (config, error) {
 		}
 		c.dir = dir
 	}
+	if c.settings == "off" {
+		c.settings = ""
+	} else if err := checkLoopback(c.settings); err != nil {
+		return c, fmt.Errorf("RFM_AGENT_SETTINGS_ADDR: %w", err)
+	}
 	if err := c.logLevel.UnmarshalText([]byte(env("RFM_AGENT_LOG_LEVEL", "info"))); err != nil {
 		return c, fmt.Errorf("RFM_AGENT_LOG_LEVEL: %w", err)
 	}
 	return c, nil
+}
+
+// checkLoopback refuses a settings address that anything but this PC could reach. The
+// endpoint changes what the whole machine shares, and the LAN is open by design (threat
+// model A1), so binding it to the network is refused here rather than caught later.
+func checkLoopback(addr string) error {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("address %q: want host:port", addr)
+	}
+	if host == "localhost" {
+		return nil
+	}
+	if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
+		return fmt.Errorf("address %q: the settings endpoint listens on loopback, so the LAN cannot reach it", addr)
+	}
+	return nil
 }
 
 // defaultDir is where the agent keeps its own state.

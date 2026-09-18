@@ -12,6 +12,12 @@ One package per operating system. Each one places the agent and the dufs binary,
 Both write into `dist/`. `VERSION` sets the version and defaults to `0.0.0`. The dufs
 version is `dufs.version`, and the binary is downloaded from its release page at build time.
 
+## Opening the settings page
+
+The Linux packages leave a `.desktop` entry behind, written by `agent install`, so "anywhere-file
+settings" is in the applications menu and opens the page in a browser. macOS and Windows have
+nothing yet (#142); on those, `agent settings` opens it from a terminal.
+
 ## Settings in the package
 
 The agent reads its settings from `RFM_AGENT_*` variables, and a service starts with no

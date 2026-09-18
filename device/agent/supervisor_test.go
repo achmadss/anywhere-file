@@ -73,7 +73,7 @@ func TestAnApplicationThatExitsIsStartedAgain(t *testing.T) {
 	log, read := logToBuffer()
 
 	ctx, cancel := context.WithCancel(t.Context())
-	wait := superviseApps(ctx, &state{Name: "pc1", Apps: []app{a}}, log)
+	wait := supervising(ctx, log, a)
 
 	// Twice is the proof that nobody asked for the second one.
 	waitFor(t, 30*time.Second, func() bool { return size(t, dir, "starts") >= 2 }, "the application did not start twice")
@@ -105,7 +105,7 @@ func TestAnApplicationThatKeepsRunningIsStopped(t *testing.T) {
 	shortBackoff(t)
 
 	ctx, cancel := context.WithCancel(t.Context())
-	wait := superviseApps(ctx, &state{Name: "pc1", Apps: []app{a}}, discard)
+	wait := supervising(ctx, discard, a)
 	waitFor(t, 30*time.Second, func() bool { return size(t, dir, "alive") > 0 }, "the application never started")
 
 	cancel()
@@ -133,13 +133,21 @@ func TestAnApplicationWithNoCommandIsLeftAlone(t *testing.T) {
 	shortBackoff(t)
 
 	ctx, cancel := context.WithCancel(t.Context())
-	wait := superviseApps(ctx, &state{Name: "pc1", Apps: []app{a}}, discard)
+	wait := supervising(ctx, discard, a)
 	time.Sleep(200 * time.Millisecond)
 	cancel()
 	wait()
 	if n := size(t, dir, "starts"); n != 0 {
 		t.Errorf("the agent started it %d times, want none", n)
 	}
+}
+
+// supervising starts the applications and returns what waits for them, which is the shape
+// the agent's own startup uses.
+func supervising(ctx context.Context, log *slog.Logger, apps ...app) func() {
+	s := newSupervisor(ctx, log)
+	s.set(apps)
+	return s.wait
 }
 
 func size(t *testing.T, dir, name string) int {

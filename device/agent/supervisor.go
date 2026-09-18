@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sync"
 	"time"
 )
@@ -39,22 +40,79 @@ const (
 	maxAppLogLine = 8 << 10
 )
 
-// superviseApps starts every application the registry gives a command for. The function it
-// returns waits for them all to have exited, which is what ctx ending brings about.
-func superviseApps(ctx context.Context, st *state, log *slog.Logger) func() {
-	var wg sync.WaitGroup
-	for _, a := range st.Apps {
-		if len(a.Command) == 0 {
+// supervisor keeps the registry's applications running, and follows the registry when it
+// changes. A directory shared from the settings page starts being served without the agent
+// being restarted, and one removed stops.
+type supervisor struct {
+	ctx context.Context
+	log *slog.Logger
+
+	// One lock for the whole of set, which waits for a stopped child. Changes come from a
+	// person pressing a button, so nothing here is on a hot path.
+	mu      sync.Mutex
+	running map[string]*child
+	wg      sync.WaitGroup
+}
+
+// child is one application the agent started. done closes when its loop has returned, so
+// the port it held is free before a replacement asks for one.
+type child struct {
+	spec   app
+	cancel context.CancelFunc
+	done   chan struct{}
+}
+
+func newSupervisor(ctx context.Context, log *slog.Logger) *supervisor {
+	return &supervisor{ctx: ctx, log: log, running: map[string]*child{}}
+}
+
+// set brings what is running into line with apps. An entry with no command is started by
+// something else, so the agent leaves it alone.
+func (s *supervisor) set(apps []app) {
+	want := map[string]app{}
+	for _, a := range apps {
+		if len(a.Command) > 0 {
+			want[a.Name] = a
+		}
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var stopping []*child
+	for name, c := range s.running {
+		if a, ok := want[name]; ok && a.Address == c.spec.Address && slices.Equal(a.Command, c.spec.Command) {
+			delete(want, name)
 			continue
 		}
-		wg.Add(1)
+		delete(s.running, name)
+		stopping = append(stopping, c)
+	}
+	// Stopped before anything starts. A changed entry keeps its name, and two copies of an
+	// application serving the same directory is the thing the registry exists to prevent.
+	for _, c := range stopping {
+		c.cancel()
+	}
+	for _, c := range stopping {
+		<-c.done
+	}
+
+	for _, a := range want {
+		ctx, cancel := context.WithCancel(s.ctx)
+		c := &child{spec: a, cancel: cancel, done: make(chan struct{})}
+		s.running[a.Name] = c
+		s.wg.Add(1)
 		go func() {
-			defer wg.Done()
-			superviseApp(ctx, a, log)
+			defer s.wg.Done()
+			defer close(c.done)
+			superviseApp(ctx, a, s.log)
 		}()
 	}
-	return wg.Wait
 }
+
+// wait returns once every application has exited, which is what the agent's context ending
+// brings about.
+func (s *supervisor) wait() { s.wg.Wait() }
 
 // superviseApp runs one application for as long as ctx lives. An application that exits is
 // an application that comes back: the agent has no way to tell a crash from a restart and
