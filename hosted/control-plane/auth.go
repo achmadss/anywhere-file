@@ -368,7 +368,7 @@ func signup(db *pgxpool.Pool, log *slog.Logger) http.HandlerFunc {
 			writeAuthError(w, http.StatusInternalServerError, "try again later")
 			return
 		}
-		// No mailer exists yet; the dashboard (#39) sends this link. Until then the
+		// No mailer exists yet; #137 adds one. Until then the
 		// token is in the operator log, never in a response, so it cannot leak to
 		// anyone who did not already hold the signup request.
 		log.Info("verification link minted", "account", accountID, "token", raw)
@@ -489,7 +489,7 @@ func resetRequest(db *pgxpool.Pool, log *slog.Logger) http.HandlerFunc {
 						accountID, tokenHash, fmt.Sprintf("%d seconds", int(resetTTL.Seconds())))
 					if err == nil {
 						// Same story as signup: no mailer yet, so the log carries
-						// the link until the dashboard (#39) sends it.
+						// the link until #137 sends it.
 						log.Info("password reset minted", "account", accountID, "token", raw)
 					}
 				}
