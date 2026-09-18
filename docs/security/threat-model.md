@@ -32,6 +32,7 @@ application on a PC without an authorized user asking it to.
 | A stolen invitation code | Redeem it | One binding, once, before expiry | Hashed codes, atomic single-use consume, short expiry |
 | A fake or cloned device | Claim any `device_id` | Nothing | Enrolment and the tunnel are signed with the device key; `device_id` is a name, never a proof |
 | The server, compromised | Read and alter remote traffic, refuse service, hand out wrong addresses | Everything a remote user could do, on every enrolled PC. See A2. | Nothing in the MVP. |
+| Whoever can edit `agent.json` | Have the agent run any program | Everything that user can do | The registry is mode 0600 in the user's own directory. Editing it already means holding that user's session. |
 | A registered application (dufs) | Do whatever it does | Whatever the application allows | Out of scope. The agent forwards; the application's own security is its own. |
 
 ## Claims

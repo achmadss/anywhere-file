@@ -2,6 +2,7 @@
 /hosted/control-plane/bin/
 /hosted/control-plane/control-plane
 /device/agent/agent
+/agent
 
 # kotlin / gradle
 /client/.gradle/

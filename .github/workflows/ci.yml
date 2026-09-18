@@ -144,6 +144,39 @@ jobs:
       - name: and stops answering
         run: .github/scripts/service-up.sh down
 
+  dufs:
+    # #92's acceptance, which needs the application itself: the agent starts dufs, the
+    # gateway serves it, and dufs is reachable through the gateway and nowhere else. One
+    # runner, because what is checked here is the agent's behaviour and not dufs's.
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    env:
+      RFM_AGENT_ADDR: 127.0.0.1:7433
+      RFM_AGENT_MDNS: "off"
+      RFM_AGENT_TUNNEL: "off"
+      RFM_AGENT_KEYSTORE: file
+      DUFS_VERSION: 0.46.0
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      # Downloaded here, shipped with the agent on a customer's PC (#124).
+      - name: dufs
+        run: |
+          name="dufs-v${DUFS_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          curl -sSLo dufs.tar.gz "https://github.com/sigoden/dufs/releases/download/v${DUFS_VERSION}/${name}"
+          tar xzf dufs.tar.gz dufs
+          echo "$PWD" >> "$GITHUB_PATH"
+      - name: build
+        run: |
+          go build -o "$RUNNER_TEMP/agent" ./device/agent
+          echo "AGENT=$RUNNER_TEMP/agent" >> "$GITHUB_ENV"
+      - name: a file through the gateway, and dufs restarted under it
+        run: .github/scripts/dufs-through-the-gateway.sh
+
   rules:
     # promtool is Prometheus's own rule checker: it parses every expression, which the Go
     # test cannot do. It runs only when the rules change, because it costs a release
@@ -195,7 +228,7 @@ jobs:
   ci-ok:
     # The one check branch protection requires. Green when every job that ran passed, and
     # when a job was skipped because nothing in its language changed.
-    needs: [changes, go, service, rules, blockers, prose]
+    needs: [changes, go, service, dufs, rules, blockers, prose]
     if: always()
     runs-on: ubuntu-latest
     steps:

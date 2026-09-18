@@ -18,6 +18,15 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	}
 	key, st := ag.key, ag.snapshot()
 
+	// The applications the registry gives a command for are started here and stopped
+	// before the agent exits, after the gateway has stopped answering for them.
+	appCtx, stopApps := context.WithCancel(ctx)
+	waitApps := superviseApps(appCtx, st, log)
+	defer func() {
+		stopApps()
+		waitApps()
+	}()
+
 	// The listener comes first, because the port it lands on is what the LAN is told.
 	ln, err := net.Listen("tcp", cfg.addr)
 	if err != nil {

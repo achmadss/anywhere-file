@@ -144,8 +144,8 @@ func TestTheServerReachesTheGatewayDownTheTunnel(t *testing.T) {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	if string(body) != "the file at /files/a.txt" {
-		t.Errorf("body = %q, want the application's answer at its own root", body)
+	if string(body) != "the file at /dufs/files/a.txt" {
+		t.Errorf("body = %q, want the application's answer with the prefix still on it", body)
 	}
 
 	// The same gateway, so what the LAN cannot reach the server cannot reach either.

@@ -77,14 +77,20 @@ machine's.
 
 ### The application registry
 
-`agent.json` in the agent's directory lists what this PC offers. The agent writes a
-starting one on first run.
+`agent.json` in the agent's directory lists what this PC offers. The agent writes an empty
+one on first run.
 
 ```json
 {
   "name": "pc1",
   "apps": [
-    { "name": "dufs", "type": "http", "address": "127.0.0.1:5000" }
+    {
+      "name": "files",
+      "type": "http",
+      "address": "127.0.0.1:5000",
+      "command": ["dufs", "/Users/ana/Shared", "--bind", "127.0.0.1", "--port", "5000",
+                  "--path-prefix", "/files", "--allow-all"]
+    }
   ]
 }
 ```
@@ -95,9 +101,25 @@ address comes from there, which is what keeps the agent from being an open proxy
 address stays on the PC and is never sent to the server, which only ever learns the name
 and the type.
 
-An application is reached at its own root, so `/dufs/files/a.txt` arrives as
-`/files/a.txt`. An application that writes absolute links has to be told the prefix it is
-served under.
+The name stays on the path, so `/files/holiday/a.txt` reaches the application with the
+`/files` still on it. An application has to be told the prefix it is served under anyway,
+or the links it writes land nowhere, and one that is told strips the prefix itself. dufs is
+told with `--path-prefix`.
+
+### Running an application
+
+An entry with a `command` is an application the agent runs. It starts it, starts it again
+when it exits, waiting a second and doubling to a minute, and stops it when the agent
+stops. Whatever the application writes goes to the agent's log under the application's
+name, because a service has no window to write it to.
+
+The command runs as written. The agent fills nothing in, so the port appears twice: once in
+the command the application listens with, once in the address the gateway dials. An entry
+with no command is an application something else starts, which the agent only forwards to.
+
+The address of an application the agent starts has to be a loopback one. An application
+listening on the LAN can be reached without going through the gateway at all, so everything
+the gateway refuses would be reachable around it.
 
 `GET /.well-known/anywhere-file` returns the device id, the name and the application names,
 which is what a client reads after it finds the agent.
