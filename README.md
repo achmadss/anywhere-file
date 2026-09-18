@@ -62,11 +62,10 @@ in `client/gradle/libs.versions.toml` and `client/gradle/wrapper/gradle-wrapper.
 | Kotlin | 2.4.10 |
 | Compose Multiplatform | 1.12.0 |
 | Android Gradle plugin | 9.2.1 |
-| jmdns | 3.6.3 |
 | kotlinx.serialization | 1.11.0 |
 
-jmdns is the desktop's mDNS browse. Android browses through the platform's own `NsdManager`.
-kotlinx.serialization reads the discovery document.
+kotlinx.serialization reads the discovery document. The desktop's mDNS browse is a few
+lines over a UDP socket, and Android browses through the platform's own `NsdManager`.
 
 ```sh
 cd client

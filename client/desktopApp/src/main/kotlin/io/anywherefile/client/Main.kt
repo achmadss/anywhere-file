@@ -5,7 +5,7 @@ import androidx.compose.ui.window.application
 
 fun main() {
     val devices = Devices()
-    val discovery = JmdnsDiscovery(devices)
+    val discovery = LanDiscovery(devices)
     discovery.start()
     application {
         Window(onCloseRequest = ::exitApplication, title = "anywhere-file") {
