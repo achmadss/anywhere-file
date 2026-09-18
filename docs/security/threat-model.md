@@ -23,6 +23,7 @@ application on a PC without an authorized user asking it to.
 | Agent to OS keystore | The device seed | An exportable copy leaving the machine | agent identity |
 | A local user to the agent's settings | What this PC shares, and which account it belongs to | Any change from a second local account on a shared PC | agent settings listener (`device/agent/settings.go`) |
 | A browser to the account pages | Signup, a verification link, a password reset | That link's token to another origin, or a line break into a mail header | account pages (`hosted/control-plane/web.go`), `validEmail` in `hosted/control-plane/auth.go` |
+| A browser to the approval page | Which PC may join the account the visitor is signed in to | An approval nobody pressed, or one for a code the visitor never saw | `/approve` and `answerEnrolment` (`hosted/control-plane/web.go`, `hosted/control-plane/enrol.go`) |
 
 ## Attackers
 
@@ -32,6 +33,7 @@ application on a PC without an authorized user asking it to.
 | Anyone on the Internet | Send anything to the server | Nothing without a session | Session lookup on every request, rate limits, single-use invitations |
 | A user with a session | Ask for any device and application | Only devices in `device_users` for them, only apps in `device_apps` | The routing check, tested per step |
 | A stolen invitation code | Redeem it | One binding, once, before expiry | Hashed codes, atomic single-use consume, short expiry |
+| Someone who read an enrolment code over a shoulder | Approve it, poll with it | Nothing. The token it mints is handed only to the device key the code was minted for | The device key is part of every lookup in `hosted/control-plane/enrol.go` |
 | A fake or cloned device | Claim any `device_id` | Nothing | Enrolment and the tunnel are signed with the device key; `device_id` is a name, never a proof |
 | The server, compromised | Read and alter remote traffic, refuse service, hand out wrong addresses | Everything a remote user could do, on every enrolled PC. See A2. | Nothing in the MVP. |
 | Whoever can edit `agent.json` | Have the agent run any program | Everything that user can do | The registry is mode 0600 in the user's own directory. Editing it already means holding that user's session. |
@@ -75,6 +77,21 @@ fresh key when the store is locked or unreachable, because a new key is a new de
 keystore the seed is a mode 0600 file in a mode 0700 directory and wider permissions are
 refused. The keystore spike in `docs/spikes/keystore.md` measured what each OS does.
 
+### C6. Enrolling a PC needs an approval and the device key, and neither alone
+
+The agent asks for a code, signed with its device key, and the row records the key that
+asked. A signed-in person approves that code in the browser, which writes down who answered
+and binds nothing. The agent then polls, signed again, and only then is an enrolment token
+minted for the account that approved. Every lookup on the way has the device key in it, so a
+code read over a shoulder answers the same as a code that was never minted
+(`hosted/control-plane/enrol.go`, `verified`).
+
+A code is eight characters, which is about 34 bits, so guessing is bounded by the rate limit
+on each route that takes one and by the ten minute expiry rather than by entropy. The page
+that names the PC is limited the same way, because it is the one that says whether a code is
+live. What is not defended is a person who approves a code they were sent: the page says to
+approve only a PC they just asked to sign in, and that is the whole of it (`accepted`).
+
 ## Accepted risks
 
 These are decisions, written down so nobody rediscovers them as surprises.
@@ -89,8 +106,9 @@ V2 adds a local user check without changing the gateway.
 Enrolment used to be on the same footing, and is being taken off it. `/enrol` on the gateway
 accepts a server address and a token from anyone who can reach the LAN, so someone on the
 network can bind the PC to their own account or re-bind one already enrolled. It was there for
-the client to call (#101, closed). #139 moves enrolment to a browser approval the person makes
-while signed in, and #140 removes the endpoint, which ends this half of A1. The device key
+the client to call (#101, closed). #139 has built the browser approval: a PC asks, a
+person approves it while signed in, and the PC finishes with its own key. #140 removes the
+LAN endpoint, which ends this half of A1. The device key
 never leaves the PC either way, so what was exposed is a binding an admin can revoke.
 
 LAN traffic is encrypted (#96). The gateway serves HTTPS with a certificate the device key

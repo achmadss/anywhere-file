@@ -12,7 +12,8 @@
   input { border: 1px solid ButtonBorder; border-radius: .35rem; box-sizing: border-box;
           font: inherit; padding: .4rem .5rem; width: 100%; }
   button { border: 1px solid ButtonBorder; border-radius: .35rem; background: ButtonFace; color: ButtonText;
-           cursor: pointer; font: inherit; padding: .4rem 1rem; }
+           cursor: pointer; font: inherit; margin: 0 .5rem 0 0; padding: .4rem 1rem; }
+  button.deny { color: GrayText; }
   #message { min-height: 1.5rem; }
   #message.bad { color: #b00; }
 </style>
@@ -23,11 +24,11 @@
 <form id="form">
   {{range .Fields}}
   <label>{{.Label}}
-    <input name="{{.Name}}" type="{{.Type}}"
-           autocomplete="{{if eq .Type "password"}}new-password{{else}}username{{end}}">
+    <input name="{{.Name}}" type="{{.Type}}" autocomplete="{{.Auto}}">
   </label>
   {{end}}
-  {{if .Submit}}<button>{{.Submit}}</button>{{end}}
+  {{if .Submit}}<button {{if .Deny}}value="approve"{{end}}>{{.Submit}}</button>{{end}}
+  {{if .Deny}}<button class="deny" value="refuse">{{.Deny}}</button>{{end}}
 </form>
 <p id="message"></p>
 
@@ -35,6 +36,7 @@
 const action = "{{.Action}}";
 const done = "{{.Done}}";
 const onLoad = {{.OnLoad}};
+const reload = {{.Reload}};
 const form = document.getElementById("form");
 const message = document.getElementById("message");
 
@@ -43,11 +45,17 @@ function say(text, bad) {
   message.className = bad ? "bad" : "";
 }
 
-async function submit() {
+async function submit(pressed) {
   const body = {};
   for (const el of form.elements) if (el.name) body[el.name] = el.value;
-  const token = new URLSearchParams(location.search).get("token");
-  if (token) body.token = token;
+  const query = new URLSearchParams(location.search);
+  for (const key of ["token", "code"]) {
+    const value = query.get(key);
+    if (value) body[key] = value;
+  }
+  // The buttons carry no name, so the loop above skips them and only the one that was
+  // pressed says what the answer was.
+  if (pressed && pressed.value) body.approve = pressed.value === "approve";
 
   say("");
   let res, out;
@@ -66,10 +74,14 @@ async function submit() {
     say(out.error || res.statusText, true);
     return;
   }
+  if (reload) {
+    location.reload();
+    return;
+  }
   form.hidden = true;
-  say(done);
+  say(out.message || done);
 }
 
-form.addEventListener("submit", (e) => { e.preventDefault(); submit(); });
+form.addEventListener("submit", (e) => { e.preventDefault(); submit(e.submitter); });
 if (onLoad) submit();
 </script>

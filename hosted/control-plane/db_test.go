@@ -92,7 +92,7 @@ func TestMigrationsRunForwardAndBack(t *testing.T) {
 	ctx := t.Context()
 
 	want := []string{
-		"accounts", "audit_events", "device_apps", "device_nonces", "device_users", "devices",
+		"accounts", "audit_events", "device_apps", "device_enrolments", "device_nonces", "device_users", "devices",
 		"email_verification_tokens", "enrolment_tokens", "invites", "job_heartbeats", "password_reset_tokens",
 		"schema_migrations", "sessions", "subscriptions",
 	}

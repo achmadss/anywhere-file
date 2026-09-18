@@ -62,7 +62,7 @@ func getPage(t *testing.T, h http.Handler, target string) *httptest.ResponseReco
 // No database: the pages are templates and a route table.
 func TestEveryAccountPageRenders(t *testing.T) {
 	mux := http.NewServeMux()
-	registerWebRoutes(mux)
+	registerWebRoutes(mux, nil)
 
 	for path, p := range pages {
 		rec := getPage(t, mux, path)
@@ -91,7 +91,7 @@ func TestEveryAccountPageRenders(t *testing.T) {
 // hand it to whatever the page linked to next.
 func TestThePagesSendNoReferrer(t *testing.T) {
 	mux := http.NewServeMux()
-	registerWebRoutes(mux)
+	registerWebRoutes(mux, nil)
 
 	rec := getPage(t, mux, "/reset/confirm?token=secret")
 	if got := rec.Header().Get("Referrer-Policy"); got != "no-referrer" {
@@ -297,5 +297,97 @@ func TestTheMailerSendsThroughSMTP(t *testing.T) {
 	}
 	if strings.Contains(m.buf.String(), "error") {
 		t.Errorf("the mailer logged an error:\n%s", m.buf)
+	}
+}
+
+// getPageAs fetches a page carrying the session cookie a signed-in browser would hold.
+func getPageAs(t *testing.T, h http.Handler, target, session string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, target, nil)
+	if session != "" {
+		req.AddCookie(&http.Cookie{Name: sessionCookie, Value: session})
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestTheApprovePageAsksForSignInFirst(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	priv := newDeviceKey(t)
+	code := startEnrolmentFor(t, h, priv, "the study PC")
+
+	rec := getPage(t, h, "/approve?code="+code)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := strings.ReplaceAll(rec.Body.String(), `\/`, "/")
+	if !strings.Contains(body, "/v1/auth/signin") {
+		t.Fatalf("page does not offer to sign in: %s", body)
+	}
+	// Nobody is signed in, so the page cannot say which PC is asking either.
+	if strings.Contains(body, "the study PC") {
+		t.Fatalf("page names the PC before anyone has signed in: %s", body)
+	}
+}
+
+func TestTheApprovePageNamesThePCAndPostsTheAnswer(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	priv := newDeviceKey(t)
+	signupReq(t, h, "owner@example.com", "correct horse battery")
+	session := signinToken(t, h, "owner@example.com", "correct horse battery")
+	code := startEnrolmentFor(t, h, priv, "the study PC")
+
+	rec := getPageAs(t, h, "/approve?code="+strings.ToLower(code), session)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := strings.ReplaceAll(rec.Body.String(), `\/`, "/")
+	for _, want := range []string{"the study PC", "owner@example.com", "/v1/devices/enrolment/answer", "Approve", "Refuse"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("page does not mention %q: %s", want, body)
+		}
+	}
+	// The code itself is in the URL and belongs nowhere else.
+	if strings.Contains(body, code) {
+		t.Errorf("page writes the code into itself: %s", body)
+	}
+	if got := rec.Header().Get("Referrer-Policy"); got != "no-referrer" {
+		t.Errorf("Referrer-Policy = %q, want no-referrer", got)
+	}
+}
+
+func TestTheApprovePageSaysWhenThereIsNothingToApprove(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	signupReq(t, h, "owner@example.com", "correct horse battery")
+	session := signinToken(t, h, "owner@example.com", "correct horse battery")
+
+	rec := getPageAs(t, h, "/approve?code=BCDF-GHJK", session)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "Nothing to approve") {
+		t.Fatalf("page for an unknown code: %s", rec.Body)
+	}
+}
+
+// The name comes from the PC, so the page has to write it as text rather than as markup.
+func TestAPCNameIsEscapedOnTheApprovePage(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	priv := newDeviceKey(t)
+	signupReq(t, h, "owner@example.com", "correct horse battery")
+	session := signinToken(t, h, "owner@example.com", "correct horse battery")
+	code := startEnrolmentFor(t, h, priv, `<script>alert(1)</script>`)
+
+	body := getPageAs(t, h, "/approve?code="+code, session).Body.String()
+	if strings.Contains(body, "<script>alert(1)</script>") {
+		t.Fatalf("the PC's name reached the page as markup: %s", body)
+	}
+	if !strings.Contains(body, "&lt;script&gt;") {
+		t.Fatalf("the PC's name is not on the page at all: %s", body)
 	}
 }

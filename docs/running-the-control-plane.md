@@ -25,7 +25,7 @@ on the ubuntu runner and fails if the invite race test did not actually run.
 
 ## The account pages
 
-The service answers JSON under `/v1` and HTML on four paths. They are the pages a browser
+The service answers JSON under `/v1` and HTML on five paths. They are the pages a browser
 needs, and nothing more: account, billing and device management are client screens.
 
 | Path | What |
@@ -34,10 +34,16 @@ needs, and nothing more: account, billing and device management are client scree
 | `GET /verify` | where the link in the confirmation email lands |
 | `GET /reset` | ask for a password reset link |
 | `GET /reset/confirm` | where the link in that email lands |
+| `GET /approve` | let a PC join the account, from the code the agent opens the browser with |
 
 Each page is one embedded template and a few lines of JavaScript that post the same JSON
 body the client posts, so `/v1` is the only API and there is no form handler behind these.
 The token from a link is read out of the query string by the page.
+
+`/approve` is the one that reads the database before it renders, because it names the PC
+that is asking. It signs the visitor in on the page itself, so the code in the URL survives.
+Over plain HTTP that needs `RFM_INSECURE_COOKIES`, because the session cookie is otherwise
+marked `Secure` and the browser will not send it back.
 
 ## Sending mail
 
