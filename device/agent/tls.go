@@ -1,61 +1,100 @@
 package main
 
-// TLS on the LAN (#96). The gateway serves HTTPS with a certificate the agent signs with
-// the device key, so the key that identifies this PC to the server is the key that proves
-// it to a client on the LAN. There is no certificate authority to ask: the client pins the
-// public key the first time it connects and refuses a different one afterwards, the way
-// ssh does with a host key. mDNS is not trusted for the key, the handshake is.
+// TLS on the LAN (#96). The gateway serves HTTPS with a certificate it signs itself. There
+// is no authority to ask, so what a client trusts is the device key: the discovery document
+// carries the device's public key and that key's signature over the certificate's public
+// key. A client checks that the device id it was looking for is the digest of the public
+// key, then that the signature covers the key the handshake actually used. An impostor can
+// copy the document and cannot make its own certificate match it.
 //
-// The certificate is made at every start and kept in memory. What a client pins is the
-// key, which outlives any certificate made from it, so there is nothing here to keep on
-// disk and nothing to renew.
+// The certificate holds a P-256 key rather than the device's own Ed25519 key. Schannel on
+// Windows, LibreSSL on macOS and every browser engine refuse an Ed25519 certificate
+// outright, and a gateway nothing can open is not a gateway. The P-256 key is derived from
+// the device key's seed, so it is still one key per PC, the same after every restart, and
+// it never leaves the machine.
 
 import (
+	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/hkdf"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net"
+	"sync"
 	"time"
 )
 
-// certDomain is the name the certificate carries, under a suffix that resolves nowhere.
-// The address a client dials comes from mDNS and changes with the network; the name is the
-// device id, which does not.
-const certDomain = ".anywhere-file"
+const (
+	// certDomain is the name the certificate carries, under a suffix that resolves
+	// nowhere. The address comes from mDNS and changes with the network; the device id
+	// does not.
+	certDomain = ".anywhere-file"
+	// certKeyInfo separates this key from anything else ever derived from the seed.
+	certKeyInfo = "anywhere-file lan tls key v1"
+	// proofContext separates this signature from everything else the device key signs,
+	// starting with the requests the agent sends the server.
+	proofContext = "anywhere-file lan-tls v1\n"
+	// certLifetime is under the 398 days browsers refuse to look past. The agent makes a
+	// new certificate before this one runs out.
+	certLifetime    = 397 * 24 * time.Hour
+	certRenewBefore = 30 * 24 * time.Hour
+)
 
-// certLifetime outlives any agent process. Nothing checks this certificate against a
-// calendar except a client's own TLS stack, and an agent that has been up for years
-// should not start failing handshakes.
-const certLifetime = 10 * 365 * 24 * time.Hour
+// certKey is the key the certificate carries, derived from the device key's seed.
+func certKey(k deviceKey) (*ecdsa.PrivateKey, error) {
+	// A P-256 scalar is a 32 byte number below the curve's order. Almost every draw is,
+	// and the counter is for the one in four billion that is not.
+	for counter := range 256 {
+		b, err := hkdf.Key(sha256.New, k.priv.Seed(), []byte{byte(counter)}, certKeyInfo, 32)
+		if err != nil {
+			return nil, err
+		}
+		// ParseRawPrivateKey is the range check: zero and anything past the order are
+		// refused, which is what the counter is for.
+		key, err := ecdsa.ParseRawPrivateKey(elliptic.P256(), b)
+		if err != nil {
+			continue
+		}
+		return key, nil
+	}
+	return nil, fmt.Errorf("no usable TLS key came out of the device key")
+}
 
 // deviceCertificate builds the certificate the LAN gateway answers with.
-func deviceCertificate(key deviceKey) (tls.Certificate, error) {
+func deviceCertificate(k deviceKey) (tls.Certificate, error) {
+	key, err := certKey(k)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
 	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 	if err != nil {
 		return tls.Certificate{}, err
 	}
+	name := k.deviceID() + certDomain
 	template := &x509.Certificate{
 		SerialNumber: serial,
-		Subject:      pkix.Name{CommonName: key.deviceID() + certDomain},
-		DNSNames:     []string{key.deviceID() + certDomain},
+		Subject:      pkix.Name{CommonName: name},
+		DNSNames:     []string{name},
 		IPAddresses:  localAddresses(),
 		// An hour back, because a PC that has just woken up can have a clock that is
-		// still wrong and a handshake is the first thing the client tries.
+		// still wrong and the handshake is the first thing a client tries.
 		NotBefore:             time.Now().Add(-time.Hour),
 		NotAfter:              time.Now().Add(certLifetime),
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		KeyUsage:              x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
-		// Its own issuer, so a client that has no way to trust a bare leaf can install it
-		// as a trust anchor of one certificate. A client that pins the public key ignores
-		// all of this.
-		IsCA: true,
+		// Not a certificate authority. Firefox refuses to talk to a server whose
+		// certificate says it is one, and nothing here has to sign anything else.
+		IsCA: false,
 	}
-	der, err := x509.CreateCertificate(rand.Reader, template, template, key.public(), key.priv)
+	der, err := x509.CreateCertificate(rand.Reader, template, template, key.Public(), key)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("device certificate: %w", err)
 	}
@@ -63,15 +102,37 @@ func deviceCertificate(key deviceKey) (tls.Certificate, error) {
 	if err != nil {
 		return tls.Certificate{}, err
 	}
-	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key.priv, Leaf: leaf}, nil
+	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key, Leaf: leaf}, nil
 }
 
-// lanTLS is the configuration the gateway's listener is wrapped in.
-func lanTLS(cert tls.Certificate) *tls.Config {
+// lanCert holds the certificate the gateway is serving and replaces it before it runs out.
+// An agent that has been up for a year is an ordinary thing on a PC nobody reboots.
+type lanCert struct {
+	key deviceKey
+
+	mu   sync.Mutex
+	cert *tls.Certificate
+}
+
+func (c *lanCert) get(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.cert == nil || time.Now().After(c.cert.Leaf.NotAfter.Add(-certRenewBefore)) {
+		cert, err := deviceCertificate(c.key)
+		if err != nil {
+			return nil, err
+		}
+		c.cert = &cert
+	}
+	return c.cert, nil
+}
+
+// lanTLS is what the gateway's listener is wrapped in.
+func lanTLS(c *lanCert) *tls.Config {
 	return &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		// Ed25519 needs 1.2 at the oldest, and a client this old is a client that cannot
-		// verify the certificate at all.
+		GetCertificate: c.get,
+		// The client that proved hardest to satisfy is the oldest one: TLS 1.2 is what a
+		// system WebView on an older phone offers.
 		MinVersion: tls.VersionTLS12,
 		// The gateway speaks HTTP/1.1. Said out loud, because a client that insists on
 		// ALPN gets no answer from a server that offers nothing.
@@ -79,25 +140,45 @@ func lanTLS(cert tls.Certificate) *tls.Config {
 	}
 }
 
-// pinned reports whether a certificate chain was signed by this device's key. It is what a
-// client does, kept here because the agent's own tests are the only thing that checks it
-// until there is a client.
-func pinned(public ed25519.PublicKey, raw [][]byte) error {
-	if len(raw) == 0 {
-		return fmt.Errorf("the device offered no certificate")
-	}
-	leaf, err := x509.ParseCertificate(raw[0])
+// deviceProof is the device key's word that the certificate on this connection is this
+// PC's. It goes in the discovery document, which is the first thing a client reads.
+func deviceProof(k deviceKey) (string, error) {
+	key, err := certKey(k)
 	if err != nil {
-		return err
+		return "", err
 	}
-	got, ok := leaf.PublicKey.(ed25519.PublicKey)
-	if !ok {
-		return fmt.Errorf("the certificate holds a %T, want an Ed25519 key", leaf.PublicKey)
+	spki, err := x509.MarshalPKIXPublicKey(key.Public())
+	if err != nil {
+		return "", err
 	}
-	if !got.Equal(public) {
-		return fmt.Errorf("the certificate is signed by another key, so this is another device")
+	return hex.EncodeToString(ed25519.Sign(k.priv, proofMessage(spki))), nil
+}
+
+// verifyDeviceProof is what a client does with the document it just read: it decides
+// whether the PC holding the device key is the PC on the other end of this connection.
+// The agent has no client yet, so this is here to be tested against the agent itself.
+func verifyDeviceProof(deviceID, publicKey, proof string, leaf *x509.Certificate) error {
+	public, err := hex.DecodeString(publicKey)
+	if err != nil || len(public) != ed25519.PublicKeySize {
+		return fmt.Errorf("the device offered no usable public key")
+	}
+	sum := sha256.Sum256(public)
+	if hex.EncodeToString(sum[:]) != deviceID {
+		return fmt.Errorf("the public key is not device %s", deviceID)
+	}
+	sig, err := hex.DecodeString(proof)
+	if err != nil {
+		return fmt.Errorf("the proof is not hexadecimal")
+	}
+	if !ed25519.Verify(public, proofMessage(leaf.RawSubjectPublicKeyInfo), sig) {
+		return fmt.Errorf("the device key did not sign this certificate, so this is another PC")
 	}
 	return nil
+}
+
+func proofMessage(spki []byte) []byte {
+	sum := sha256.Sum256(spki)
+	return append([]byte(proofContext), sum[:]...)
 }
 
 // localAddresses is every address this machine answers on, so a client that checks the

@@ -126,19 +126,25 @@ which is what a client reads after it finds the agent.
 
 ### TLS on the LAN
 
-The gateway serves HTTPS. The certificate is the agent's own, signed with the device key
-and made fresh at every start, so the key a client sees in the handshake is the key the
-`device_id` is derived from.
+The gateway serves HTTPS with a certificate it signs itself. There is no authority to check
+it against, so the device key is what a client trusts instead. The discovery document
+carries the device's public key and that key's signature over the certificate's public key,
+so a client:
 
-There is no certificate authority to check it against. A client pins the public key the
-first time it connects and refuses a different one afterwards, the way ssh does with a host
-key, so a second PC claiming a device id it has seen is refused at the handshake. mDNS
-carries no key and is not trusted for one.
+1. checks that the digest of the public key is the `device_id` it was looking for,
+2. checks that the signature covers the certificate the connection is actually using.
 
-The certificate names the device `<device_id>.anywhere-file` and covers this machine's
-addresses, so a client that checks the name against the address it dialled finds it there.
-`curl -k` is how to reach the gateway by hand; the fingerprint to compare is what
-`agent key` prints.
+Another PC can copy the document and cannot serve a certificate to match it. mDNS carries
+no key and is not trusted for one.
+
+The certificate holds a P-256 key derived from the device key, one per PC and the same
+after every restart, so a client may pin it as well. It is a derived key because an
+Ed25519 certificate is refused outright by Schannel on Windows, by LibreSSL on macOS and
+by browser engines. The agent replaces the certificate a month before it runs out.
+
+It names the device `<device_id>.anywhere-file` and covers this machine's addresses, so a
+client that checks the name against the address it dialled finds it there. By hand,
+`curl -k https://localhost:7433/.well-known/anywhere-file` is the whole document.
 
 Applications stay on plain HTTP on loopback behind the gateway. What crosses the network is
 the gateway's connection.

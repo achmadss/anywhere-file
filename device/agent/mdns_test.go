@@ -121,8 +121,8 @@ func TestTheAdvertisedRecordIsFound(t *testing.T) {
 	if entry.Name != s.Name {
 		t.Errorf("name = %q, want %q", entry.Name, s.Name)
 	}
-	if entry.Version != "1" {
-		t.Errorf("v = %q, want 1", entry.Version)
+	if entry.Version != fmt.Sprint(protocolVersion) {
+		t.Errorf("v = %q, want %d", entry.Version, protocolVersion)
 	}
 	if strings.Join(entry.Apps, ",") != "dufs" {
 		t.Errorf("apps = %v, want dufs", entry.Apps)

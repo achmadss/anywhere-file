@@ -35,8 +35,10 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	}
 	// The port, taken before the listener is wrapped, is what the LAN is told below.
 	port := ln.Addr().(*net.TCPAddr).Port
-	cert, err := deviceCertificate(key)
-	if err != nil {
+	// Made here rather than on the first handshake, so a PC that cannot build one says so
+	// at startup instead of refusing every client later.
+	cert := &lanCert{key: key}
+	if _, err := cert.get(nil); err != nil {
 		_ = ln.Close()
 		return err
 	}

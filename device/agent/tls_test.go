@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/ed25519"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -12,146 +11,187 @@ import (
 	"time"
 )
 
-// lanServer is the gateway as the LAN reaches it: the real listener, wrapped the way
-// serve wraps it.
+// lanServer is the gateway as the LAN reaches it: the real listener, wrapped the way serve
+// wraps it.
 func lanServer(t *testing.T, key deviceKey) *httptest.Server {
 	t.Helper()
-	cert, err := deviceCertificate(key)
-	if err != nil {
-		t.Fatal(err)
-	}
 	st := &state{Name: "pc1", Apps: []app{}}
 	srv := httptest.NewUnstartedServer(newGateway(newAgent(t.TempDir(), key, st, discard)))
-	srv.Listener = tls.NewListener(srv.Listener, lanTLS(cert))
+	srv.Listener = tls.NewListener(srv.Listener, lanTLS(&lanCert{key: key}))
 	srv.Start()
-	// Start names it http, because the wrapping happened here and not in httptest.
+	// Start named it http, because the wrapping happened here and not in httptest.
 	srv.URL = "https://" + srv.Listener.Addr().String()
 	t.Cleanup(srv.Close)
 	return srv
 }
 
-// pinningClient is what a client does after it has seen a device once: it checks the key
-// and nothing else, because there is no authority to ask and the address changes.
-func pinningClient(public ed25519.PublicKey) *http.Client {
-	return &http.Client{
+// document is what a client reads first, and the certificate it read it over.
+type document struct {
+	V         int    `json:"v"`
+	DeviceID  string `json:"device_id"`
+	PublicKey string `json:"public_key"`
+	TLSProof  string `json:"tls_proof"`
+}
+
+func readDocument(t *testing.T, url string) (document, *x509.Certificate) {
+	t.Helper()
+	var leaf *x509.Certificate
+	client := &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{
+			// A client has nothing to check the certificate against until it has read
+			// the document below, so it keeps the certificate and checks after.
 			InsecureSkipVerify: true,
 			VerifyPeerCertificate: func(raw [][]byte, _ [][]*x509.Certificate) error {
-				return pinned(public, raw)
+				cert, err := x509.ParseCertificate(raw[0])
+				leaf = cert
+				return err
 			},
 		}},
 	}
+	resp, err := client.Get(url + discoveryPath)
+	if err != nil {
+		t.Fatalf("reading the discovery document: %v", err)
+	}
+	defer resp.Body.Close()
+	var doc document
+	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		t.Fatal(err)
+	}
+	return doc, leaf
 }
 
-// The device key is the server's identity on the LAN, so a client that knows the device id
-// knows what the handshake has to prove.
-func TestTheGatewayAnswersWithTheDeviceKey(t *testing.T) {
+// The document says which device this is and the device key signs the certificate the
+// document arrived over, so a client that knows a device id can tell whether it is talking
+// to that PC.
+func TestTheDocumentProvesTheCertificateBelongsToTheDevice(t *testing.T) {
 	key := testKey(t)
 	srv := lanServer(t, key)
 	if !strings.HasPrefix(srv.URL, "https://") {
 		t.Fatalf("the gateway is at %s, want https", srv.URL)
 	}
 
-	resp, err := pinningClient(key.public()).Get(srv.URL + discoveryPath)
-	if err != nil {
-		t.Fatalf("a client that pins this device's key could not connect: %v", err)
-	}
-	defer resp.Body.Close()
-	var doc struct {
-		V        int    `json:"v"`
-		DeviceID string `json:"device_id"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
-		t.Fatal(err)
-	}
+	doc, leaf := readDocument(t, srv.URL)
 	if doc.DeviceID != key.deviceID() {
 		t.Errorf("device_id = %s, want %s", doc.DeviceID, key.deviceID())
 	}
 	if doc.V != protocolVersion {
 		t.Errorf("v = %d, want %d, the version that says the LAN is encrypted", doc.V, protocolVersion)
 	}
+	if err := verifyDeviceProof(doc.DeviceID, doc.PublicKey, doc.TLSProof, leaf); err != nil {
+		t.Errorf("the document does not prove this PC's certificate: %v", err)
+	}
 }
 
-// #96's acceptance: a second agent claiming a device id a client has already seen is
-// refused. The device id is a name, and only the key behind it is proof.
-func TestAnImpostorWithTheSameNameIsRefused(t *testing.T) {
+// #96's acceptance. Another PC can claim a device id and copy the document that goes with
+// it; what it cannot do is serve a certificate the device key has signed.
+func TestAnImpostorWithTheSameDeviceIDIsRefused(t *testing.T) {
 	real, impostor := testKey(t), testKey(t)
-	srv := lanServer(t, impostor)
+	realDoc, _ := readDocument(t, lanServer(t, real).URL)
 
-	_, err := pinningClient(real.public()).Get(srv.URL + discoveryPath)
+	_, theirLeaf := readDocument(t, lanServer(t, impostor).URL)
+	err := verifyDeviceProof(realDoc.DeviceID, realDoc.PublicKey, realDoc.TLSProof, theirLeaf)
 	if err == nil {
-		t.Fatal("a client that had seen the real device accepted another key")
+		t.Fatal("another PC replaying the real device's document was accepted")
 	}
-	if !strings.Contains(err.Error(), "another device") {
-		t.Errorf("err = %v, want the pin to be what refused it", err)
+	if !strings.Contains(err.Error(), "another PC") {
+		t.Errorf("err = %v, want the signature to be what refused it", err)
 	}
-	// The same client reaches the device whose key it holds.
-	if _, err := pinningClient(impostor.public()).Get(srv.URL + discoveryPath); err != nil {
-		t.Errorf("the device that does hold the key was refused: %v", err)
+
+	// A device id that does not match the key in the document is the cheaper lie, and it
+	// has to fail before the signature is even looked at.
+	ourDoc, ourLeaf := readDocument(t, lanServer(t, impostor).URL)
+	if err := verifyDeviceProof(real.deviceID(), ourDoc.PublicKey, ourDoc.TLSProof, ourLeaf); err == nil {
+		t.Error("a document claiming another device id was accepted")
 	}
 }
 
-// A client that checks the name against the address it dialled has to find it there, and
-// the certificate has to be usable as its own trust anchor for a client with no other way
-// to trust it.
-func TestTheCertificateCoversTheDeviceAndItsAddresses(t *testing.T) {
+// The key is derived from the device key's seed, so a client that pins it keeps its pin
+// across a restart and across a new certificate.
+func TestTheCertificateKeyIsTheSameAfterEveryStart(t *testing.T) {
+	key := testKey(t)
+	first, err := deviceCertificate(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := deviceCertificate(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !first.Leaf.Equal(second.Leaf) {
+		// Different certificates are expected. The same key in them is the point.
+		if string(first.Leaf.RawSubjectPublicKeyInfo) != string(second.Leaf.RawSubjectPublicKeyInfo) {
+			t.Error("a second certificate holds a different key, so a pinned client would be locked out")
+		}
+	}
+	other, err := deviceCertificate(testKey(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(other.Leaf.RawSubjectPublicKeyInfo) == string(first.Leaf.RawSubjectPublicKeyInfo) {
+		t.Error("two devices derived the same TLS key")
+	}
+}
+
+// Every TLS stack has to be able to use this certificate. Ed25519 is refused by Schannel,
+// by LibreSSL and by browser engines, and a certificate that says it is an authority is
+// refused by Firefox.
+func TestTheCertificateIsOneEveryClientCanUse(t *testing.T) {
 	key := testKey(t)
 	cert, err := deviceCertificate(key)
 	if err != nil {
 		t.Fatal(err)
 	}
 	leaf := cert.Leaf
+	if leaf.PublicKeyAlgorithm != x509.ECDSA {
+		t.Errorf("the certificate holds a %s key, want ECDSA", leaf.PublicKeyAlgorithm)
+	}
+	if leaf.IsCA {
+		t.Error("the certificate says it is a certificate authority, which Firefox refuses")
+	}
+	if life := leaf.NotAfter.Sub(leaf.NotBefore); life > 398*24*time.Hour {
+		t.Errorf("the certificate lasts %s, longer than the 398 days browsers look past", life)
+	}
 	if err := leaf.VerifyHostname(key.deviceID() + certDomain); err != nil {
 		t.Errorf("the certificate does not name the device: %v", err)
 	}
 	if err := leaf.VerifyHostname("127.0.0.1"); err != nil {
 		t.Errorf("the certificate does not cover loopback: %v", err)
 	}
-	if time.Until(leaf.NotAfter) < 365*24*time.Hour {
-		t.Errorf("the certificate expires %s, which is soon enough to break a running agent", leaf.NotAfter)
-	}
-
-	// Installed as the one certificate a client trusts, which is what a client with no
-	// pinning of its own has to do.
-	pool := x509.NewCertPool()
-	pool.AddCert(leaf)
-	if _, err := leaf.Verify(x509.VerifyOptions{Roots: pool, DNSName: key.deviceID() + certDomain}); err != nil {
-		t.Errorf("the certificate cannot be its own trust anchor: %v", err)
-	}
 }
 
-// The handshake carries the key, so a client learns it from the device itself rather than
-// from whatever answered the mDNS query.
-func TestTheKeyIsLearnedFromTheHandshake(t *testing.T) {
-	key := testKey(t)
-	srv := lanServer(t, key)
-	conn, err := tls.Dial("tcp", strings.TrimPrefix(srv.URL, "https://"), &tls.Config{
-		InsecureSkipVerify: true,
-	})
+// A certificate near its end is replaced, because a PC nobody reboots is the ordinary case.
+func TestACertificateNearItsEndIsReplaced(t *testing.T) {
+	c := &lanCert{key: testKey(t)}
+	first, err := c.get(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
-	if err := pinned(key.public(), rawCerts(conn)); err != nil {
-		t.Errorf("the first handshake did not carry this device's key: %v", err)
+	if again, _ := c.get(nil); again != first {
+		t.Error("a second handshake built a second certificate")
 	}
-	if v := conn.ConnectionState().Version; v < tls.VersionTLS12 {
-		t.Errorf("TLS version %x, want 1.2 at the oldest", v)
+	// As it will look on the day it is a month from running out.
+	c.cert.Leaf.NotAfter = time.Now().Add(certRenewBefore - time.Hour)
+	renewed, err := c.get(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if renewed == first {
+		t.Fatal("the certificate was not replaced, so the gateway will serve an expired one")
+	}
+	if time.Until(renewed.Leaf.NotAfter) < 300*24*time.Hour {
+		t.Error("the new certificate expires as soon as the old one")
 	}
 }
 
-func rawCerts(conn *tls.Conn) [][]byte {
-	var raw [][]byte
-	for _, c := range conn.ConnectionState().PeerCertificates {
-		raw = append(raw, c.Raw)
+// A document with nothing in it is not a proof.
+func TestAnEmptyProofIsRefused(t *testing.T) {
+	key := testKey(t)
+	cert, err := deviceCertificate(key)
+	if err != nil {
+		t.Fatal(err)
 	}
-	return raw
-}
-
-// A certificate with no key behind it is not a pin, so an empty chain is a refusal.
-func TestNoCertificateIsNotAPin(t *testing.T) {
-	if err := pinned(testKey(t).public(), nil); err == nil {
-		t.Error("an empty chain was accepted")
+	if err := verifyDeviceProof(key.deviceID(), "", "", cert.Leaf); err == nil {
+		t.Error("a document with no key and no proof was accepted")
 	}
 }

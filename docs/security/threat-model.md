@@ -26,7 +26,7 @@ application on a PC without an authorized user asking it to.
 
 | Attacker | Assume they can | What they gain if we are right | What stops them |
 |---|---|---|---|
-| Someone on the LAN | Reach the agent's port, answer mDNS, impersonate a device | Use of every exposed application on that PC. See A1. | TLS with the device key stops the impersonation and the reading. Nothing gates the use; V2 adds local authorization. |
+| Someone on the LAN | Reach the agent's port, answer mDNS, impersonate a device | Use of every exposed application on that PC. See A1. | TLS and the device key's signature over the certificate stop the impersonation and the reading. Nothing gates the use; V2 adds local authorization. |
 | Anyone on the Internet | Send anything to the server | Nothing without a session | Session lookup on every request, rate limits, single-use invitations |
 | A user with a session | Ask for any device and application | Only devices in `device_users` for them, only apps in `device_apps` | The routing check, tested per step |
 | A stolen invitation code | Redeem it | One binding, once, before expiry | Hashed codes, atomic single-use consume, short expiry |
@@ -87,10 +87,11 @@ from the client over the LAN and the MVP has no local user check to gate it with
 device key never leaves the PC either way, so this is a binding an admin can revoke and
 not a key anyone can take.
 
-LAN traffic is encrypted (#96). The gateway serves HTTPS with a certificate signed by the
-device key, and a client pins that key on first contact, so reading or altering the traffic
-means holding the device key. What stays open is who may use the applications: anyone who
-can reach the agent still can.
+LAN traffic is encrypted (#96). The gateway serves HTTPS with a certificate the device key
+signed, and the discovery document carries the proof, so a client that knows a device id
+can tell that PC from anything imitating it and reading the traffic means holding the
+device key. What stays open is who may use the applications: anyone who can reach the agent
+still can. The client side of the check is #127.
 
 ### A2. The server sees remote traffic in plaintext
 
