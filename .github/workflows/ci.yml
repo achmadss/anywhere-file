@@ -20,6 +20,7 @@ jobs:
       go: ${{ steps.filter.outputs.go }}
       package: ${{ steps.filter.outputs.package }}
       rules: ${{ steps.filter.outputs.rules }}
+      client: ${{ steps.filter.outputs.client }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -41,6 +42,7 @@ jobs:
           m go '^(go\.(mod|sum)$|\.gitattributes$|hosted/control-plane/|device/agent/|internal/|qa/|\.github/(scripts/|workflows/ci\.yml$))'
           m package '^(go\.(mod|sum)$|device/agent/|internal/|packaging/|\.github/(scripts/|workflows/ci\.yml$))'
           m rules '^(hosted/control-plane/(rules|alertmanager)\.yml$|\.github/workflows/ci\.yml$)'
+          m client '^(client/|\.github/workflows/ci\.yml$)'
 
   go:
     needs: changes
@@ -278,6 +280,27 @@ jobs:
           tar xzf prometheus.tar.gz --strip-components=1 "${dir}/promtool"
           ./promtool check rules hosted/control-plane/rules.yml
 
+  client:
+    # #97: the client builds from a fresh clone. One runner, because the desktop app is the
+    # same JVM code on every OS and the Android APK is built by the JDK, not by the OS. The
+    # runner ships the Android SDK. `build` assembles both apps and runs lint and the tests
+    # with the toolchain's defaults.
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ./gradlew build
+      - run: ls -l androidApp/build/outputs/apk/debug/*.apk desktopApp/build/libs/*.jar
+
   prose:
     # AGENTS.md bans em and en dashes in anything a person reads. A rule with no check is a
     # rule that comes back one PR at a time, so this is the check. -I skips binaries.
@@ -312,7 +335,7 @@ jobs:
   ci-ok:
     # The one check branch protection requires. Green when every job that ran passed, and
     # when a job was skipped because nothing in its language changed.
-    needs: [changes, go, service, dufs, e2e, package, rules, blockers, prose]
+    needs: [changes, go, service, dufs, e2e, package, rules, client, blockers, prose]
     if: always()
     runs-on: ubuntu-latest
     steps:
