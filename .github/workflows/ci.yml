@@ -319,6 +319,7 @@ jobs:
           "$RUNNER_TEMP/agent" share add "$RUNNER_TEMP" --name files
           id=$("$RUNNER_TEMP/agent" key | awk '/^device id:/ {print $3}')
           nohup "$RUNNER_TEMP/agent" run > "$RUNNER_TEMP/agent.log" 2>&1 &
+          sudo nohup tcpdump -i any -nn udp port 5353 -w "$RUNNER_TEMP/mdns.pcap" > /dev/null 2>&1 &
           echo "RFM_TEST_AGENT_ID=$id" >> "$GITHUB_ENV"
       - run: ./gradlew build
       # A test that skips reports as a pass. Fail the job if it did not find the agent.
@@ -329,6 +330,27 @@ jobs:
           cat common/build/test-results/desktopTest/TEST-*AgentOnTheLanTest.xml
           ip -4 addr
           getent hosts "$(hostname)"
+          sudo tcpdump -nn -r "$RUNNER_TEMP/mdns.pcap" | head -80
+          python3 - <<'PY'
+          import socket, struct
+          name = b''.join(bytes([len(l)]) + l for l in b'_anywhere-file._tcp.local'.split(b'.')) + b'\0'
+          query = struct.pack('!6H', 0x1234, 0, 1, 0, 0, 0) + name + struct.pack('!2H', 12, 1)
+          for port in (0, 5353):
+              s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+              s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+              s.bind(('', port))
+              s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton('224.0.0.251') + socket.inet_aton('0.0.0.0'))
+              s.sendto(query, ('224.0.0.251', 5353))
+              s.settimeout(3)
+              got = []
+              try:
+                  while True:
+                      d, a = s.recvfrom(9000)
+                      got.append((a, b'anywhere-file' in d, len(d)))
+              except socket.timeout:
+                  pass
+              print('query from port', s.getsockname()[1], 'received', got)
+          PY
       - run: ls -l androidApp/build/outputs/apk/debug/*.apk desktopApp/build/libs/*.jar
 
   prose:
