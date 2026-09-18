@@ -7,6 +7,10 @@ import kotlin.test.assertEquals
 class LanDiscoveryTest {
     private val id = "b".repeat(64)
 
+    private companion object {
+        const val SOURCE = "192.168.1.20"
+    }
+
     // The answer the agent sends, with the compression pointers a real packet has: the
     // instance name ends in a pointer to the service type, and the SRV and TXT owners are
     // pointers to the instance name.
@@ -20,17 +24,40 @@ class LanDiscoveryTest {
             rr(pointer(49), 33, shorts(0, 0, 7433) + host) +
             rr(pointer(49), 16, txt("v=2", "id=$id", "name=pc1", "apps=files")) +
             rr(host, 1, byteArrayOf(192.toByte(), 168.toByte(), 1, 20))
-        assertEquals(listOf(Device(id, "pc1", listOf("files"), "192.168.1.20:7433")), devicesIn(packet))
+        assertEquals(
+            listOf(Device(id, "pc1", listOf("files"), "192.168.1.20:7433")),
+            devicesIn(packet, "192.168.1.20"),
+        )
+    }
+
+    // A PC running docker advertises its bridges next to its LAN address, and the packet does
+    // not say which of them reaches us. The answer arrived from one that does, so that is the
+    // address to keep. See #152.
+    @Test
+    fun theAddressIsWhereTheAnswerCameFrom() {
+        val serviceType = name("_anywhere-file", "_tcp", "local")
+        val instance = label("PC1 bbbbbbbb") + pointer(12)
+        val host = name("af-bbbbbbbb", "local")
+        val packet = header(5) +
+            rr(serviceType, 12, instance) +
+            rr(pointer(49), 33, shorts(0, 0, 7433) + host) +
+            rr(pointer(49), 16, txt("v=2", "id=$id", "name=pc1", "apps=files")) +
+            rr(host, 1, byteArrayOf(192.toByte(), 168.toByte(), 208.toByte(), 1)) + // a docker bridge
+            rr(host, 1, byteArrayOf(172.toByte(), 18, 0, 1)) // and another
+        assertEquals(
+            listOf(Device(id, "pc1", listOf("files"), "192.168.2.101:7433")),
+            devicesIn(packet, "192.168.2.101"),
+        )
     }
 
     @Test
     fun whatIsNotAnAnswerIsNothing() {
-        assertEquals(emptyList(), devicesIn(QUERY), "our own question")
-        assertEquals(emptyList(), devicesIn(byteArrayOf(1, 2, 3)), "too short")
-        assertEquals(emptyList(), devicesIn(header(1) + rr(pointer(12), 12, pointer(12))), "a name that loops")
+        assertEquals(emptyList(), devicesIn(QUERY, SOURCE), "our own question")
+        assertEquals(emptyList(), devicesIn(byteArrayOf(1, 2, 3), SOURCE), "too short")
+        assertEquals(emptyList(), devicesIn(header(1) + rr(pointer(12), 12, pointer(12)), SOURCE), "a name that loops")
         val srvOnly = header(2) + rr(name("_anywhere-file", "_tcp", "local"), 12, label("pc1") + pointer(12)) +
             rr(pointer(49), 33, shorts(0, 0, 7433) + name("af-b", "local"))
-        assertEquals(emptyList(), devicesIn(srvOnly), "no A record for the host")
+        assertEquals(emptyList(), devicesIn(srvOnly, SOURCE), "no A record for the host")
     }
 
     private fun header(answers: Int) = shorts(0, 0x8400, 0, answers, 0, 0)

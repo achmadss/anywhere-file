@@ -50,7 +50,8 @@ class LanDiscovery(private val devices: Devices) : Discovery {
                     } catch (e: SocketTimeoutException) {
                         continue
                     }
-                    for (d in devicesIn(buf.copyOf(p.length))) {
+                    val from = p.address?.hostAddress ?: continue
+                    for (d in devicesIn(buf.copyOf(p.length), from)) {
                         if (lastSeen.put(d.id, now) == null) confirm(d, devices)
                         devices.seen(d)
                     }
@@ -93,13 +94,18 @@ internal val QUERY: ByteArray = ByteBuffer.allocate(64).run {
 // also carries its SRV, its TXT and an A record for the SRV target, which is how the agent
 // answers. Anything else in the packet, and any packet that is not an answer or is cut
 // short, yields nothing: it came off the network and is trusted for nothing.
-internal fun devicesIn(packet: ByteArray): List<Device> = try {
-    parse(packet)
+//
+// The address comes from where the answer was sent from, not from the A records in it. A PC
+// advertises every interface it has, so a machine running docker or a VPN offers addresses
+// that route nowhere from here, and nothing in the packet says which is which. The source
+// address is the one that just carried a packet to us, so it is the one that works.
+internal fun devicesIn(packet: ByteArray, source: String): List<Device> = try {
+    parse(packet, source)
 } catch (e: RuntimeException) {
     emptyList()
 }
 
-private fun parse(packet: ByteArray): List<Device> {
+private fun parse(packet: ByteArray, source: String): List<Device> {
     val b = ByteBuffer.wrap(packet)
     b.position(2)
     if (b.short.toInt() and 0x8000 == 0) return emptyList() // a question, not an answer
@@ -108,7 +114,7 @@ private fun parse(packet: ByteArray): List<Device> {
     val instances = ArrayList<String>()
     val srv = HashMap<String, Pair<String, Int>>() // instance to host name and port
     val txt = HashMap<String, Map<String, String>>()
-    val addresses = HashMap<String, String>() // host name to IPv4 address
+    val hasAddress = HashSet<String>() // host names that came with an A record
     repeat(counts[1] + counts[2] + counts[3]) {
         val owner = name(b)
         val type = b.short.toInt() and 0xffff
@@ -124,16 +130,14 @@ private fun parse(packet: ByteArray): List<Device> {
                 srv[owner] = name(b) to port
             }
             TYPE_TXT -> txt[owner] = txtStrings(b, end)
-            TYPE_A -> if (end - b.position() == 4) {
-                addresses[owner] = (1..4).joinToString(".") { (b.get().toInt() and 0xff).toString() }
-            }
+            TYPE_A -> if (end - b.position() == 4) hasAddress += owner
         }
         b.position(end)
     }
     return instances.mapNotNull { instance ->
         val (host, port) = srv[instance] ?: return@mapNotNull null
-        val address = addresses[host] ?: return@mapNotNull null
-        deviceFrom(txt[instance].orEmpty(), address, port)
+        if (host !in hasAddress) return@mapNotNull null
+        deviceFrom(txt[instance].orEmpty(), source, port)
     }
 }
 
