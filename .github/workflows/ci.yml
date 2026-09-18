@@ -42,7 +42,7 @@ jobs:
           m go '^(go\.(mod|sum)$|\.gitattributes$|hosted/control-plane/|device/agent/|internal/|qa/|\.github/(scripts/|workflows/ci\.yml$))'
           m package '^(go\.(mod|sum)$|device/agent/|internal/|packaging/|\.github/(scripts/|workflows/ci\.yml$))'
           m rules '^(hosted/control-plane/(rules|alertmanager)\.yml$|\.github/workflows/ci\.yml$)'
-          m client '^(client/|\.github/workflows/ci\.yml$)'
+          m client '^(client/|go\.(mod|sum)$|device/agent/|internal/|\.github/workflows/ci\.yml$)'
 
   go:
     needs: changes
@@ -298,7 +298,37 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      # #98's acceptance on the desktop: a real agent on the runner is found by the client's
+      # browse, with the record intact, and its discovery document is read. Same multicast
+      # caveat as the go job, so ubuntu is the runner that can do it, which is the only one
+      # this job has. dufs is not on PATH here, so the shared folder never starts; the record
+      # is advertised all the same.
+      - name: an agent on the runner
+        working-directory: .
+        env:
+          RFM_AGENT_DIR: ${{ runner.temp }}/agentdir
+          RFM_AGENT_KEYSTORE: file
+          RFM_AGENT_TUNNEL: "off"
+        run: |
+          go build -o "$RUNNER_TEMP/agent" ./device/agent
+          mkdir -m 0700 "$RFM_AGENT_DIR"
+          "$RUNNER_TEMP/agent" share add "$RUNNER_TEMP" --name files
+          id=$("$RUNNER_TEMP/agent" key | awk '/^device id:/ {print $3}')
+          nohup "$RUNNER_TEMP/agent" run > "$RUNNER_TEMP/agent.log" 2>&1 &
+          echo "RFM_TEST_AGENT_ID=$id" >> "$GITHUB_ENV"
       - run: ./gradlew build
+      # A test that skips reports as a pass. Fail the job if it did not find the agent.
+      - run: grep -q "found agent" common/build/test-results/desktopTest/TEST-*AgentOnTheLanTest.xml
+      - if: failure()
+        run: |
+          cat "$RUNNER_TEMP/agent.log"
+          cat common/build/test-results/desktopTest/TEST-*AgentOnTheLanTest.xml
+          ip -4 addr
+          getent hosts "$(hostname)"
       - run: ls -l androidApp/build/outputs/apk/debug/*.apk desktopApp/build/libs/*.jar
 
   prose:

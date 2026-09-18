@@ -153,6 +153,17 @@ The display name is capped at 54 bytes, because it goes in a DNS-SD instance nam
 piece of the device id after it and the whole thing has to fit in 63. Responders drop a
 longer one without saying anything, so the agent refuses to start instead.
 
+The client browses for that record, lists what it finds, then reads each PC's discovery
+document over the gateway's TLS and shows the name and applications from the document. On
+Android it browses through the platform's `NsdManager`. On the desktop it sends the query
+from a port of its own every two seconds, the way `agent discover` does. The agent answers
+every query by unicast to the port it came from, and a query sent from 5353 gets its answer
+delivered to whichever socket on 5353 the kernel picks, usually the OS resolver's. On Android 17 the
+system asks the person before an app may look around the local network
+(`ACCESS_LOCAL_NETWORK`). The client explains why before asking. When the answer is no, it
+offers Android's own picker instead, which shows the PCs the system can see and hands over
+the one chosen.
+
 `agent discover` is the same browse from the command line, and is the first thing to run
 when a PC does not appear in the client.
 

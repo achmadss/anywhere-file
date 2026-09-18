@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
@@ -20,10 +21,22 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material3)
-            implementation(compose.ui)
+            api(compose.runtime)
+            api(compose.foundation)
+            api(compose.material3)
+            api(compose.ui)
+            implementation(libs.kotlinx.serialization.json)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
+        // Both targets are JVMs, so what talks HTTP lives once, in src/jvmMain, and is
+        // compiled into each.
+        androidMain {
+            kotlin.srcDirs("src/jvmMain/kotlin")
+        }
+        val desktopMain by getting {
+            kotlin.srcDirs("src/jvmMain/kotlin")
         }
     }
 }

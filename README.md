@@ -33,7 +33,7 @@ page or a terminal, and is signed in and out of an account from either. The serv
 serves the pages a browser needs, for signup, email verification, password reset, and
 approving a PC that asks to join an account, and a download page that lists the packages
 on the current release, which a version tag publishes. `client/` builds for Android and the
-desktop and shows one line of text (#97); finding a PC and opening what it shares are #98
+desktop (#97) and lists the PCs it finds on the LAN (#98); opening what a PC shares is #99
 onward. The work is broken down in the issue tracker, starting at the
 [epic](https://github.com/achmadss/anywhere-file/issues/41).
 
@@ -62,6 +62,10 @@ in `client/gradle/libs.versions.toml` and `client/gradle/wrapper/gradle-wrapper.
 | Kotlin | 2.4.10 |
 | Compose Multiplatform | 1.12.0 |
 | Android Gradle plugin | 9.2.1 |
+| kotlinx.serialization | 1.11.0 |
+
+kotlinx.serialization reads the discovery document. The desktop's mDNS browse is a few
+lines over a UDP socket, and Android browses through the platform's own `NsdManager`.
 
 ```sh
 cd client
@@ -70,7 +74,9 @@ cd client
 ./gradlew :androidApp:installDebug  # onto the connected device or emulator
 ```
 
-CI builds both apps on ubuntu.
+CI builds both apps on ubuntu. It also starts an agent on the runner, and the desktop tests
+look for it: `AgentOnTheLanTest` runs when `RFM_TEST_AGENT_ID` names the agent to expect,
+and CI checks that it printed `found agent`. Without the variable it skips.
 
 ### The failure suite
 
