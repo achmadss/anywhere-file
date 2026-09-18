@@ -129,10 +129,13 @@ A PC works on the LAN with no account. Enrolling it adds remote access: the clie
 short-lived token for the signed-in account and hands it to the agent, which signs the
 enrolment request with its device key and pushes its application list.
 
-The client does this over the LAN by posting to `/enrol` on the gateway. `agent enrol` is
-the same thing from a terminal, for a PC with no screen. Either way the server address and
-the device id are written to `agent.json` only after the server has accepted, so a bad or
-expired token leaves the PC as it was.
+`agent enrol` does this from a terminal. The server address and the device id are written
+to `agent.json` only after the server has accepted, so a bad or expired token leaves the PC
+as it was.
+
+The gateway also accepts a POST on `/enrol`, which was there for the client to call. That is
+going away (#140), because enrolment moves to an approval the person makes in a browser
+(#139, ADR 0006). Do not build anything new against it.
 
 ## The tunnel
 

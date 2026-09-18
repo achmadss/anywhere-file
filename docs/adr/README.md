@@ -12,3 +12,4 @@ They are in git history before the commit that adopted `docs/new-arch.md`.
 | | |
 |---|---|
 | [0005](0005-go-agent-native-tunnel-opaque-sessions.md) | Go for the agent, a native tunnel instead of Rathole, opaque sessions instead of JWT |
+| [0006](0006-agent-configures-itself-browser-enrolment.md) | The agent has its own settings UI and command line, and a PC is enrolled by approving it in a browser |

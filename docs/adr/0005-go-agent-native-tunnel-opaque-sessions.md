@@ -2,7 +2,9 @@
 
 **Status:** accepted, 2026-09-17. Follows the move to `docs/new-arch.md` and replaces
 records 0001 to 0004, which reasoned about the earlier peer-to-peer design and were removed
-with it.
+with it. The last consequence below is superseded by
+[0006](0006-agent-configures-itself-browser-enrolment.md): the agent has its own settings UI
+and the client no longer enrols a PC.
 
 ## Decision
 
@@ -68,9 +70,9 @@ needs it yet. If V2 adds it, this record gets a successor.
 
 ## Consequences
 
-- The `device_tunnel_credentials` table and the Rathole sections of `docs/new-arch.md` are
-  superseded by this record. The tunnel lifecycle section stands.
-- The JWT sections of `docs/new-arch.md` read as "session token" for the MVP.
+- The `device_tunnel_credentials` table and the Rathole and JWT sections of
+  `docs/new-arch.md` were superseded by this record, and were rewritten out of that document
+  on 2026-09-18. The tunnel lifecycle section stands.
 - Two languages in the repository, Go and Kotlin. CI has one Go job and one Kotlin job.
 - The agent is a service with no window. The client is the only UI, including for enrolling
   a PC.
