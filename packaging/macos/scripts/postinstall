@@ -1,0 +1,33 @@
+#!/bin/sh
+# Runs as root when the pkg is installed. The agent is a user-level service and its key
+# lives in the user's keychain, so `agent install` has to run as the person logged in.
+set -eu
+
+app=/Applications/anywhere-file.app/Contents/MacOS
+agent=$app/agent
+
+user=$(stat -f %Su /dev/console 2>/dev/null || true)
+if [ -z "$user" ] || [ "$user" = root ]; then
+	user=${SUDO_USER:-${USER:-}}
+fi
+if [ -z "$user" ] || [ "$user" = root ]; then
+	echo "nobody is logged in, so the service was not installed. Run: $agent install"
+	exit 0
+fi
+
+# Settings reach `agent install` as RFM_AGENT_X=y arguments: from the environment when
+# someone runs `installer` from a terminal, and from the file the package was built with.
+set --
+for kv in $(env | grep '^RFM_AGENT_' || true); do set -- "$@" "$kv"; done
+if [ -f "$app/agent.env" ]; then
+	while IFS= read -r line; do
+		case "$line" in RFM_AGENT_*=*) set -- "$@" "$line" ;; esac
+	done <"$app/agent.env"
+fi
+
+uid=$(id -u "$user")
+# asuser puts the command in that user's login session, which is where launchctl can load
+# an agent. A Mac reached only over ssh has no such session, so the plain form is the
+# fallback: the manifest is written either way and launchd picks it up at the next logon.
+launchctl asuser "$uid" sudo -u "$user" "$agent" install "$@" ||
+	sudo -u "$user" "$agent" install "$@"

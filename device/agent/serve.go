@@ -57,13 +57,12 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 
 	if cfg.mdns {
 		ad := newAdvertiser(port, log)
-		// A PC nobody can find is a PC with no local mode, so this is a startup failure
-		// and not a warning. Set RFM_AGENT_MDNS=off where there is no multicast to have.
-		if err := ad.advertise(st, key); err != nil {
-			_ = ln.Close()
-			return err
-		}
 		defer ad.close()
+		// Announcing is retried rather than required (#124). macOS asks the person at the
+		// machine whether this program may use the local network, and until they say yes
+		// multicast fails. A PC that cannot announce itself is still reachable at its
+		// address, so the agent keeps serving and says in the log what is missing.
+		go advertiseUntil(ctx, ad, st, key, log)
 	}
 
 	// The tunnel serves the same handler as the LAN. It runs whether or not this PC is
@@ -86,4 +85,22 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	shutdown, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 	return srv.Shutdown(shutdown)
+}
+
+// advertiseUntil keeps trying to announce this PC. The usual reason for a failure is a
+// permission that has not been granted yet, and those are granted while the agent runs.
+func advertiseUntil(ctx context.Context, ad *advertiser, st *state, key deviceKey, log *slog.Logger) {
+	for wait := time.Second; ; wait = min(wait*2, time.Minute) {
+		err := ad.advertise(st, key)
+		if err == nil {
+			return
+		}
+		log.Error("this PC is not announcing itself on the LAN, so clients have to be given its address",
+			"err", err, "retry_in", wait.String())
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(jittered(wait)):
+		}
+	}
 }

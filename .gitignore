@@ -4,6 +4,9 @@
 /device/agent/agent
 /agent
 
+# packages
+/dist/
+
 # kotlin / gradle
 /client/.gradle/
 /client/**/build/

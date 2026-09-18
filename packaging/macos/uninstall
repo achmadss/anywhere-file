@@ -1,0 +1,13 @@
+#!/bin/sh
+# Takes the agent away again. Run it as yourself, not with sudo: the service belongs to
+# your login session, and only removing the files needs an administrator.
+set -eu
+
+dir=$(cd "$(dirname "$0")" && pwd)
+"$dir/agent" uninstall || true
+
+echo "removing /Applications/anywhere-file.app, which asks for your password"
+sudo pkgutil --forget io.anywhere-file.agent >/dev/null 2>&1 || true
+sudo rm -rf /Applications/anywhere-file.app
+echo "the device key and ~/Library/Application Support/anywhere-file are untouched, so"
+echo "installing again gets this Mac its own identity back."

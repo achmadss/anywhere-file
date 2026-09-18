@@ -1,0 +1,12 @@
+#!/bin/sh
+# Stops the service before the files go. Uninstalling something that was never installed,
+# or that belongs to a user who is not here, is not a failure.
+set -e
+
+user=${SUDO_USER:-}
+if [ -n "$user" ] && [ "$user" != root ]; then
+	uid=$(id -u "$user" 2>/dev/null || echo)
+	[ -n "$uid" ] && runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$uid" \
+		/usr/lib/anywhere-file/agent uninstall || true
+fi
+exit 0

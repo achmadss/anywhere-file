@@ -1,0 +1,33 @@
+#!/bin/sh
+# Runs as root after dpkg unpacks the files. The service is the user's own, so this drops
+# to whoever asked for the install. A machine installed from a root shell is told what to
+# run instead, because there is no way to guess whose PC it is.
+set -e
+
+dest=/usr/lib/anywhere-file
+user=${SUDO_USER:-}
+if [ -z "$user" ] && [ -n "${PKEXEC_UID:-}" ]; then
+	user=$(id -un "$PKEXEC_UID" 2>/dev/null || true)
+fi
+
+if [ -z "$user" ] || [ "$user" = root ]; then
+	echo "install the service as your own user: anywhere-file-agent install"
+else
+	set --
+	if [ -f "$dest/agent.env" ]; then
+		while IFS= read -r line; do
+			case "$line" in RFM_AGENT_*=*) set -- "$@" "$line" ;; esac
+		done <"$dest/agent.env"
+	fi
+	uid=$(id -u "$user")
+	# systemctl --user needs to be told where that user's manager listens, and root's
+	# environment does not have it.
+	runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$uid" "$dest/agent" install "$@" ||
+		echo "could not install the service for $user. Run: anywhere-file-agent install"
+fi
+
+# The service file is now on disk. firewalld only reads it after a reload, and opening the
+# port is left to whoever runs the machine: firewall-cmd --permanent --add-service=anywhere-file
+if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+	firewall-cmd --reload >/dev/null || true
+fi

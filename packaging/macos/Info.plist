@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>anywhere-file</string>
+	<key>CFBundleDisplayName</key>
+	<string>anywhere-file</string>
+	<key>CFBundleIdentifier</key>
+	<string>io.anywhere-file.agent</string>
+	<key>CFBundleExecutable</key>
+	<string>agent</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleVersion</key>
+	<string>@VERSION@</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@VERSION@</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>12.0</string>
+	<!-- The agent has no window. Without this it would take a place in the Dock and a menu
+	     bar, for a program nobody looks at. -->
+	<key>LSUIElement</key>
+	<true/>
+	<!-- macOS asks the person at the machine before a program may use the local network,
+	     and shows this sentence when it does. Without the key the request is refused
+	     outright, which would leave the Mac unable to announce itself. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>anywhere-file announces this Mac on your network, so your own devices can find it and reach the files you share with them.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_anywhere-file._tcp</string>
+	</array>
+</dict>
+</plist>
