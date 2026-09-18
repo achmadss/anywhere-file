@@ -103,13 +103,13 @@ Anyone who can reach the agent on the LAN can use every application it exposes.
 MVP still guarantees is C1: the surface is the registered applications and nothing else.
 V2 adds a local user check without changing the gateway.
 
-Enrolment used to be on the same footing, and is being taken off it. `/enrol` on the gateway
-accepts a server address and a token from anyone who can reach the LAN, so someone on the
-network can bind the PC to their own account or re-bind one already enrolled. It was there for
-the client to call (#101, closed). The browser approval is built on both sides now (#139,
-#141): the PC asks, a person approves it while signed in, and the PC finishes with its own
-key. #140 removes the LAN endpoint, which ends this half of A1. The device key
-never leaves the PC either way, so what was exposed is a binding an admin can revoke.
+Enrolment is no longer on that footing. The gateway used to accept a server address and a
+token on `/enrol` from anyone who could reach the LAN, which let someone on the network bind
+the PC to their own account or re-bind one already enrolled. It was there for the client to
+call (#101, closed). #140 removed it. A PC now joins an account by asking the server for a
+code, signed with its device key, and a signed-in person approving that code in the browser
+(#139, #141). Nothing reachable on the LAN changes which account a PC belongs to, and the
+gateway's tests check that a POST to `/enrol` is a 404 like any other unknown path.
 
 LAN traffic is encrypted (#96). The gateway serves HTTPS with a certificate the device key
 signed, and the discovery document carries the proof, so a client that knows a device id
