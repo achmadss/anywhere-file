@@ -9,5 +9,6 @@ dir=$(cd "$(dirname "$0")" && pwd)
 echo "removing /Applications/anywhere-file.app, which asks for your password"
 sudo pkgutil --forget io.anywhere-file.agent >/dev/null 2>&1 || true
 sudo rm -rf /Applications/anywhere-file.app
+rm -rf "$HOME/Library/Application Support/anywhere-file"
 echo "the device key and ~/Library/Application Support/anywhere-file are untouched, so"
 echo "installing again gets this Mac its own identity back."
