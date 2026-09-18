@@ -15,14 +15,29 @@ case "$(uname -s)" in
 Darwin)
 	pkg=$("$root/packaging/macos/build.sh" | tail -1)
 	agent=/Applications/anywhere-file.app/Contents/MacOS/agent
+	dufs=/Applications/anywhere-file.app/Contents/MacOS/dufs
 	install_it() { sudo installer -pkg "$pkg" -target /; }
 	remove_it() { /Applications/anywhere-file.app/Contents/MacOS/uninstall; }
 	;;
 Linux)
 	deb=$(ARCHES=amd64 "$root/packaging/linux/build.sh" | grep '\.deb$')
 	agent=/usr/lib/anywhere-file/agent
+	dufs=/usr/lib/anywhere-file/dufs
 	install_it() { sudo dpkg -i "$deb"; }
 	remove_it() { sudo dpkg -r anywhere-file; }
+	;;
+MINGW* | MSYS* | CYGWIN*)
+	msi=$("$root/packaging/windows/build.sh" | tail -1)
+	agent="/c/Program Files/anywhere-file/agent.exe"
+	dufs="/c/Program Files/anywhere-file/dufs.exe"
+	# MSYS_NO_PATHCONV because this shell would otherwise turn msiexec's /i into a path.
+	install_it() { MSYS_NO_PATHCONV=1 msiexec.exe /i "$(cygpath -w "$msi")" /quiet /norestart; }
+	remove_it() { MSYS_NO_PATHCONV=1 msiexec.exe /x "$(cygpath -w "$msi")" /quiet /norestart; }
+	firewall_rules() {
+		powershell -NoProfile -Command \
+			"@(Get-NetFirewallRule -DisplayName 'anywhere-file*' -ErrorAction SilentlyContinue).Count" |
+			tr -d '\r'
+	}
 	;;
 *)
 	echo "no package for $(uname -s)" >&2
@@ -41,7 +56,17 @@ first=$(device_id)
 echo "device id: $first"
 # The package puts dufs where the agent can find it without a PATH, which is what a
 # registry entry saying `dufs` depends on.
-"$(dirname "$agent")/dufs" --version
+"$dufs" --version
+
+# The rules are the reason this package needs an administrator, so they are checked.
+if declare -f firewall_rules >/dev/null; then
+	rules=$(firewall_rules)
+	echo "firewall rules: $rules"
+	if [ "$rules" != 4 ]; then
+		echo "want 4 firewall rules after the install, the gateway and mDNS on two profiles"
+		exit 1
+	fi
+fi
 
 echo "== uninstall"
 remove_it
@@ -49,6 +74,14 @@ down
 if [ -x "$agent" ]; then
 	echo "$agent is still there after the uninstall"
 	exit 1
+fi
+if declare -f firewall_rules >/dev/null; then
+	rules=$(firewall_rules)
+	if [ "$rules" != 0 ]; then
+		echo "$rules firewall rules are still there after the uninstall, want none"
+		exit 1
+	fi
+	echo "the firewall rules went with it"
 fi
 
 echo "== install again"

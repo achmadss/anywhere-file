@@ -251,6 +251,7 @@ binary, runs `agent install` so the service starts at logon, and reverses both. 
 ```sh
 ./packaging/macos/build.sh    # a pkg, universal, for both kinds of Mac
 ./packaging/linux/build.sh    # a tarball and a deb, amd64 and arm64
+./packaging/windows/build.sh  # an MSI, from Git Bash on Windows
 ```
 
 On macOS the pkg installs `anywhere-file.app` into `/Applications` and starts the service for
@@ -274,12 +275,19 @@ sudo ufw allow proto tcp to any port 7433   # ufw instead, plus 5353/udp for dis
 The tarball is the same thing under `~/.local` with no root anywhere: `./install.sh` to put
 it there, `./uninstall.sh` to take it away.
 
+On Windows the MSI puts both binaries in `Program Files\anywhere-file` and asks for an
+administrator, because it also adds the firewall rules: inbound TCP 7433 and UDP 5353, for
+the agent alone, from the local subnet, on the Private and Domain profiles. A laptop on a
+public network answers nobody. Uninstalling from Settings, Apps removes the rules with it.
+Nothing is signed yet, so SmartScreen warns: press More info and then Run anyway.
+
 A service starts with no shell, so settings go into the package when it is built rather than
 when it is installed. This is also the only way a package installed by double-clicking can
 carry any:
 
 ```sh
 AGENT_ENV="RFM_AGENT_MDNS=off RFM_AGENT_KEYSTORE=file" ./packaging/linux/build.sh
+msiexec /i anywhere-file-0.0.0.msi AGENTENV="RFM_AGENT_MDNS=off"   # or at install time
 ```
 
 Uninstalling leaves the device key and the agent's directory alone, so a PC that is

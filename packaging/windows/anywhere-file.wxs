@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Windows package (#130). It places the agent and dufs under Program Files, opens the
+  two ports the LAN needs for this program only, and runs `agent install` as whoever
+  started the installer.
+
+  Per machine, because firewall rules are machine wide and need an administrator. The
+  service is still the user's own: the device key lives in their credential store, and a
+  machine wide service runs in session 0 where it cannot read one.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:firewall="http://wixtoolset.org/schemas/v4/wxs/firewall">
+  <Package Name="anywhere-file" Manufacturer="anywhere-file" Version="$(var.Version)"
+           UpgradeCode="6f3d2a41-6c1b-4a0e-9a2f-7a9f5a1c4d10"
+           Scope="perMachine" Compressed="yes" InstallerVersion="500">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of anywhere-file is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+<?ifdef AgentEnv ?>
+    <!-- Settings baked in when the package was built, or given on the command line:
+         msiexec /i anywhere-file.msi AGENTENV="RFM_AGENT_MDNS=off". A service starts with
+         no shell, so `agent install` writes them into the scheduled task. -->
+    <Property Id="AGENTENV" Value="$(var.AgentEnv)" Secure="yes" />
+<?endif ?>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="anywhere-file" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="Files" Directory="INSTALLFOLDER">
+      <Component Id="Agent">
+        <File Id="agent.exe" Source="$(var.Stage)\agent.exe" KeyPath="yes">
+          <!-- Scoped to this program and to the local subnet, on the two profiles a home
+               or office network gets. Public is left alone on purpose: a laptop on a cafe
+               network should answer nobody. Uninstalling removes all four. -->
+          <firewall:FirewallException Id="GatewayPrivate" Name="anywhere-file gateway (private)"
+                                      Port="7433" Protocol="tcp" Profile="private" Scope="localSubnet"
+                                      Description="Clients on this network reach the applications this PC offers." />
+          <firewall:FirewallException Id="GatewayDomain" Name="anywhere-file gateway (domain)"
+                                      Port="7433" Protocol="tcp" Profile="domain" Scope="localSubnet"
+                                      Description="Clients on this network reach the applications this PC offers." />
+          <firewall:FirewallException Id="DiscoveryPrivate" Name="anywhere-file discovery (private)"
+                                      Port="5353" Protocol="udp" Profile="private" Scope="localSubnet"
+                                      Description="mDNS, which is how a client finds this PC without being told its address." />
+          <firewall:FirewallException Id="DiscoveryDomain" Name="anywhere-file discovery (domain)"
+                                      Port="5353" Protocol="udp" Profile="domain" Scope="localSubnet"
+                                      Description="mDNS, which is how a client finds this PC without being told its address." />
+        </File>
+      </Component>
+      <Component Id="Dufs">
+        <File Id="dufs.exe" Source="$(var.Stage)\dufs.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main" Title="anywhere-file">
+      <ComponentGroupRef Id="Files" />
+    </Feature>
+
+    <!-- Impersonated, so the scheduled task and the device key belong to the person who
+         installed rather than to the account the installer service happens to run as. -->
+    <CustomAction Id="InstallAgentService" FileRef="agent.exe" ExeCommand="install [AGENTENV]"
+                  Execute="deferred" Impersonate="yes" Return="ignore" />
+    <CustomAction Id="UninstallAgentService" FileRef="agent.exe" ExeCommand="uninstall"
+                  Execute="deferred" Impersonate="yes" Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="InstallAgentService" After="InstallFiles" Condition="NOT REMOVE" />
+      <!-- Before the files go, because the thing being run is one of them. -->
+      <Custom Action="UninstallAgentService" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot;" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>
