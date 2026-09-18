@@ -29,4 +29,5 @@ uid=$(id -u "$user")
 # asuser puts the command in that user's login session, which is where launchctl can load
 # an agent. A Mac reached only over ssh has no such session, so the plain form is the
 # fallback: the manifest is written either way and launchd picks it up at the next logon.
-echo "BREAK: not starting the service"
+launchctl asuser "$uid" sudo -u "$user" "$agent" install "$@" ||
+	sudo -u "$user" "$agent" install "$@"

@@ -22,7 +22,8 @@ else
 	uid=$(id -u "$user")
 	# systemctl --user needs to be told where that user's manager listens, and root's
 	# environment does not have it.
-	echo "BREAK: not starting the service for $user ($uid)"
+	runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$uid" "$dest/agent" install "$@" ||
+		echo "could not install the service for $user. Run: anywhere-file-agent install"
 fi
 
 # The service file is now on disk. firewalld only reads it after a reload, and opening the

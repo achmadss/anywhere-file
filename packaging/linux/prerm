@@ -9,5 +9,4 @@ if [ -n "$user" ] && [ "$user" != root ]; then
 	[ -n "$uid" ] && runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$uid" \
 		/usr/lib/anywhere-file/agent uninstall || true
 fi
-rm -rf "/home/$user/.config/anywhere-file"
 exit 0
