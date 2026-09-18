@@ -11,7 +11,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
@@ -21,9 +20,6 @@ import (
 // discoveryPath is what a client reads after it finds the agent, to learn which device
 // this is and what it offers.
 const discoveryPath = "/.well-known/anywhere-file"
-
-// enrolPath is the local endpoint the client posts a server address and a token to.
-const enrolPath = "/enrol"
 
 // gateway serves the applications the agent is configured for. The routes come from the
 // registry, and the registry changes while the agent runs (#136), so they are rebuilt on a
@@ -73,7 +69,6 @@ func buildGateway(ag *agent) http.Handler {
 		}
 		writeJSON(w, http.StatusOK, doc)
 	})
-	mux.HandleFunc("POST "+enrolPath, enrolHandler(ag))
 	for _, a := range ag.snapshot().Apps {
 		h := appProxy(a, ag.log)
 		// Both, so that a request for the application's root is forwarded rather than
@@ -82,40 +77,6 @@ func buildGateway(ag *agent) http.Handler {
 		mux.Handle("/"+a.Name+"/", h)
 	}
 	return gatewayGuard(mux, ag.log)
-}
-
-// enrolHandler is how the client enrols a PC it found on the LAN: it hands over the
-// server address and a token it minted for the signed-in account. The LAN is open in the
-// MVP and so is this, which is accepted risk A1.
-func enrolHandler(ag *agent) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var in struct {
-			Server string `json:"server"`
-			Token  string `json:"enrolment_token"`
-		}
-		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<14)).Decode(&in); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
-			return
-		}
-		st, err := ag.enrol(r.Context(), in.Server, in.Token)
-		if err != nil {
-			// Whatever the server said is what the person in front of the client needs
-			// to read, so it is passed through rather than flattened.
-			ag.log.Warn("enrolment refused", "server", in.Server, "err", err)
-			var se serverError
-			if errors.As(err, &se) {
-				writeJSON(w, se.status, map[string]string{"error": se.message})
-				return
-			}
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]any{
-			"device_id": st.DeviceID,
-			"name":      st.Name,
-			"apps":      st.appNames(),
-		})
-	}
 }
 
 // appProxy forwards to one application. The inbound URL decides the path and the query
