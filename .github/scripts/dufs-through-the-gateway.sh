@@ -52,14 +52,18 @@ echo "a megabyte went up and came back"
 
 # The links dufs writes have to land back on the gateway, which they do because the prefix
 # arrives with the request and dufs is the one that strips it.
-curl -fsS --max-time 5 "$gateway/files/" | grep -q '"/files/__dufs' || {
-	echo "the index dufs served does not link back through /files/"
+# Written to a file rather than piped: `grep -q` stops reading at the first match, and
+# with `pipefail` the curl that gets the broken pipe fails the whole script.
+curl -fsS --max-time 5 -o "$dir/index.html" "$gateway/files/"
+if ! grep -q '"/files/__dufs' "$dir/index.html"; then
+	echo "the index dufs served does not link back through /files/:"
+	head -c 2000 "$dir/index.html"
 	exit 1
-}
+fi
 
-# dufs is behind the gateway, not beside it. Anything reaching it directly is reaching an
-# application with no authorization in front of it.
-lan=$(ip -4 -o addr show scope global | awk '{print $4}' | cut -d/ -f1 | head -1)
+# dufs answers behind the gateway. Anything that reaches it directly reaches an application
+# with no authorization in front of it.
+lan=$(ip -4 -o addr show scope global | awk 'NR == 1 { split($4, a, "/"); print a[1] }')
 echo "this machine is $lan"
 if curl -fsS --max-time 5 "http://$lan:5000/" >/dev/null 2>&1; then
 	echo "dufs answered on $lan:5000, so the gateway can be walked around"
@@ -67,10 +71,10 @@ if curl -fsS --max-time 5 "http://$lan:5000/" >/dev/null 2>&1; then
 fi
 
 # The acceptance case: kill it and it comes back, with nobody typing anything.
-before=$(pgrep -f 'dufs .*--path-prefix' | head -1)
+before=$(pgrep -o -f 'dufs .*--path-prefix')
 kill -9 "$before"
 wait_until serving
-after=$(pgrep -f 'dufs .*--path-prefix' | head -1)
+after=$(pgrep -o -f 'dufs .*--path-prefix' || true)
 if [ -z "$after" ] || [ "$after" = "$before" ]; then
 	echo "dufs is still pid $before, so it was never restarted"
 	exit 1
