@@ -421,8 +421,8 @@ device_apps                 device_id, name, type
 invites                     device_id, code_hash, role, expires_at, used_at, used_by
 device_nonces               one row per signed request, so none is replayed
 
-audit_events                who, which device, what action, what result
-job_heartbeats              so a background job that stopped running is visible
+audit_events                actor, device_id, action, details as jsonb, at
+job_heartbeats              name and last_run, so a job that stopped running is visible
 ```
 
 ## Security boundaries
