@@ -21,7 +21,7 @@ application on a PC without an authorized user asking it to.
 | Agent to server | Enrolment and app registry, signed with the device key; the tunnel | The device private key | control plane, agent tunnel |
 | Server to agent, down the tunnel | HTTP requests for a named application | A request the server did not authorize against `device_users` and `device_apps` | remote routing |
 | Agent to OS keystore | The device seed | An exportable copy leaving the machine | agent identity |
-| A local user to the agent's settings | What this PC shares, and which account it belongs to | Any change from a second local account on a shared PC | agent settings listener (#136) |
+| A local user to the agent's settings | What this PC shares, and which account it belongs to | Any change from a second local account on a shared PC | agent settings listener (`device/agent/settings.go`) |
 
 ## Attackers
 
@@ -108,12 +108,15 @@ agent. Not in the MVP.
 
 ### A3. The settings endpoint trusts the local machine
 
-The agent's settings listener (#136) binds `127.0.0.1`, which keeps it off the network and
-leaves it reachable by every account on a shared PC. A token in a mode 0600 file in the
-agent's directory gates it, which is the same protection the registry and the seed file
-already have (`device/agent/state.go`, `device/agent/seedstore.go`, `verified`). Anyone who
-can read another user's mode 0600 files is already that user or root, and on such a machine
-the device key is gone too. `by design` until #136 lands.
+The agent's settings listener binds `127.0.0.1`, which keeps it off the network and leaves
+it reachable by every account on a shared PC. A token in a mode 0600 file in the agent's
+directory gates it, which is the same protection the registry and the seed file already have
+(`device/agent/settings.go`, `device/agent/seedstore.go`, `verified`). An address off
+loopback is refused where the setting is read (`device/agent/config.go`), and a request
+arriving under any other host name is refused as well, so a name in somebody else's DNS
+pointing at `127.0.0.1` is not a way in from a browser. Anyone who can read another user's
+mode 0600 files is already that user or root, and on such a machine the device key is gone
+too.
 
 ### A4. Payment is stubbed
 

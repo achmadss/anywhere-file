@@ -151,9 +151,10 @@ The address stays on the PC. Only the name and the type are ever sent to the ser
 ### Choosing what to share
 
 The agent serves a settings page on `127.0.0.1` and takes the same commands from a terminal
-(#136). A menu bar item on macOS, a tray icon on Windows and a `.desktop` entry on Linux open
-that page. Both front ends go through one endpoint on the running agent, so the agent stays
-the only writer of `agent.json` and picks up a change without being restarted.
+(#136). `agent settings` opens the page, and a `.desktop` entry on Linux runs that. The macOS
+menu bar item and the Windows tray icon are #142. Both front ends go through one endpoint on
+the running agent, so the agent stays the only writer of `agent.json` and picks up a change
+without being restarted.
 
 Loopback is not on its own an authorization, because every account on a shared PC can reach
 it, so the endpoint takes a token from a mode 0600 file in the agent's directory.

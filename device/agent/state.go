@@ -55,9 +55,11 @@ type app struct {
 	Command []string `json:"command,omitempty"`
 }
 
-func (s *state) appNames() []string {
-	names := make([]string, 0, len(s.Apps))
-	for _, a := range s.Apps {
+func (s *state) appNames() []string { return appNames(s.Apps) }
+
+func appNames(apps []app) []string {
+	names := make([]string, 0, len(apps))
+	for _, a := range apps {
 		names = append(names, a.Name)
 	}
 	return names

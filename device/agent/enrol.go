@@ -17,6 +17,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +37,11 @@ type agent struct {
 
 	mu sync.Mutex
 	st *state
+
+	// onApps is what the rest of the agent does when the application list changes: rebuild
+	// the gateway's routes and start or stop what serves them. It is set by `agent run`
+	// and nil in the commands that only read the file.
+	onApps func([]app)
 }
 
 func newAgent(dir string, key deviceKey, st *state, log *slog.Logger) *agent {
@@ -54,6 +60,53 @@ func (a *agent) snapshot() *state {
 	copied := *a.st
 	copied.Apps = append([]app(nil), a.st.Apps...)
 	return &copied
+}
+
+// setApps replaces what this PC shares. Everything that changes the list goes through
+// here, so the file on disk, the registry in memory, the gateway's routes and the running
+// applications never disagree.
+func (a *agent) setApps(apps []app) error {
+	a.mu.Lock()
+	next := *a.st
+	next.Apps = slices.Clone(apps)
+	if next.Apps == nil {
+		next.Apps = []app{}
+	}
+	if err := next.validate(); err != nil {
+		a.mu.Unlock()
+		return err
+	}
+	// Written before anything starts serving it. A change that reached the gateway and not
+	// the disk would come back on the next start.
+	if err := saveState(a.dir, &next); err != nil {
+		a.mu.Unlock()
+		return err
+	}
+	a.st.Apps = next.Apps
+	a.mu.Unlock()
+
+	if a.onApps != nil {
+		a.onApps(next.Apps)
+	}
+	// The server routes remote requests by the list it holds, so a share is unreachable
+	// from away until this has gone up. Being offline is normal, so it does not hold up
+	// the change or fail it.
+	go a.pushApps(context.Background())
+	return nil
+}
+
+// pushApps tells the server what this PC offers now. A failure is a log line: the next
+// change or the next start sends it again.
+func (a *agent) pushApps(ctx context.Context) {
+	st := a.snapshot()
+	if !st.enrolled() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, enrolTimeout)
+	defer cancel()
+	if err := a.syncApps(ctx, st.Server, st); err != nil {
+		a.log.Warn("the server has not been told what this PC shares", "err", err)
+	}
 }
 
 // serverError is what the control plane said. The message is passed back to whoever asked

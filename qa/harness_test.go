@@ -279,6 +279,10 @@ func (h *harness) agentCmd(args ...string) *exec.Cmd {
 		"RFM_AGENT_DIR="+h.dir,
 		"RFM_AGENT_ADDR="+h.gatewayAddr,
 		"RFM_AGENT_MDNS=off",
+		// Two agents run at once in the duplicate-key case, and a fixed loopback port
+		// would be the first one to refuse to start. The suite sets the registry through
+		// agent.json, so nothing here needs the endpoint.
+		"RFM_AGENT_SETTINGS_ADDR=off",
 		// No unlocked keystore on a CI runner, and the seed file is the NAS case anyway.
 		"RFM_AGENT_KEYSTORE=file",
 	)

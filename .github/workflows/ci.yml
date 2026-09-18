@@ -114,6 +114,7 @@ jobs:
       # No multicast and no server on a runner, and the keystore has no unlocked session
       # behind it, so the service gets the settings that leave only the gateway.
       RFM_AGENT_ADDR: 127.0.0.1:7433
+      RFM_AGENT_SETTINGS_ADDR: 127.0.0.1:7434
       RFM_AGENT_MDNS: "off"
       RFM_AGENT_TUNNEL: "off"
       RFM_AGENT_KEYSTORE: file
@@ -152,14 +153,16 @@ jobs:
         run: .github/scripts/service-up.sh down
 
   dufs:
-    # #92's acceptance, which needs the application itself: the agent starts dufs, the
-    # gateway serves it, and dufs is reachable through the gateway and nowhere else. One
-    # runner, because what is checked here is the agent's behaviour and not dufs's.
+    # What needs the application itself. #92: the agent starts dufs, the gateway serves it,
+    # and dufs is reachable through the gateway and nowhere else. #136: a folder chosen
+    # from the settings endpoint is served without the agent being restarted. One runner,
+    # because what is checked here is the agent's behaviour and not dufs's.
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     env:
       RFM_AGENT_ADDR: 127.0.0.1:7433
+      RFM_AGENT_SETTINGS_ADDR: 127.0.0.1:7434
       RFM_AGENT_MDNS: "off"
       RFM_AGENT_TUNNEL: "off"
       RFM_AGENT_KEYSTORE: file
@@ -183,6 +186,8 @@ jobs:
           echo "AGENT=$RUNNER_TEMP/agent" >> "$GITHUB_ENV"
       - name: a file through the gateway, and dufs restarted under it
         run: .github/scripts/dufs-through-the-gateway.sh
+      - name: a folder chosen from the settings endpoint, served without a restart
+        run: .github/scripts/settings-shares-a-folder.sh
 
   e2e:
     # #40's table, one test per row. Everything in it is a real process: the control plane
@@ -228,6 +233,7 @@ jobs:
         shell: bash
     env:
       RFM_AGENT_ADDR: 127.0.0.1:7433
+      RFM_AGENT_SETTINGS_ADDR: 127.0.0.1:7434
       RFM_AGENT_MDNS: "off"
       RFM_AGENT_TUNNEL: "off"
       RFM_AGENT_KEYSTORE: file

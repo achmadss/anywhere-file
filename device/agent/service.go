@@ -147,12 +147,30 @@ RestartSec=5
 WantedBy=default.target
 `))
 
+// linuxDesktop puts the settings page in the applications menu (#136). A tray icon would
+// be the equivalent of the macOS menu bar item and the Windows tray one, and there is no
+// tray on Linux worth depending on: GNOME dropped it in 3.26, the X11 one does not exist
+// under Wayland, and what is left is a D-Bus interface only some desktops implement.
+var linuxDesktop = template.Must(template.New("desktop").Parse(
+	`[Desktop Entry]
+Type=Application
+Name=anywhere-file settings
+Comment=Choose which folders this PC shares
+Exec={{.Exe}} settings
+Terminal=false
+Categories=Network;FileTransfer;Settings;
+`))
+
 func linuxPlan(in planInput) servicePlan {
 	unit := serviceName + ".service"
 	path := filepath.Join(in.home, ".config", "systemd", "user", unit)
 	body := render(linuxUnit, map[string]any{"Exe": in.exe, "Args": quoted(envArgs(in.env))})
+	desktop := filepath.Join(in.home, ".local", "share", "applications", serviceName+"-settings.desktop")
 	return servicePlan{
-		files: []planFile{{path: path, body: body}},
+		files: []planFile{
+			{path: path, body: body},
+			{path: desktop, body: render(linuxDesktop, map[string]any{"Exe": in.exe})},
+		},
 		install: []planCmd{
 			// Without lingering the user manager stops at logout and takes the agent with
 			// it. It needs a privilege the user may not have, so a refusal is a warning:
