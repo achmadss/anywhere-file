@@ -31,7 +31,8 @@ applications on the LAN over TLS, announces itself, keeps a tunnel open to the s
 installs from a package on all three systems, takes the folders it shares from a settings
 page or a terminal, and is signed in and out of an account from either. The server also
 serves the pages a browser needs, for signup, email verification, password reset, and
-approving a PC that asks to join an account. `client/` does not exist yet. The work is
+approving a PC that asks to join an account, and a download page that lists the packages
+on the current release, which a version tag publishes. `client/` does not exist yet. The work is
 broken down in the issue tracker, starting at the
 [epic](https://github.com/achmadss/anywhere-file/issues/41).
 

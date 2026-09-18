@@ -12,6 +12,14 @@ One package per operating system. Each one places the agent and the dufs binary,
 Both write into `dist/`. `VERSION` sets the version and defaults to `0.0.0`. The dufs
 version is `dufs.version`, and the binary is downloaded from its release page at build time.
 
+## Publishing
+
+Pushing a tag such as `v0.1.0` runs `.github/workflows/release.yml`, which builds the three
+packages on their own runners and attaches all of them to a GitHub release under that tag.
+The version comes from the tag with the `v` taken off. The website's `/download` page lists
+whatever the latest release carries. Nothing else publishes anything: the package job in
+`ci.yml` builds and installs a package on every change and then throws it away.
+
 ## Opening the settings page
 
 The Linux packages leave a `.desktop` entry behind, written by `agent install`, so "anywhere-file

@@ -221,8 +221,9 @@ func TestDiscoveryDocument(t *testing.T) {
 	if strings.Join(doc.Apps, ",") != "dufs,jellyfin" {
 		t.Errorf("apps = %v, want dufs and jellyfin", doc.Apps)
 	}
-	// The loopback address is the one thing that never leaves the PC.
-	if strings.Contains(string(body), "5000") {
+	// The loopback address is the one thing that never leaves the PC. The whole address,
+	// because the key, its id and the proof are hex and "5000" turns up in hex now and then.
+	if strings.Contains(string(body), "127.0.0.1:5000") {
 		t.Error("the discovery document carries an application's address")
 	}
 }

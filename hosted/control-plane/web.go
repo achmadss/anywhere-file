@@ -13,10 +13,10 @@ import (
 // This process serves them with html/template and embed, so there is nothing else to
 // deploy and no build step.
 
-//go:embed web.html
+//go:embed web.html download.html
 var webFiles embed.FS
 
-var webTemplate = template.Must(template.ParseFS(webFiles, "web.html"))
+var webTemplate = template.Must(template.ParseFS(webFiles, "web.html", "download.html"))
 
 // field is one input. Its name is the JSON key the endpoint under /v1 already reads, so a
 // page posts the body the client posts and nothing under /v1 changes shape. Auto is what
@@ -83,6 +83,7 @@ func registerWebRoutes(mux *http.ServeMux, db *pgxpool.Pool) {
 	// The approval page tells a visitor whether a code is live, which is the one thing
 	// worth guessing here, so it is rate limited the way the endpoints are.
 	mux.Handle("GET /approve", newRateLimiter(approvePageLimit, rateWindow).middleware(approvePage(db)))
+	mux.HandleFunc("GET /download", downloadPage)
 }
 
 // approvePage is the only page that reads the database before it renders. It has to name
@@ -138,13 +139,17 @@ func servePage(p page) http.HandlerFunc {
 
 // render writes one page. The reset, verification and approval links carry a secret in the
 // query string, so the headers keep it out of a Referer and off any other origin.
-func render(w http.ResponseWriter, p page) {
+func render(w http.ResponseWriter, p page) { renderTemplate(w, "web.html", p) }
+
+// renderTemplate writes one page from the named template, with the headers every page
+// carries.
+func renderTemplate(w http.ResponseWriter, name string, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Content-Security-Policy",
 		"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "+
 			"connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'")
-	if err := webTemplate.Execute(w, p); err != nil {
+	if err := webTemplate.ExecuteTemplate(w, name, data); err != nil {
 		http.Error(w, "try again later", http.StatusInternalServerError)
 	}
 }
