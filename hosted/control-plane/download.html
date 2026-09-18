@@ -1,0 +1,27 @@
+{{define "download"}}<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Download anywhere-file{{if .Version}} {{.Version}}{{end}}</title>
+{{template "style"}}
+<style>
+  h2 { font-size: 1.1rem; margin: 1.5rem 0 .25rem; }
+  ul { margin: 0 0 .5rem; padding-left: 1.2rem; }
+  p.small { color: GrayText; font-size: .9rem; margin: .25rem 0; }
+</style>
+
+<h1>Download anywhere-file{{if .Version}} {{.Version}}{{end}}</h1>
+{{if .Systems}}
+<p class="sub">Install it on each PC you want to reach. The one for this computer is first.</p>
+{{range .Systems}}
+<h2>{{.Name}}</h2>
+{{if .Files}}<ul>{{range .Files}}<li><a href="{{.URL}}">{{.Name}}</a></li>{{end}}</ul>
+{{else}}<p class="small">No package for {{.Name}} in this release.</p>{{end}}
+<p class="small">{{.Warning}}</p>
+<p class="small">{{.Then}}</p>
+{{end}}
+<p class="small">Everything in the release is at <a href="{{.Page}}">{{.Page}}</a>.</p>
+{{else}}
+<p class="sub">The list of files could not be fetched just now. They are all at <a href="{{.Page}}">{{.Page}}</a>.</p>
+{{end}}
+{{end}}

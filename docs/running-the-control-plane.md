@@ -25,7 +25,7 @@ on the ubuntu runner and fails if the invite race test did not actually run.
 
 ## The account pages
 
-The service answers JSON under `/v1` and HTML on five paths. They are the pages a browser
+The service answers JSON under `/v1` and HTML on six paths. They are the pages a browser
 needs, and nothing more: account, billing and device management are client screens.
 
 | Path | What |
@@ -35,10 +35,16 @@ needs, and nothing more: account, billing and device management are client scree
 | `GET /reset` | ask for a password reset link |
 | `GET /reset/confirm` | where the link in that email lands |
 | `GET /approve` | let a PC join the account, from the code the agent opens the browser with |
+| `GET /download` | the packages on the current GitHub release, the visitor's system first |
 
 Each page is one embedded template and a few lines of JavaScript that post the same JSON
 body the client posts, so `/v1` is the only API and there is no form handler behind these.
 The token from a link is read out of the query string by the page.
+
+`/download` asks GitHub for the latest release, keeps the answer for ten minutes, and
+orders the files by the User-Agent. It has no JavaScript and reads nothing of ours. While
+GitHub cannot be reached and nothing has been remembered yet, it links to the releases page
+instead of listing nothing.
 
 `/approve` is the one that reads the database before it renders, because it names the PC
 that is asking. It signs the visitor in on the page itself, so the code in the URL survives.

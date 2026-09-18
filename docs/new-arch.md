@@ -8,9 +8,9 @@ being chosen, with an amendments block on top listing where
 matches the record, so that block is gone.
 
 Built: the agent, its settings UI (#136), signing a PC in and out of an account (#139, #141),
-the control plane, and the website's account pages (#137). Not built: the client (#97 to
-#103) and the downloads (#138). Where a section describes something not yet
-written, it names the issue.
+the control plane, the website's account pages (#137) and the downloads (#138). Not built:
+the client (#97 to #103). Where a section describes something not yet written, it names the
+issue.
 
 ## Overview
 
@@ -410,7 +410,9 @@ second deployment and no build step.
   (#137). Built.
 - The device approval page, with the enrolment and sign out endpoints behind it (#139).
   Built, and so is the agent's half of the flow (#141).
-- The downloads for each operating system (#138).
+- The downloads for each operating system (#138). Built: a version tag makes a GitHub
+  release with the three packages on it, and `/download` lists them with the visitor's
+  system first.
 
 ## Database model
 
