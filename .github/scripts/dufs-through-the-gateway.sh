@@ -52,14 +52,19 @@ echo "a megabyte went up and came back"
 
 # The links dufs writes have to land back on the gateway, which they do because the prefix
 # arrives with the request and dufs is the one that strips it.
-# Written to a file rather than piped: `grep -q` stops reading at the first match, and
-# with `pipefail` the curl that gets the broken pipe fails the whole script.
-curl -fsS --max-time 5 -o "$dir/index.html" "$gateway/files/"
-if ! grep -q '"/files/__dufs' "$dir/index.html"; then
+# As a browser, because dufs gives curl a plain listing with relative links and gives a
+# browser the one with the absolute links this is about. Written to a file and read back,
+# because `grep -q` stops at the first match and `pipefail` turns the broken pipe that
+# gives curl into a failed script.
+curl -fsS --max-time 5 -A "Mozilla/5.0 (X11; Linux x86_64)" -o "$dir/index.html" "$gateway/files/"
+asset=$(grep -o '/files/__dufs[^"]*index\.css' "$dir/index.html" | sort -u)
+if [ -z "$asset" ]; then
 	echo "the index dufs served does not link back through /files/:"
 	head -c 2000 "$dir/index.html"
 	exit 1
 fi
+curl -fsS --max-time 5 -o /dev/null "$gateway$asset"
+echo "the index links to $asset and the gateway serves it"
 
 # dufs answers behind the gateway. Anything that reaches it directly reaches an application
 # with no authorization in front of it.
