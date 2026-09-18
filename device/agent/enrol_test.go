@@ -7,7 +7,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/achmadss/anywhere-file/internal/devicesig"
@@ -25,6 +27,27 @@ type fakeControlPlane struct {
 	enrolBody []byte
 	appsBody  []byte
 	keys      []string
+
+	// The browser half (#141). A test moves answer along, where the real server has a
+	// person pressing a button on another machine.
+	mu        sync.Mutex
+	answer    string // pending, approved or refused
+	startBody []byte
+	polls     int
+	unenrols  []string
+}
+
+// approved is what the person in the browser does, from the test's side.
+func (f *fakeControlPlane) answers(status string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.answer = status
+}
+
+func (f *fakeControlPlane) counted() (polls int, unenrols []string, start []byte) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.polls, slices.Clone(f.unenrols), f.startBody
 }
 
 func (f *fakeControlPlane) server() *httptest.Server {
@@ -52,6 +75,49 @@ func (f *fakeControlPlane) server() *httptest.Server {
 		}
 		f.appsBody = body
 		writeJSON(w, http.StatusOK, map[string]any{"apps": []string{}})
+	})
+	mux.HandleFunc("POST /v1/devices/enrolment/start", func(w http.ResponseWriter, r *http.Request) {
+		body, _ := f.read(w, r)
+		if body == nil {
+			return
+		}
+		f.mu.Lock()
+		f.startBody = body
+		f.mu.Unlock()
+		writeJSON(w, http.StatusOK, map[string]any{
+			"user_code":   "BCDF-GHJK",
+			"approve_url": "https://example.test/approve?code=BCDF-GHJK",
+			// A second is what the tests wait, and the agent takes the interval from here.
+			"interval_seconds": 1,
+		})
+	})
+	mux.HandleFunc("POST /v1/devices/enrolment/poll", func(w http.ResponseWriter, r *http.Request) {
+		body, _ := f.read(w, r)
+		if body == nil {
+			return
+		}
+		f.mu.Lock()
+		f.polls++
+		answer := f.answer
+		f.mu.Unlock()
+		switch answer {
+		case "refused":
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "the request was refused in the browser"})
+		case "approved":
+			writeJSON(w, http.StatusOK, map[string]any{"status": "approved", "enrolment_token": "a-token"})
+		default:
+			writeJSON(w, http.StatusOK, map[string]any{"status": "pending", "interval_seconds": 1})
+		}
+	})
+	mux.HandleFunc("POST /v1/devices/unenrol", func(w http.ResponseWriter, r *http.Request) {
+		body, key := f.read(w, r)
+		if body == nil {
+			return
+		}
+		f.mu.Lock()
+		f.unenrols = append(f.unenrols, key)
+		f.mu.Unlock()
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
 	srv := httptest.NewServer(mux)
 	f.t.Cleanup(srv.Close)

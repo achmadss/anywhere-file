@@ -36,6 +36,16 @@
   <button id="share">Share this folder</button>
 </p>
 
+<h2>Account</h2>
+<p id="account"></p>
+<p id="approve" hidden>Approve this PC at <a id="approve-url" target="_blank" rel="noreferrer"></a>,
+  where the code is <b id="approve-code"></b>.</p>
+<p>
+  <label id="server-box">Server <input id="server" placeholder="https://" size="22"></label>
+  <button id="signin">Sign in</button>
+  <button id="signout">Sign out</button>
+</p>
+
 <script>
 const token = "{{.Token}}";
 const home = "{{.Home}}";
@@ -120,6 +130,43 @@ document.getElementById("share").onclick = async () => {
   } catch (e) { show(e); }
 };
 
+function drawAccount(acc) {
+  const waiting = acc.login.waiting;
+  document.getElementById("account").textContent = acc.enrolled
+    ? "This PC belongs to the account at " + acc.server + ", as device " + acc.device_id + "."
+    : "This PC belongs to no account. Folders above are shared on the LAN either way.";
+  const approve = document.getElementById("approve");
+  approve.hidden = !waiting;
+  if (waiting) {
+    const link = document.getElementById("approve-url");
+    link.href = acc.login.url;
+    link.textContent = acc.login.url;
+    document.getElementById("approve-code").textContent = acc.login.code;
+  }
+  if (acc.login.error) show(acc.login.error);
+  document.getElementById("server-box").hidden = acc.enrolled || waiting;
+  document.getElementById("signin").hidden = acc.enrolled || waiting;
+  document.getElementById("signout").hidden = !acc.enrolled;
+  // Approving happens somewhere else, so the page asks how it went until it knows.
+  if (waiting) setTimeout(() => api("GET", "/v1/account").then(drawAccount).catch(show), 2000);
+}
+
+document.getElementById("signin").onclick = async () => {
+  show(null);
+  try {
+    const acc = await api("POST", "/v1/account/login", {server: document.getElementById("server").value.trim()});
+    drawAccount(acc);
+    if (acc.login.url) window.open(acc.login.url, "_blank");
+  } catch (e) { show(e); }
+};
+
+document.getElementById("signout").onclick = async () => {
+  show(null);
+  try { drawAccount(await api("POST", "/v1/account/logout", {})); }
+  catch (e) { show(e); }
+};
+
 api("GET", "/v1/apps").then(out => drawShares(out.apps)).catch(show);
+api("GET", "/v1/account").then(drawAccount).catch(show);
 go(home);
 </script>

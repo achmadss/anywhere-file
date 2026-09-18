@@ -82,6 +82,11 @@ func newSettings(ag *agent, token string) http.Handler {
 	mux.HandleFunc("POST /v1/apps", addShare(ag))
 	mux.HandleFunc("DELETE /v1/apps/{name}", removeShare(ag))
 	mux.HandleFunc("GET /v1/browse", browse)
+	mux.HandleFunc("GET /v1/account", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, ag.account())
+	})
+	mux.HandleFunc("POST /v1/account/login", signIn(ag))
+	mux.HandleFunc("POST /v1/account/logout", signOut(ag))
 	return settingsGuard(mux, token, ag.log)
 }
 
@@ -218,6 +223,42 @@ func removeShare(ag *agent) http.HandlerFunc {
 		}
 		ag.log.Info("stopped sharing", "app", name)
 		writeJSON(w, http.StatusOK, map[string]any{"apps": shares(kept)})
+	}
+}
+
+// signIn starts the browser approval (#141) and answers with the code to approve. The
+// waiting happens in the agent, so the page asks /v1/account how it went rather than
+// holding a request open for as long as the person takes.
+func signIn(ag *agent) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Server string `json:"server"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<12)).Decode(&in); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+			return
+		}
+		if strings.TrimSpace(in.Server) == "" {
+			in.Server = ag.snapshot().Server
+		}
+		acc, err := ag.startLogin(r.Context(), in.Server)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, acc)
+	}
+}
+
+// signOut takes this PC off the account it belongs to. The device key is what proves it
+// may, so nobody has to be signed in anywhere for this to work.
+func signOut(ag *agent) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, err := ag.logout(r.Context()); err != nil {
+			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, ag.account())
 	}
 }
 

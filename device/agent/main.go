@@ -10,6 +10,8 @@
 //	agent share add <dir>        share a directory, with --name to choose what it is called
 //	agent share list             list what this PC shares
 //	agent share rm <name>        stop sharing one
+//	agent login <server>         sign this PC in by approving it in a browser
+//	agent logout                 sign this PC out, leaving it serving the LAN
 //	agent enrol <server> <token> register this PC with an account, for a headless machine
 //	agent install                start at logon and keep running, as a user-level service
 //	agent uninstall              stop doing that, leaving the key and the registry alone
@@ -74,6 +76,13 @@ func run(ctx context.Context, args []string, out, logTo io.Writer) error {
 		return settingsCommand(ctx, cfg, out)
 	case "share":
 		return shareCommand(ctx, cfg, out, args)
+	case "login":
+		if len(args) != 1 {
+			return fmt.Errorf("login needs the server address")
+		}
+		return loginCommand(ctx, cfg, log, out, args[0])
+	case "logout":
+		return logoutCommand(ctx, cfg, log, out)
 	case "enrol":
 		if len(args) != 2 {
 			return fmt.Errorf("enrol needs a server address and an enrolment token")
