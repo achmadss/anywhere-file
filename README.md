@@ -29,8 +29,9 @@ the customer's phone or laptop, and `hosted/` on hardware we pay for. Anything u
 The agent and the control plane are built: a PC holds its device key, serves its
 applications on the LAN over TLS, announces itself, enrols with the server and keeps a tunnel
 open to it, installs from a package on all three systems, and takes the folders it shares
-from a settings page or a terminal. The server also serves the account pages a browser
-needs, for signup, email verification and password reset. `client/` does not exist yet. The
+from a settings page or a terminal. The server also serves the pages a browser needs, for
+signup, email verification, password reset, and approving a PC that asks to join an account.
+`client/` does not exist yet. The
 work is broken down in the issue tracker, starting at the
 [epic](https://github.com/achmadss/anywhere-file/issues/41).
 

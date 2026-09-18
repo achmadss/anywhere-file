@@ -23,7 +23,7 @@ func newHandlerWithTunnels(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *
 	mux.HandleFunc("GET /healthz", health(db))
 	mux.Handle("GET /metrics", m.Handler())
 	registerAuthRoutes(mux, db, log, newMailer(log))
-	registerWebRoutes(mux)
+	registerWebRoutes(mux, db)
 	registerDeviceRoutes(mux, db, log)
 	registerBindingRoutes(mux, db, log, reg)
 	registerAppRoutes(mux, db, log)

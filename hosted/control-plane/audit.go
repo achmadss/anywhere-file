@@ -13,10 +13,11 @@ import (
 // audit_events.action, so they are frozen once used. Add new ones, never rename or reuse
 // an old one.
 const (
-	ActionAccountDeleted = "account.deleted"
-	ActionDeviceEnrolled = "device.enrolled"
-	ActionDeviceDisabled = "device.disabled"
-	ActionBindingRevoked = "binding.revoked"
+	ActionAccountDeleted   = "account.deleted"
+	ActionDeviceEnrolled   = "device.enrolled"
+	ActionDeviceDisabled   = "device.disabled"
+	ActionDeviceUnenrolled = "device.unenrolled"
+	ActionBindingRevoked   = "binding.revoked"
 
 	ActionDeviceAppsSynced = "device.apps_synced"
 	ActionInviteCreated    = "invite.created"
@@ -32,10 +33,11 @@ const (
 // validActions is the closed set appendAudit accepts. A typo in a caller fails
 // at write time rather than silently recording a row nothing will ever query.
 var validActions = map[string]bool{
-	ActionAccountDeleted: true,
-	ActionDeviceEnrolled: true,
-	ActionDeviceDisabled: true,
-	ActionBindingRevoked: true,
+	ActionAccountDeleted:   true,
+	ActionDeviceEnrolled:   true,
+	ActionDeviceDisabled:   true,
+	ActionDeviceUnenrolled: true,
+	ActionBindingRevoked:   true,
 
 	ActionDeviceAppsSynced: true,
 	ActionInviteCreated:    true,

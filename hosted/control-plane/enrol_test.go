@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -249,5 +250,291 @@ func TestDisableDeviceIsAdminOnlyAndBlocksReenrol(t *testing.T) {
 	body = `{"name":"pc1","enrolment_token":"` + enrolToken(t, h, "owner@example.com") + `"}`
 	if rec := enrol(t, h, priv, body, nil); rec.Code != http.StatusForbidden {
 		t.Errorf("re-enrol of a disabled device: status = %d, want 403 (body %s)", rec.Code, rec.Body)
+	}
+}
+
+// signedPost sends a body signed with a device key, the way the agent does.
+func signedPost(t *testing.T, h http.Handler, priv ed25519.PrivateKey, path string, body any) *httptest.ResponseRecorder {
+	t.Helper()
+	buf, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(string(buf)))
+	req.Header.Set("Content-Type", "application/json")
+	devicesig.Sign(req, priv, buf)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+// startEnrolmentFor asks for a code as the PC would, and returns it.
+func startEnrolmentFor(t *testing.T, h http.Handler, priv ed25519.PrivateKey, name string) string {
+	t.Helper()
+	rec := signedPost(t, h, priv, "/v1/devices/enrolment/start", map[string]string{"name": name})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("start: status = %d (body %s)", rec.Code, rec.Body)
+	}
+	var out struct {
+		UserCode   string `json:"user_code"`
+		ApproveURL string `json:"approve_url"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out.UserCode == "" {
+		t.Fatalf("start: no user code in %q", rec.Body)
+	}
+	if !strings.Contains(out.ApproveURL, "/approve?code="+url.QueryEscape(out.UserCode)) {
+		t.Fatalf("start: approve url %q does not carry the code", out.ApproveURL)
+	}
+	return out.UserCode
+}
+
+// answer approves or refuses a code as the signed-in browser does.
+func answer(t *testing.T, h http.Handler, session, code string, approve bool) *httptest.ResponseRecorder {
+	t.Helper()
+	return doJSON(t, h, http.MethodPost, "/v1/devices/enrolment/answer",
+		map[string]any{"code": code, "approve": approve}, bearer(session))
+}
+
+// poll asks what happened to a code, signed with the device key.
+func poll(t *testing.T, h http.Handler, priv ed25519.PrivateKey, code string) *httptest.ResponseRecorder {
+	t.Helper()
+	return signedPost(t, h, priv, "/v1/devices/enrolment/poll", map[string]string{"user_code": code})
+}
+
+// TestApprovingInTheBrowserEnrolsThePC is #139's acceptance. Nobody carries a token to the
+// PC: the PC asks, the person approves while signed in, and the PC collects what it needs.
+func TestApprovingInTheBrowserEnrolsThePC(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	priv := newDeviceKey(t)
+
+	signupReq(t, h, "owner@example.com", "correct horse battery")
+	session := signinToken(t, h, "owner@example.com", "correct horse battery")
+
+	code := startEnrolmentFor(t, h, priv, "the study PC")
+
+	// Before anyone answers, the PC is told to wait.
+	rec := poll(t, h, priv, code)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"pending"`) {
+		t.Fatalf("poll before approval: status = %d (body %s)", rec.Code, rec.Body)
+	}
+
+	if rec := answer(t, h, session, code, true); rec.Code != http.StatusOK {
+		t.Fatalf("approve: status = %d (body %s)", rec.Code, rec.Body)
+	}
+
+	rec = poll(t, h, priv, code)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("poll after approval: status = %d (body %s)", rec.Code, rec.Body)
+	}
+	var got struct {
+		Status string `json:"status"`
+		Token  string `json:"enrolment_token"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || got.Token == "" {
+		t.Fatalf("poll after approval: no token in %q", rec.Body)
+	}
+	if got.Status != "approved" {
+		t.Fatalf("poll after approval: status = %q, want approved", got.Status)
+	}
+
+	body := `{"name":"the study PC","enrolment_token":"` + got.Token + `"}`
+	if rec := enrol(t, h, priv, body, nil); rec.Code != http.StatusOK {
+		t.Fatalf("enrol: status = %d (body %s)", rec.Code, rec.Body)
+	}
+	owner := accountIDByEmail(t, pool, "owner@example.com")
+	if n := countRows(t, pool,
+		`SELECT count(*) FROM device_users WHERE device_id = $1 AND user_id = $2::uuid
+		   AND role = 'admin' AND revoked_at IS NULL`, derivedDeviceID(priv), owner); n != 1 {
+		t.Fatalf("admin bindings for the owner = %d, want 1", n)
+	}
+}
+
+// A code is half of the proof. Someone who reads it over a shoulder still holds nothing,
+// because the poll that collects the token is signed by the key the code was minted for.
+func TestACodeIsUselessWithoutTheDeviceKey(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	priv, thief := newDeviceKey(t), newDeviceKey(t)
+
+	signupReq(t, h, "owner@example.com", "correct horse battery")
+	session := signinToken(t, h, "owner@example.com", "correct horse battery")
+	code := startEnrolmentFor(t, h, priv, "the study PC")
+	if rec := answer(t, h, session, code, true); rec.Code != http.StatusOK {
+		t.Fatalf("approve: status = %d (body %s)", rec.Code, rec.Body)
+	}
+
+	if rec := poll(t, h, thief, code); rec.Code != http.StatusNotFound {
+		t.Fatalf("poll with another key: status = %d, want 404 (body %s)", rec.Code, rec.Body)
+	}
+	// And the real PC can still collect it, so the refusal above consumed nothing.
+	if rec := poll(t, h, priv, code); rec.Code != http.StatusOK {
+		t.Fatalf("poll with the right key: status = %d (body %s)", rec.Code, rec.Body)
+	}
+}
+
+// An approval on its own binds nothing either: the enrolment token it mints is what the
+// signed enrolment consumes, and it is spent once.
+func TestAnApprovedCodeIsCollectedOnce(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	priv := newDeviceKey(t)
+
+	signupReq(t, h, "owner@example.com", "correct horse battery")
+	session := signinToken(t, h, "owner@example.com", "correct horse battery")
+	code := startEnrolmentFor(t, h, priv, "the study PC")
+	if rec := answer(t, h, session, code, true); rec.Code != http.StatusOK {
+		t.Fatalf("approve: status = %d (body %s)", rec.Code, rec.Body)
+	}
+	if rec := poll(t, h, priv, code); rec.Code != http.StatusOK {
+		t.Fatalf("first poll: status = %d (body %s)", rec.Code, rec.Body)
+	}
+	if rec := poll(t, h, priv, code); rec.Code != http.StatusNotFound {
+		t.Fatalf("second poll: status = %d, want 404 (body %s)", rec.Code, rec.Body)
+	}
+	if n := countRows(t, pool, `SELECT count(*) FROM enrolment_tokens`); n != 1 {
+		t.Fatalf("enrolment tokens minted = %d, want 1", n)
+	}
+}
+
+// Refusing is an answer the PC hears, and it stops asking.
+func TestRefusingLeavesThePCUnenrolled(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	priv := newDeviceKey(t)
+
+	signupReq(t, h, "owner@example.com", "correct horse battery")
+	session := signinToken(t, h, "owner@example.com", "correct horse battery")
+	code := startEnrolmentFor(t, h, priv, "the study PC")
+	if rec := answer(t, h, session, code, false); rec.Code != http.StatusOK {
+		t.Fatalf("refuse: status = %d (body %s)", rec.Code, rec.Body)
+	}
+	rec := poll(t, h, priv, code)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("poll after refusal: status = %d, want 403 (body %s)", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "refused") {
+		t.Fatalf("poll after refusal: body = %s", rec.Body)
+	}
+	if n := countRows(t, pool, `SELECT count(*) FROM devices`); n != 0 {
+		t.Fatalf("devices = %d, want 0", n)
+	}
+	// A second answer cannot turn the refusal into an approval.
+	if rec := answer(t, h, session, code, true); rec.Code != http.StatusNotFound {
+		t.Fatalf("approve after refusal: status = %d, want 404 (body %s)", rec.Code, rec.Body)
+	}
+}
+
+func TestAnExpiredCodeIsRefused(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	priv := newDeviceKey(t)
+
+	signupReq(t, h, "owner@example.com", "correct horse battery")
+	session := signinToken(t, h, "owner@example.com", "correct horse battery")
+	code := startEnrolmentFor(t, h, priv, "the study PC")
+	if _, err := pool.Exec(t.Context(),
+		`UPDATE device_enrolments SET expires_at = now() - interval '1 second'`); err != nil {
+		t.Fatalf("expire the code: %v", err)
+	}
+	if rec := answer(t, h, session, code, true); rec.Code != http.StatusNotFound {
+		t.Fatalf("approve an expired code: status = %d, want 404 (body %s)", rec.Code, rec.Body)
+	}
+	if rec := poll(t, h, priv, code); rec.Code != http.StatusNotFound {
+		t.Fatalf("poll an expired code: status = %d, want 404 (body %s)", rec.Code, rec.Body)
+	}
+}
+
+// Nobody can start an enrolment without a device key, which is what stops a stranger
+// minting codes for a PC they do not hold.
+func TestStartingAnEnrolmentNeedsASignature(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	rec := doJSON(t, h, http.MethodPost, "/v1/devices/enrolment/start", map[string]string{"name": "x"}, nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unsigned start: status = %d, want 401 (body %s)", rec.Code, rec.Body)
+	}
+}
+
+// The name is shown to whoever is deciding, so the PC does not get to put a line break or
+// an escape into it.
+func TestAPCNameWithAControlCharacterIsRefused(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	priv := newDeviceKey(t)
+	for _, name := range []string{"study\nPC", "study\rPC", "study\x1b[31mPC"} {
+		rec := signedPost(t, h, priv, "/v1/devices/enrolment/start", map[string]string{"name": name})
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("start with name %q: status = %d, want 400 (body %s)", name, rec.Code, rec.Body)
+		}
+	}
+	if rec := signedPost(t, h, priv, "/v1/devices/enrolment/start", map[string]string{"name": "the study PC"}); rec.Code != http.StatusOK {
+		t.Fatalf("start with an ordinary name: status = %d (body %s)", rec.Code, rec.Body)
+	}
+}
+
+// Signing out is the PC's own decision and its key is the proof. Afterwards the account
+// reaches nothing, and the device row and its history stay.
+func TestAPCCanSignItselfOut(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	priv := newDeviceKey(t)
+	token := enrolToken(t, h, "owner@example.com")
+	if rec := enrol(t, h, priv, `{"name":"the study PC","enrolment_token":"`+token+`"}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("enrol: status = %d (body %s)", rec.Code, rec.Body)
+	}
+	deviceID := derivedDeviceID(priv)
+
+	// An unsigned request changes nothing.
+	if rec := doJSON(t, h, http.MethodPost, "/v1/devices/unenrol", map[string]string{}, nil); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unsigned unenrol: status = %d, want 401 (body %s)", rec.Code, rec.Body)
+	}
+	if n := countRows(t, pool,
+		`SELECT count(*) FROM device_users WHERE device_id = $1 AND revoked_at IS NULL`, deviceID); n != 1 {
+		t.Fatalf("live bindings after an unsigned unenrol = %d, want 1", n)
+	}
+
+	if rec := signedPost(t, h, priv, "/v1/devices/unenrol", map[string]string{}); rec.Code != http.StatusOK {
+		t.Fatalf("unenrol: status = %d (body %s)", rec.Code, rec.Body)
+	}
+	if n := countRows(t, pool,
+		`SELECT count(*) FROM device_users WHERE device_id = $1 AND revoked_at IS NULL`, deviceID); n != 0 {
+		t.Fatalf("live bindings after signing out = %d, want 0", n)
+	}
+	if n := countRows(t, pool, `SELECT count(*) FROM devices WHERE device_id = $1`, deviceID); n != 1 {
+		t.Fatalf("device rows = %d, want the row to survive", n)
+	}
+	if n := countRows(t, pool,
+		`SELECT count(*) FROM audit_events WHERE device_id = $1 AND action = $2`,
+		deviceID, ActionDeviceUnenrolled); n != 1 {
+		t.Fatalf("unenrol audit rows = %d, want 1", n)
+	}
+	// Saying it twice is not an error: the PC belongs to no account either way.
+	if rec := signedPost(t, h, priv, "/v1/devices/unenrol", map[string]string{}); rec.Code != http.StatusOK {
+		t.Fatalf("second unenrol: status = %d (body %s)", rec.Code, rec.Body)
+	}
+}
+
+func TestAUserCodeReadsBackWhateverTheCaseAndDashes(t *testing.T) {
+	code, err := newUserCode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(code) != 9 || code[4] != '-' {
+		t.Fatalf("code = %q, want eight characters split by a dash", code)
+	}
+	want := normalizeUserCode(code)
+	if len(want) != 8 {
+		t.Fatalf("normalized %q to %q, want eight characters", code, want)
+	}
+	for _, typed := range []string{code, strings.ToLower(code), want, " " + strings.ToLower(want) + " "} {
+		if got := normalizeUserCode(typed); got != want {
+			t.Fatalf("normalizeUserCode(%q) = %q, want %q", typed, got, want)
+		}
+	}
+	for _, r := range want {
+		if !strings.ContainsRune(userCodeAlphabet, r) {
+			t.Fatalf("code %q holds %q, which is not in the alphabet", code, r)
+		}
 	}
 }

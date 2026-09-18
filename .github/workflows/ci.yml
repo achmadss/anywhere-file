@@ -91,6 +91,11 @@ jobs:
         run: go test -run TestSignupSendsALinkThatConfirmsTheAddress -v ./hosted/control-plane/ | tee signup.log
       - if: runner.os == 'Linux'
         run: "grep -q -- '--- PASS: TestSignupSendsALinkThatConfirmsTheAddress' signup.log"
+      # #139's acceptance: a PC asks, a browser approves, the PC enrols. Same reason.
+      - if: runner.os == 'Linux'
+        run: go test -run TestApprovingInTheBrowserEnrolsThePC -v ./hosted/control-plane/ | tee approve.log
+      - if: runner.os == 'Linux'
+        run: "grep -q -- '--- PASS: TestApprovingInTheBrowserEnrolsThePC' approve.log"
       # Same reason: prove the mDNS resolution test ran rather than skipped.
       - if: runner.os == 'Linux'
         run: go test -run TestTheAdvertisedRecordIsFound -v ./device/agent/ | tee mdns.log
