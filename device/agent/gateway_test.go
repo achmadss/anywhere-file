@@ -131,6 +131,14 @@ func TestGatewayRefusesWhatIsNotRegistered(t *testing.T) {
 		}
 	}
 
+	// The enrolment endpoint the client used to post to is gone (#140). Nothing on the LAN
+	// changes which account a PC belongs to.
+	if resp, err := gw.Client().Post(gw.URL+"/enrol", "application/json", strings.NewReader(`{"server":"https://x","enrolment_token":"t"}`)); err != nil {
+		t.Fatal(err)
+	} else if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("POST /enrol: status = %d, want 404", resp.StatusCode)
+	}
+
 	// An absolute request URI is how a caller asks a proxy for another machine. The agent
 	// is not a proxy.
 	conn, err := net.Dial("tcp", hostPort(t, gw.URL))

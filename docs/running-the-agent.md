@@ -189,9 +189,10 @@ does.
 somewhere else. The failure suite uses it. As above, nothing is written until the server
 has accepted, so a bad or expired token leaves the PC as it was.
 
-The gateway also accepts a POST on `/enrol`, which was there for the client to call. That is
-going away (#140), now that a person can approve a PC in a browser instead. Do not build
-anything new against it.
+The gateway no longer takes a POST on `/enrol`. It was there for the client to call, and
+#140 removed it once a person could approve a PC in a browser instead. The only ways to
+change which account a PC belongs to are the sign in above and `agent enrol`, both run on
+the PC itself.
 
 ## The tunnel
 
