@@ -48,6 +48,10 @@ type app struct {
 	Name    string `json:"name"`
 	Type    string `json:"type"`
 	Address string `json:"address"`
+	// Command is the program that provides this application, with its arguments. The
+	// agent runs it as written and restarts it when it exits (#92). No command means
+	// something else starts the application and the agent only forwards to it.
+	Command []string `json:"command,omitempty"`
 }
 
 func (s *state) appNames() []string {
@@ -130,8 +134,20 @@ func (s *state) validate() error {
 		}
 		// The address is dialled, so it is a host and a port and never a URL. A scheme or
 		// a path here would be a way to point the gateway somewhere it should not go.
-		if _, _, err := net.SplitHostPort(a.Address); err != nil {
+		host, _, err := net.SplitHostPort(a.Address)
+		if err != nil {
 			return fmt.Errorf("application %s: address %q: want host:port", a.Name, a.Address)
+		}
+		if len(a.Command) > 0 {
+			if a.Command[0] == "" {
+				return fmt.Errorf("application %s: the command names no program", a.Name)
+			}
+			// An application the agent starts is one the agent can keep on loopback. A
+			// LAN address here could be reached without going through the gateway at
+			// all, so everything the gateway refuses would be reachable around it.
+			if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
+				return fmt.Errorf("application %s: address %q: an application the agent starts listens on loopback", a.Name, a.Address)
+			}
 		}
 		seen[a.Name] = true
 	}

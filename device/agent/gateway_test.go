@@ -90,11 +90,11 @@ func TestGatewayForwardsToARegisteredApplication(t *testing.T) {
 	if string(body) != "the file" {
 		t.Errorf("body = %q, want the application's own answer", body)
 	}
-	// The application is reached at its own root, so it does not have to know the name it
-	// is registered under. The query and the escaping survive.
+	// The name stays on the path, because the application is told the prefix it is served
+	// under and strips it itself. The query and the escaping survive.
 	req := <-seen
-	if req.path != "/files/a b.txt" || req.query != "dl=1" {
-		t.Errorf("the application saw %q?%q, want /files/a b.txt?dl=1", req.path, req.query)
+	if req.path != "/dufs/files/a b.txt" || req.query != "dl=1" {
+		t.Errorf("the application saw %q?%q, want /dufs/files/a b.txt?dl=1", req.path, req.query)
 	}
 }
 
@@ -110,8 +110,8 @@ func TestApplicationRootIsForwarded(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200 and not a redirect to %q", resp.StatusCode, resp.Header.Get("Location"))
 	}
-	if req := <-seen; req.path != "/" {
-		t.Errorf("the application saw %q, want /", req.path)
+	if req := <-seen; req.path != "/dufs/" {
+		t.Errorf("the application saw %q, want /dufs/", req.path)
 	}
 }
 

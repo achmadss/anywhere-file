@@ -106,16 +106,16 @@ func appProxy(a app, log *slog.Logger) http.Handler {
 		},
 		ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelWarn),
 	}
-	// The application is reached at its own root, the way a reverse proxy location works,
-	// so it does not have to know the name it is registered under. An application that
-	// writes absolute links is told the prefix separately, so the links carry it.
-	stripped := http.StripPrefix(prefix, proxy)
+	// The name stays on the path. An application has to be told the prefix it is served
+	// under anyway, or the links it writes land nowhere, and one that is told strips the
+	// prefix itself: dufs does it in `extract_path`. Stripping it here as well would take
+	// the request down to nothing.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == prefix {
 			r = r.Clone(r.Context())
 			r.URL.Path, r.URL.RawPath = prefix+"/", ""
 		}
-		stripped.ServeHTTP(w, r)
+		proxy.ServeHTTP(w, r)
 	})
 }
 

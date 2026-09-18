@@ -45,6 +45,10 @@ func TestBadRegistryIsRefused(t *testing.T) {
 		"an address with no port": `{"name":"pc1","apps":[{"name":"dufs","type":"http","address":"127.0.0.1"}]}`,
 		"a name that is too long": `{"name":"` + strings.Repeat("n", 65) + `","apps":[]}`,
 		"broken json":             `{"name":`,
+		// An application the agent starts and puts on the LAN itself is one the gateway
+		// cannot keep anybody out of.
+		"a started app on the LAN":  `{"name":"pc1","apps":[{"name":"dufs","type":"http","address":"192.168.1.9:5000","command":["dufs","/srv"]}]}`,
+		"a command with no program": `{"name":"pc1","apps":[{"name":"dufs","type":"http","address":"127.0.0.1:5000","command":[""]}]}`,
 	} {
 		dir := agentDir(t)
 		if err := os.MkdirAll(dir, 0o700); err != nil {
