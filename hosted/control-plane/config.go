@@ -9,6 +9,10 @@ import (
 
 // config is read from the environment once at startup. Everything has a working local
 // default except the database URL, which has no safe default to guess.
+//
+// The mailer's own settings are read in mail.go, and the session cookie's in auth.go,
+// because the handlers that use them take a database and a logger rather than a config.
+// docs/running-the-control-plane.md lists every variable in one table.
 type config struct {
 	addr            string        // RFM_ADDR
 	databaseURL     string        // RFM_DATABASE_URL

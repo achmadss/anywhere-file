@@ -1,0 +1,75 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>{{.Title}}</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.5 system-ui, sans-serif; margin: 0 auto; max-width: 26rem; padding: 3rem 1rem; }
+  h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+  p.sub { color: GrayText; margin: 0 0 1.5rem; }
+  label { display: block; margin: 0 0 1rem; }
+  input { border: 1px solid ButtonBorder; border-radius: .35rem; box-sizing: border-box;
+          font: inherit; padding: .4rem .5rem; width: 100%; }
+  button { border: 1px solid ButtonBorder; border-radius: .35rem; background: ButtonFace; color: ButtonText;
+           cursor: pointer; font: inherit; padding: .4rem 1rem; }
+  #message { min-height: 1.5rem; }
+  #message.bad { color: #b00; }
+</style>
+
+<h1>{{.Title}}</h1>
+{{if .Intro}}<p class="sub">{{.Intro}}</p>{{end}}
+
+<form id="form">
+  {{range .Fields}}
+  <label>{{.Label}}
+    <input name="{{.Name}}" type="{{.Type}}"
+           autocomplete="{{if eq .Type "password"}}new-password{{else}}username{{end}}">
+  </label>
+  {{end}}
+  {{if .Submit}}<button>{{.Submit}}</button>{{end}}
+</form>
+<p id="message"></p>
+
+<script>
+const action = "{{.Action}}";
+const done = "{{.Done}}";
+const onLoad = {{.OnLoad}};
+const form = document.getElementById("form");
+const message = document.getElementById("message");
+
+function say(text, bad) {
+  message.textContent = text;
+  message.className = bad ? "bad" : "";
+}
+
+async function submit() {
+  const body = {};
+  for (const el of form.elements) if (el.name) body[el.name] = el.value;
+  const token = new URLSearchParams(location.search).get("token");
+  if (token) body.token = token;
+
+  say("");
+  let res, out;
+  try {
+    res = await fetch(action, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body),
+    });
+    out = await res.json();
+  } catch (e) {
+    say("The server did not answer. Try again.", true);
+    return;
+  }
+  if (!res.ok) {
+    say(out.error || res.statusText, true);
+    return;
+  }
+  form.hidden = true;
+  say(done);
+}
+
+form.addEventListener("submit", (e) => { e.preventDefault(); submit(); });
+if (onLoad) submit();
+</script>

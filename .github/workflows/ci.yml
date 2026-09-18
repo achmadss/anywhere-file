@@ -85,6 +85,12 @@ jobs:
         run: go test -run TestConcurrentInviteRedeemsConsumeOnce -v ./hosted/control-plane/ | tee race.log
       - if: runner.os == 'Linux'
         run: "grep -q -- '--- PASS: TestConcurrentInviteRedeemsConsumeOnce' race.log"
+      # #137's acceptance: sign up, then follow the link out of the message. It needs the
+      # database, so prove it ran rather than skipped.
+      - if: runner.os == 'Linux'
+        run: go test -run TestSignupSendsALinkThatConfirmsTheAddress -v ./hosted/control-plane/ | tee signup.log
+      - if: runner.os == 'Linux'
+        run: "grep -q -- '--- PASS: TestSignupSendsALinkThatConfirmsTheAddress' signup.log"
       # Same reason: prove the mDNS resolution test ran rather than skipped.
       - if: runner.os == 'Linux'
         run: go test -run TestTheAdvertisedRecordIsFound -v ./device/agent/ | tee mdns.log
