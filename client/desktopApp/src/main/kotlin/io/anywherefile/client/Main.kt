@@ -1,32 +1,82 @@
 package io.anywherefile.client
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
-import java.awt.Desktop
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.awt.EventQueue
+import java.awt.FileDialog
+import java.awt.Frame
 import java.io.File
-import java.net.URI
+import java.io.InputStream
 
 fun main() {
     val devices = Devices()
     val known = KnownDevices(File(stateDir(), "known-devices"))
     val discovery = LanDiscovery(devices, known)
     discovery.start()
+    val transfers = DesktopTransfers()
     application {
         Window(onCloseRequest = ::exitApplication, title = "anywhere-file") {
-            DeviceList(
-                devices,
-                onForget = { forget(it, devices, known) },
-                onOpen = { device, app -> openApp(device, app, devices, ::browse) },
-            )
+            // The folder the person is looking at, or null for the list of PCs.
+            var browsing by remember { mutableStateOf<Files?>(null) }
+            AnywhereFile {
+                val files = browsing
+                if (files != null) {
+                    FileBrowser(files) { browsing = null }
+                } else {
+                    DeviceList(
+                        devices,
+                        onForget = { forget(it, devices, known) },
+                        onOpen = { device, app ->
+                            openFiles(device, app, devices, transfers) { browsing = it }
+                        },
+                    )
+                }
+            }
         }
     }
 }
 
-// The system browser. Desktop.browse is the portable way and is missing on a Linux box
-// with no desktop session, where xdg-open is what every other program falls back to.
-private fun browse(url: String) {
-    val desktop = Desktop.getDesktop().takeIf { Desktop.isDesktopSupported() && it.isSupported(Desktop.Action.BROWSE) }
-    if (desktop != null) desktop.browse(URI(url)) else ProcessBuilder("xdg-open", url).start()
+// Where a file comes from and where one lands, on a desktop (#155).
+private class DesktopTransfers : Transfers {
+    override suspend fun pick(): Outgoing? = withContext(Dispatchers.IO) {
+        val dialog = FileDialog(null as Frame?, "Send a file", FileDialog.LOAD)
+        // The dialog belongs to the toolkit's own thread, and showing it there blocks
+        // until the person is done with it, which is what this call is waiting for.
+        EventQueue.invokeAndWait { dialog.isVisible = true }
+        val dir = dialog.directory
+        val name = dialog.file
+        if (dir == null || name == null) return@withContext null
+        val file = File(dir, name)
+        Outgoing(file.name, file.length()) { file.inputStream() }
+    }
+
+    override fun save(name: String, body: InputStream): String {
+        val home = File(System.getProperty("user.home"))
+        val downloads = File(home, "Downloads").takeIf { it.isDirectory } ?: home
+        val file = free(downloads, name)
+        file.outputStream().use { body.copyTo(it) }
+        return "Saved to ${file.path}"
+    }
+}
+
+// A download does not write over a file that is already there. Windows, macOS and every
+// browser do the same thing with the same brackets.
+private fun free(dir: File, name: String): File {
+    if (!File(dir, name).exists()) return File(dir, name)
+    val stem = name.substringBeforeLast('.', name)
+    val extension = name.substringAfterLast('.', "")
+    var n = 2
+    while (true) {
+        val next = File(dir, if (extension.isEmpty()) "$stem ($n)" else "$stem ($n).$extension")
+        if (!next.exists()) return next
+        n++
+    }
 }
 
 // Where this client keeps what it has learned, next to where the agent keeps its own on

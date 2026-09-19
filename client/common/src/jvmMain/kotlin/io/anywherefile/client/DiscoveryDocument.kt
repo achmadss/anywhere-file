@@ -25,8 +25,8 @@ data class DiscoveryDocument(
 )
 
 // What one read of a PC learned: what the document says, and the public key of the
-// certificate the PC proved is its own. The key is what the relay that carries a browser
-// to an application requires on every connection afterwards (#99).
+// certificate the PC proved is its own. The key is what every request the file browser
+// makes afterwards has to find on the other end (#155).
 class Contact(val doc: DiscoveryDocument, val certificateKey: ByteArray)
 
 private val json = Json { ignoreUnknownKeys = true }

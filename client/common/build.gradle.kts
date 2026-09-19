@@ -24,6 +24,7 @@ kotlin {
             api(compose.runtime)
             api(compose.foundation)
             api(compose.material3)
+            implementation(libs.compose.material.icons.core)
             api(compose.ui)
             implementation(libs.kotlinx.serialization.json)
         }
@@ -36,7 +37,12 @@ kotlin {
         // newer than the oldest phone this runs on (#127).
         androidMain {
             kotlin.srcDirs("src/jvmMain/kotlin")
-            dependencies { implementation(libs.bouncycastle) }
+            dependencies {
+                implementation(libs.bouncycastle)
+                // For the system back gesture, which the file browser binds so that back
+                // goes up a folder before it leaves the screen (#155).
+                implementation(libs.androidx.activity.compose)
+            }
         }
         val desktopMain by getting {
             kotlin.srcDirs("src/jvmMain/kotlin")
