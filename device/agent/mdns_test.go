@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"testing"
@@ -163,4 +164,49 @@ func mustFind(t *testing.T, deviceID string, within time.Duration) found {
 	}
 	t.Fatalf("the record was not resolved within %v, saw %v", within, seen)
 	return found{}
+}
+
+// A PC running docker holds an address on every bridge it has created, and a client on
+// the LAN cannot reach any of them (#152). What goes out is the answering interface's own
+// addresses, so anything belonging to another interface is a bug wherever this runs, and
+// a CI runner with docker0 on it is such a machine.
+func TestOnlyTheAnsweringInterfacesAddressesAreAdvertised(t *testing.T) {
+	iface := multicastInterface()
+	if iface == nil {
+		t.Skip("no interface on this machine can carry IPv4 multicast")
+	}
+	advertised := map[string]bool{}
+	for _, ip := range localAddrs(iface) {
+		advertised[ip.String()] = true
+	}
+	if len(advertised) == 0 {
+		t.Fatal("nothing was advertised")
+	}
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, other := range ifaces {
+		if other.Index == iface.Index || other.Flags&net.FlagUp == 0 || other.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := other.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			ipnet, ok := addr.(*net.IPNet)
+			if ok && advertised[ipnet.IP.String()] {
+				t.Errorf("advertising %s, which is on %s and not on %s", ipnet.IP, other.Name, iface.Name)
+			}
+		}
+	}
+	t.Logf("advertising %v on %s", localAddrs(iface), iface.Name)
+
+	// A machine with no usable interface still advertises something rather than an
+	// answer with no address in it.
+	if got := localAddrs(nil); len(got) != 1 || !got[0].IsLoopback() {
+		t.Errorf("with no interface localAddrs = %v, want loopback", got)
+	}
 }

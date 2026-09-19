@@ -69,7 +69,8 @@ func (a *advertiser) advertise(s *state, key deviceKey) error {
 	// because a PC's own name can be anything and this one has to be a legal label. The
 	// addresses are passed in so nothing here depends on the machine resolving itself.
 	host := "af-" + key.deviceID()[:instanceIDLen] + "." + mdnsDomain
-	service, err := mdns.NewMDNSService(instance, mdnsService, mdnsDomain, host, a.port, localAddrs(), text)
+	iface := multicastInterface()
+	service, err := mdns.NewMDNSService(instance, mdnsService, mdnsDomain, host, a.port, localAddrs(iface), text)
 	if err != nil {
 		return fmt.Errorf("mdns: %w", err)
 	}
@@ -78,7 +79,7 @@ func (a *advertiser) advertise(s *state, key deviceKey) error {
 	// beside Bonjour, Avahi and the Windows resolver instead of losing the port to them.
 	srv, err := mdns.NewServer(&mdns.Config{
 		Zone:   service,
-		Iface:  multicastInterface(),
+		Iface:  iface,
 		Logger: stdLogger(a.log),
 	})
 	if err != nil {
@@ -235,23 +236,18 @@ func multicastInterface() *net.Interface {
 	return nil
 }
 
-// localAddrs is every address a client could reach this PC on. Loopback is the fallback,
-// so a machine with nothing else still advertises a usable record.
-func localAddrs() []net.IP {
+// localAddrs is the addresses that go out in the answer: the ones belonging to the
+// interface the answer leaves on, and nothing else. A PC running docker holds an address
+// on every bridge it has created, and a client on the LAN cannot reach any of them, so
+// putting them in the answer only gives the client somewhere wrong to go (#152). Loopback
+// is the fallback, so a machine with nothing else still advertises a usable record.
+func localAddrs(iface *net.Interface) []net.IP {
 	var ips []net.IP
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return []net.IP{net.IPv4(127, 0, 0, 1)}
-	}
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-		addrs, err := iface.Addrs()
-		if err != nil {
-			continue
-		}
+	if iface != nil {
+		addrs, _ := iface.Addrs()
 		for _, addr := range addrs {
+			// A link-local address needs the interface it was learned on, and a DNS
+			// record does not carry that.
 			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLinkLocalUnicast() {
 				ips = append(ips, ipnet.IP)
 			}
