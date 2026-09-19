@@ -12,50 +12,86 @@ import kotlin.concurrent.thread
 
 // The gateway's discovery document, GET /.well-known/anywhere-file. It is the
 // authoritative application list; the mDNS record's is a convenience that stops at 200
-// bytes. The key and the proof it also carries are #127's.
+// bytes. It also carries the PC's device key and that key's signature over the certificate
+// this was read over, which is what says the PC is the one being looked for (#127).
 @Serializable
 data class DiscoveryDocument(
     val v: Int,
     @SerialName("device_id") val deviceId: String,
     val name: String,
     val apps: List<String> = emptyList(),
+    @SerialName("public_key") val publicKey: String = "",
+    @SerialName("tls_proof") val tlsProof: String = "",
 )
 
 private val json = Json { ignoreUnknownKeys = true }
 
-// The gateway's certificate is signed by the device key and by no authority, so the
-// platform's trust store refuses it outright. Until #127 checks that signature and pins
-// the key, this context accepts whatever certificate the PC serves, and the document is
-// used for names only: nothing is sent and nothing here is trusted for access.
+// No authority signs the gateway's certificate, so the platform's trust store has nothing
+// to check it against and the handshake has to accept it as it stands. The check happens
+// straight after, against the key in the document the connection just carried, which is the
+// only order it can happen in: the document is what says which key to expect. Nothing is
+// sent up before it passes. The request is a GET of a document the PC serves to anyone, and
+// the answer is thrown away unless the signature holds.
 private val lanTls: SSLContext = SSLContext.getInstance("TLS").apply {
-    val acceptAll = object : X509TrustManager {
+    val unchecked = object : X509TrustManager {
         override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
         override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
         override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
     }
-    init(null, arrayOf(acceptAll), null)
+    init(null, arrayOf(unchecked), null)
 }
 
-fun readDiscoveryDocument(address: String): DiscoveryDocument {
+// readDiscoveryDocument returns the document only when the PC proved it holds deviceId's
+// key. It throws WrongDevice when the PC is somebody else, and an IOException when the PC
+// is not there or answered with something else.
+fun readDiscoveryDocument(address: String, deviceId: String): DiscoveryDocument {
     val conn = URI("https://$address/.well-known/anywhere-file").toURL().openConnection() as HttpsURLConnection
     conn.sslSocketFactory = lanTls.socketFactory
+    // The certificate names the device, under a suffix that resolves nowhere, and the
+    // address it was reached at comes from mDNS and changes with the network. The name is
+    // no use here, and the signature checked below is what the name would have been for.
     conn.setHostnameVerifier { _, _ -> true }
     conn.connectTimeout = 3_000
     conn.readTimeout = 3_000
-    conn.inputStream.use { return json.decodeFromString(DiscoveryDocument.serializer(), it.readBytes().decodeToString()) }
+    conn.inputStream.use { body ->
+        val doc = json.decodeFromString(DiscoveryDocument.serializer(), body.readBytes().decodeToString())
+        val certificate = conn.serverCertificates.firstOrNull() as? X509Certificate
+            ?: throw WrongDevice("This PC served no certificate.")
+        verifyDeviceProof(deviceId, doc.publicKey, doc.tlsProof, certificate)
+        return doc
+    }
 }
 
 // confirm reads the document for a PC the browse found and replaces what the record said.
-// A document naming another device is somebody else's, or a copy, and changes nothing.
-fun confirm(device: Device, devices: Devices) {
+// A PC that cannot prove it holds the device key stays on the list with the reason, because
+// a PC that has quietly turned into another one is worth seeing.
+fun confirm(device: Device, devices: Devices, known: KnownDevices) {
     thread(isDaemon = true, name = "discovery-document ${device.id.take(8)}") {
         val doc = try {
-            readDiscoveryDocument(device.address)
+            readDiscoveryDocument(device.address, device.id)
+        } catch (e: WrongDevice) {
+            devices.seen(device.copy(refused = e.message))
+            return@thread
         } catch (e: Exception) {
             return@thread
         }
-        if (doc.deviceId == device.id) {
-            devices.seen(device.copy(name = doc.name, apps = doc.apps, confirmed = true))
-        }
+        devices.seen(
+            device.copy(
+                name = doc.name,
+                apps = doc.apps,
+                confirmed = true,
+                firstContact = !known.knew(device.id),
+            ),
+        )
     }
+}
+
+// forget puts a PC back to how it looked before this client had ever connected to it, so
+// the fingerprint is offered for comparing again. The row stays where it is. Dropping it
+// and waiting for the browse to bring it back works on the desktop, which asks the network
+// every two seconds, and not on Android, where the resolver hands a PC over once and says
+// nothing more about it until it leaves the network.
+fun forget(device: Device, devices: Devices, known: KnownDevices) {
+    known.forget(device.id)
+    devices.seen(device.copy(firstContact = true))
 }

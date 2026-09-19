@@ -19,7 +19,7 @@ import kotlin.concurrent.thread
 //
 // ponytail: one socket, sending on the interface the kernel routes multicast to. A PC with
 // a VPN or a second LAN needs one query per interface.
-class LanDiscovery(private val devices: Devices) : Discovery {
+class LanDiscovery(private val devices: Devices, private val known: KnownDevices) : Discovery {
     @Volatile private var socket: DatagramSocket? = null
 
     override fun start() {
@@ -52,7 +52,7 @@ class LanDiscovery(private val devices: Devices) : Discovery {
                     }
                     val from = p.address?.hostAddress ?: continue
                     for (d in devicesIn(buf.copyOf(p.length), from)) {
-                        if (lastSeen.put(d.id, now) == null) confirm(d, devices)
+                        if (lastSeen.put(d.id, now) == null) confirm(d, devices, known)
                         devices.seen(d)
                     }
                 }

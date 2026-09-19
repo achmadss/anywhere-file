@@ -21,7 +21,17 @@ data class Device(
     val address: String,
     // True once name and apps came from the discovery document rather than the record.
     val confirmed: Boolean = false,
+    // Why this PC was turned away, when it could not prove it holds the device key it is
+    // advertising (#127). Null while it still might.
+    val refused: String? = null,
+    // True when this client had not connected to this PC before, so the fingerprint on the
+    // screen is worth comparing against the PC itself.
+    val firstContact: Boolean = false,
 )
+
+// A PC that has answered for itself, either way. What the record says about it after that
+// changes nothing.
+private val Device.answered get() = confirmed || refused != null
 
 // deviceFrom flattens a resolved record the way the agent's own `discover` does. Missing
 // pieces are refusals: without an id there is nothing to pin (#127) and nothing to tell
@@ -41,13 +51,13 @@ fun hostPort(host: String, port: Int) = if (':' in host) "[$host]:$port" else "$
 class Devices {
     val found = mutableStateListOf<Device>()
 
-    // seen adds or replaces by id. A record never downgrades a document: the record says
+    // seen adds or replaces by id. A record never downgrades an answer: the record says
     // less, and it keeps arriving for as long as the PC is on the network.
     fun seen(device: Device) {
         val i = found.indexOfFirst { it.id == device.id }
         when {
             i < 0 -> found += device
-            device.confirmed || !found[i].confirmed -> found[i] = device
+            device.answered || !found[i].answered -> found[i] = device
         }
     }
 

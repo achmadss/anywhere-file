@@ -11,7 +11,7 @@ import java.util.concurrent.Executors
 // the local network permission that Android 17 asks for (#98) is checked by the caller
 // before start, and pick is the way around it: the system shows the PCs and hands over
 // the one the person chose.
-class NsdDiscovery(context: Context, private val devices: Devices) : Discovery {
+class NsdDiscovery(context: Context, private val devices: Devices, private val known: KnownDevices) : Discovery {
     private val nsd = context.getSystemService(NsdManager::class.java)
     private val executor = Executors.newSingleThreadExecutor()
     private val ids = HashMap<String, String>() // instance name to device id
@@ -67,6 +67,6 @@ class NsdDiscovery(context: Context, private val devices: Devices) : Discovery {
         val device = deviceFrom(txt, host, info.port) ?: return
         synchronized(ids) { ids[info.serviceName] = device.id }
         devices.seen(device)
-        confirm(device, devices)
+        confirm(device, devices, known)
     }
 }

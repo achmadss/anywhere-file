@@ -31,12 +31,16 @@ kotlin {
             implementation(kotlin("test"))
         }
         // Both targets are JVMs, so what talks HTTP lives once, in src/jvmMain, and is
-        // compiled into each.
+        // compiled into each. Bouncy Castle is there for one function: the JVM can check an
+        // Ed25519 signature on its own, and Android only from API 33, which is four years
+        // newer than the oldest phone this runs on (#127).
         androidMain {
             kotlin.srcDirs("src/jvmMain/kotlin")
+            dependencies { implementation(libs.bouncycastle) }
         }
         val desktopMain by getting {
             kotlin.srcDirs("src/jvmMain/kotlin")
+            dependencies { implementation(libs.bouncycastle) }
         }
     }
 }
