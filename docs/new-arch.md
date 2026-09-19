@@ -9,8 +9,8 @@ matches the record, so that block is gone.
 
 Built: the agent, its settings UI (#136), signing a PC in and out of an account (#139, #141),
 the control plane, the website's account pages (#137), the downloads (#138), the client's
-build for Android and the desktop (#97) and its LAN discovery (#98). Not built: the rest of
-what the client does (#99 to #103).
+build for Android and the desktop (#97), its LAN discovery (#98) and its file browser
+(#155). Not built: the rest of what the client does (#100 to #103).
 Where a section describes something not yet written, it names the issue.
 
 ## Overview
@@ -492,8 +492,8 @@ application the device does not have.
 
 ## What is in the MVP
 
-Local mode is the agent through #93 plus the client through #99: two PCs and a phone on one
-network, no account, no Internet.
+Local mode is the agent through #93 plus the client through #155: two PCs and a phone on
+one network, no account, no Internet.
 
 Remote mode is everything else, which is accounts, enrolment, bindings, invitations, the
 tunnel and remote routing. An earlier draft of this document put all of that in a version 2.

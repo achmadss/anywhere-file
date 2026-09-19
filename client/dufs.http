@@ -1,0 +1,119 @@
+# The endpoints the file browser talks to (#155). Every request below has been run against
+# a real dufs behind the agent's gateway, and what came back is recorded under it.
+#
+# The gateway's certificate is signed by the device key, and no authority signs that, so an
+# HTTP client has to be told not to check it. `http-client.env.json` next to this file does
+# that for Android Studio and IntelliJ. The Kotlin client pins on the certificate key
+# instead, which is what #127 proved.
+#
+# What this was run against:
+#
+#   agent share add <a directory> --name files
+#   agent run
+#
+# The same requests with curl, for a terminal:
+#
+#   curl -sk 'https://127.0.0.1:7433/files/?json'
+
+@gateway = 127.0.0.1:7433
+@app = files
+
+### The listing. This is the screen.
+GET https://{{gateway}}/{{app}}/?json
+
+# 200 application/json.
+#
+# {
+#   "href": "/",
+#   "kind": "Index",
+#   "uri_prefix": "/files/",
+#   "allow_upload": true,
+#   "allow_delete": true,
+#   "allow_search": true,
+#   "allow_archive": true,
+#   "dir_exists": true,
+#   "auth": false,
+#   "user": null,
+#   "paths": [
+#     { "path_type": "Dir",  "name": "sub",       "mtime": 1789834173828, "size": 1 },
+#     { "path_type": "File", "name": "blob.bin",  "mtime": 1789834173826, "size": 1048576 },
+#     { "path_type": "File", "name": "notes.txt", "mtime": 1789834173822, "size": 26 }
+#   ]
+# }
+#
+# path_type is "Dir" or "File" and is the only thing that says which. mtime is in
+# milliseconds. A directory's size is how many entries it holds, not bytes.
+# allow_upload and allow_delete say which buttons belong on the screen.
+
+### A directory below the top one. Walking down is the same request with the path on it.
+GET https://{{gateway}}/{{app}}/sub/?json
+
+# 200, the same shape, with "href": "/sub" and uri_prefix still "/files/". Neither is
+# needed to build the next request: a row's path is the directory the client asked for
+# plus the row's name.
+
+### Download a file.
+GET https://{{gateway}}/{{app}}/notes.txt
+
+# 200, the bytes.
+#
+# Accept-Ranges: bytes
+# Content-Disposition: inline; filename="notes.txt"
+# Content-Length: 26
+# Content-Type: text/plain; charset=UTF-8
+# Etag: "1789834173822-26"
+# Last-Modified: Sat, 19 Sep 2026 16:09:33 GMT
+
+### Part of a file. A download that has to resume starts here.
+GET https://{{gateway}}/{{app}}/blob.bin
+Range: bytes=0-99
+
+# 206, 100 bytes.
+
+### Upload. The name in the path is the name it lands under.
+PUT https://{{gateway}}/{{app}}/uploaded.txt
+Content-Type: text/plain
+
+uploaded by the collection
+
+# 201, empty body. There is no multipart form and no separate create call.
+# A path whose directories do not exist yet is made on the way: PUT of
+# /files/newdir/deep.txt answered 201 and newdir was there afterwards.
+
+### Delete. The same path, and a directory goes the same way.
+DELETE https://{{gateway}}/{{app}}/uploaded.txt
+
+# 204, empty body. DELETE of a directory also answered 204 and took its contents with it.
+
+### A name with spaces and non-ASCII in it, percent-encoded.
+PUT https://{{gateway}}/{{app}}/a%20b%20%C3%A9.txt
+Content-Type: text/plain
+
+spaces and an accent
+
+# 201. The listing gives the name decoded, "a b é.txt", so the client encodes each path
+# segment on the way back out. GET and DELETE of the encoded path answered 200 and 204.
+
+### A file that is not there.
+GET https://{{gateway}}/{{app}}/nope.txt
+
+# 404.
+
+### An application this PC does not share.
+GET https://{{gateway}}/nosuchapp/?json
+
+# 404, from the gateway rather than from dufs.
+
+### ?json on a file rather than a directory.
+GET https://{{gateway}}/{{app}}/notes.txt?json
+
+# 200, and it describes the file instead of listing anything:
+# { "path_type": "File", "name": "notes.txt", "mtime": ..., "size": 26 }
+# The browser does not need it. The parent listing already said which entries are
+# directories.
+
+### The discovery document, for reference. The client reads this first and it is what
+### proves which certificate key the requests above have to be pinned to (#127).
+GET https://{{gateway}}/.well-known/anywhere-file
+
+# 200, with device_id, name, apps, public_key and tls_proof.

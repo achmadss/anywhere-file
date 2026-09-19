@@ -7,10 +7,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Button
@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,40 +37,45 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // The platform title bar repeats the app name over the screen's own heading, and
         // from targetSdk 35 Android draws the window edge to edge, so it lands on top of
-        // the content instead of above it. Drop it and keep the content clear of the
-        // status and navigation bars. Both screens below go through here, and DeviceList
-        // stays as the desktop wants it.
+        // the content instead of above it.
         actionBar?.hide()
-        // Without the dark bar behind them the status bar icons sit on the light screen, so
-        // they have to be drawn dark to stay readable.
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
         val devices = Devices()
         val known = KnownDevices(File(filesDir, "known-devices"))
         val discovery = NsdDiscovery(this, devices, known)
         val onForget = { device: Device -> forget(device, devices, known) }
+        val transfers = AndroidTransfers(applicationContext)
         setContent {
+            val dark = isSystemInDarkTheme()
+            // There is no bar behind the status icons, so they are drawn over whatever the
+            // screen is and have to be the opposite of it to stay readable.
+            SideEffect {
+                WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !dark
+            }
             var allowed by remember { mutableStateOf(localNetworkAllowed()) }
             var denied by remember { mutableStateOf(false) }
-            // The application the person is looking at, or null for the list of PCs. What
-            // opens it is a loopback address the client itself is serving (#99).
-            var open by remember { mutableStateOf<String?>(null) }
-            val onOpen = { device: Device, app: String -> openApp(device, app, devices) { open = it } }
+            // The folder the person is looking at, or null for the list of PCs.
+            var browsing by remember { mutableStateOf<Files?>(null) }
             val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                 allowed = granted
                 denied = !granted
             }
-            val url = open
-            Box(Modifier.safeDrawingPadding()) {
-                if (url != null) {
-                    AppScreen(url) { open = null }
-                } else if (allowed) {
-                    DisposableEffect(Unit) {
-                        discovery.start()
-                        onDispose { discovery.stop() }
+            val pick = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { transfers.chose(it) }
+            SideEffect { transfers.ask = { pick.launch("*/*") } }
+            val onOpen = { device: Device, app: String ->
+                openFiles(device, app, devices, transfers) { browsing = it }
+            }
+            AnywhereFile {
+                val files = browsing
+                when {
+                    files != null -> FileBrowser(files) { browsing = null }
+                    allowed -> {
+                        DisposableEffect(Unit) {
+                            discovery.start()
+                            onDispose { discovery.stop() }
+                        }
+                        DeviceList(devices, onForget, onOpen)
                     }
-                    DeviceList(devices, onForget, onOpen)
-                } else {
-                    LocalNetworkGate(
+                    else -> LocalNetworkGate(
                         denied,
                         onAsk = { ask.launch(ACCESS_LOCAL_NETWORK) },
                         onPick = discovery::pick,
@@ -99,29 +105,23 @@ private fun LocalNetworkGate(
     onForget: (Device) -> Unit,
     onOpen: (Device, String) -> Unit,
 ) {
-    MaterialTheme {
-        Column(Modifier.padding(24.dp)) {
-            Text("PCs on this network", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(16.dp))
+    Column(
+        Modifier.safeDrawingPadding().fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text("PCs on this network", style = MaterialTheme.typography.headlineSmall)
+        Text(
+            "anywhere-file finds your PCs by asking this network which of them run the agent. Android asks you before an app may do that.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Button(onClick = onAsk) { Text("Allow") }
+        if (denied) {
             Text(
-                "anywhere-file finds your PCs by asking this network which of them run the agent. Android asks you before an app may do that.",
+                "Without that, Android can still hand over one PC at a time from its own list.",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Spacer(Modifier.height(16.dp))
-            Button(onClick = onAsk) { Text("Allow") }
-            if (denied) {
-                Spacer(Modifier.height(24.dp))
-                Text(
-                    "Without that, Android can still hand over one PC at a time from its own list.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = onPick) { Text("Pick a PC") }
-            }
-            if (devices.found.isNotEmpty()) {
-                Spacer(Modifier.height(24.dp))
-                DeviceList(devices, onForget, onOpen)
-            }
+            Button(onClick = onPick) { Text("Pick a PC") }
         }
+        if (devices.found.isNotEmpty()) DeviceRows(devices, onForget, onOpen)
     }
 }
