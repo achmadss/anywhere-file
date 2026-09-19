@@ -52,13 +52,8 @@ class LanDiscovery(private val devices: Devices, private val known: KnownDevices
                     }
                     val from = p.address?.hostAddress ?: continue
                     for (d in devicesIn(buf.copyOf(p.length), from)) {
-                        // A PC already on the list has been asked for its document. One
-                        // that has just been forgotten is off the list, so it is asked
-                        // again and shown as new.
-                        val listed = devices.found.any { it.id == d.id }
-                        lastSeen[d.id] = now
+                        if (lastSeen.put(d.id, now) == null) confirm(d, devices, known)
                         devices.seen(d)
-                        if (!listed) confirm(d, devices, known)
                     }
                 }
             } catch (e: SocketException) {

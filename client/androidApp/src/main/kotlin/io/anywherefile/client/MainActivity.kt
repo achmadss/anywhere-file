@@ -46,12 +46,7 @@ class MainActivity : ComponentActivity() {
         val devices = Devices()
         val known = KnownDevices(File(filesDir, "known-devices"))
         val discovery = NsdDiscovery(this, devices, known)
-        // Off the list, so the next answer from it puts it back as a PC this client has
-        // not met and the fingerprint is worth a look again.
-        val forget = { device: Device ->
-            known.forget(device.id)
-            devices.lost(device.id)
-        }
+        val onForget = { device: Device -> forget(device, devices, known) }
         setContent {
             var allowed by remember { mutableStateOf(localNetworkAllowed()) }
             var denied by remember { mutableStateOf(false) }
@@ -65,9 +60,9 @@ class MainActivity : ComponentActivity() {
                         discovery.start()
                         onDispose { discovery.stop() }
                     }
-                    DeviceList(devices, forget)
+                    DeviceList(devices, onForget)
                 } else {
-                    LocalNetworkGate(denied, onAsk = { ask.launch(ACCESS_LOCAL_NETWORK) }, onPick = discovery::pick, devices, forget)
+                    LocalNetworkGate(denied, onAsk = { ask.launch(ACCESS_LOCAL_NETWORK) }, onPick = discovery::pick, devices, onForget)
                 }
             }
         }

@@ -85,3 +85,13 @@ fun confirm(device: Device, devices: Devices, known: KnownDevices) {
         )
     }
 }
+
+// forget puts a PC back to how it looked before this client had ever connected to it, so
+// the fingerprint is offered for comparing again. The row stays where it is. Dropping it
+// and waiting for the browse to bring it back works on the desktop, which asks the network
+// every two seconds, and not on Android, where the resolver hands a PC over once and says
+// nothing more about it until it leaves the network.
+fun forget(device: Device, devices: Devices, known: KnownDevices) {
+    known.forget(device.id)
+    devices.seen(device.copy(firstContact = true))
+}

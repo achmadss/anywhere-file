@@ -30,6 +30,24 @@ class KnownDevicesTest {
         assertFalse(known.knew(id), "a forgotten PC was still known")
     }
 
+    // A forgotten PC stays on the screen, marked new. Taking it off and waiting for the
+    // browse to bring it back is what the desktop would allow and Android would not: its
+    // resolver hands a PC over once and says nothing further until the PC leaves the
+    // network.
+    @Test
+    fun aForgottenPCStaysOnTheList() {
+        val devices = Devices()
+        val known = KnownDevices(file())
+        val device = Device(id, "pc1", listOf("files"), "h:1", confirmed = true)
+        devices.seen(device)
+        known.knew(id)
+
+        forget(device, devices, known)
+
+        assertEquals(listOf(device.copy(firstContact = true)), devices.found.toList())
+        assertFalse(known.knew(id), "a forgotten PC was still known")
+    }
+
     // The file is the point: the app is closed and opened far more often than a PC changes.
     @Test
     fun whatIsKnownOutlastsTheApp() {

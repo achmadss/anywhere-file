@@ -11,12 +11,7 @@ fun main() {
     discovery.start()
     application {
         Window(onCloseRequest = ::exitApplication, title = "anywhere-file") {
-            DeviceList(devices, onForget = { device ->
-                known.forget(device.id)
-                // Off the list, so the next answer from it puts it back as a PC this
-                // client has not met.
-                devices.lost(device.id)
-            })
+            DeviceList(devices, onForget = { forget(it, devices, known) })
         }
     }
 }
