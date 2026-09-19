@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -25,7 +26,7 @@ import kotlinx.coroutines.delay
 const val BROWSE_DEADLINE_MS = 5_000L
 
 @Composable
-fun DeviceList(devices: Devices) {
+fun DeviceList(devices: Devices, onForget: (Device) -> Unit = {}) {
     var pastDeadline by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(BROWSE_DEADLINE_MS)
@@ -37,7 +38,7 @@ fun DeviceList(devices: Devices) {
             Spacer(Modifier.height(16.dp))
             when {
                 devices.found.isNotEmpty() -> LazyColumn {
-                    items(devices.found, key = { it.id }) { DeviceRow(it) }
+                    items(devices.found, key = { it.id }) { DeviceRow(it, onForget) }
                 }
                 pastDeadline -> Text(
                     "None found. A PC shows up here when the agent is running on it and it is on the same network as this device.",
@@ -50,13 +51,28 @@ fun DeviceList(devices: Devices) {
 }
 
 @Composable
-private fun DeviceRow(device: Device) {
+private fun DeviceRow(device: Device, onForget: (Device) -> Unit) {
     Column(Modifier.padding(vertical = 8.dp)) {
         Text(device.name, style = MaterialTheme.typography.titleMedium)
-        Text(
-            if (device.apps.isEmpty()) "shares nothing yet" else device.apps.joinToString(", "),
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        if (device.refused != null) {
+            Text(device.refused, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+        } else {
+            Text(
+                if (device.apps.isEmpty()) "shares nothing yet" else device.apps.joinToString(", "),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         Text(device.address, style = MaterialTheme.typography.bodySmall)
+        // The fingerprint is what `agent key` prints on the PC itself, so a person can hold
+        // the two up against each other. It is worth doing the first time a PC turns up,
+        // and forgetting a PC is how to be asked again.
+        Text(fingerprintOf(device.id), style = MaterialTheme.typography.bodySmall)
+        when {
+            device.firstContact -> Text(
+                "New. Check this against the fingerprint the agent prints on the PC.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            device.confirmed -> TextButton(onClick = { onForget(device) }) { Text("Forget") }
+        }
     }
 }

@@ -33,7 +33,8 @@ page or a terminal, and is signed in and out of an account from either. The serv
 serves the pages a browser needs, for signup, email verification, password reset, and
 approving a PC that asks to join an account, and a download page that lists the packages
 on the current release, which a version tag publishes. `client/` builds for Android and the
-desktop (#97) and lists the PCs it finds on the LAN (#98); opening what a PC shares is #99
+desktop (#97), lists the PCs it finds on the LAN (#98) and checks each one holds the device
+key it claims before showing what it shares (#127); opening what a PC shares is #99
 onward. The work is broken down in the issue tracker, starting at the
 [epic](https://github.com/achmadss/anywhere-file/issues/41).
 
@@ -63,9 +64,13 @@ in `client/gradle/libs.versions.toml` and `client/gradle/wrapper/gradle-wrapper.
 | Compose Multiplatform | 1.12.0 |
 | Android Gradle plugin | 9.2.1 |
 | kotlinx.serialization | 1.11.0 |
+| Bouncy Castle | 1.86 |
 
 kotlinx.serialization reads the discovery document. The desktop's mDNS browse is a few
 lines over a UDP socket, and Android browses through the platform's own `NsdManager`.
+Bouncy Castle checks one signature, the device key's over the gateway's certificate: the
+JVM can do that on its own and Android only from API 33, which is newer than the oldest
+phone this runs on.
 
 ```sh
 cd client

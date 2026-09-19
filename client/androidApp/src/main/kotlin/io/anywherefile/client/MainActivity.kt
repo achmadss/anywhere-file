@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import java.io.File
 
 // The constant for this is in the API 37 SDK only, and a string is what the platform gets
 // either way.
@@ -43,7 +44,14 @@ class MainActivity : ComponentActivity() {
         // they have to be drawn dark to stay readable.
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
         val devices = Devices()
-        val discovery = NsdDiscovery(this, devices)
+        val known = KnownDevices(File(filesDir, "known-devices"))
+        val discovery = NsdDiscovery(this, devices, known)
+        // Off the list, so the next answer from it puts it back as a PC this client has
+        // not met and the fingerprint is worth a look again.
+        val forget = { device: Device ->
+            known.forget(device.id)
+            devices.lost(device.id)
+        }
         setContent {
             var allowed by remember { mutableStateOf(localNetworkAllowed()) }
             var denied by remember { mutableStateOf(false) }
@@ -57,9 +65,9 @@ class MainActivity : ComponentActivity() {
                         discovery.start()
                         onDispose { discovery.stop() }
                     }
-                    DeviceList(devices)
+                    DeviceList(devices, forget)
                 } else {
-                    LocalNetworkGate(denied, onAsk = { ask.launch(ACCESS_LOCAL_NETWORK) }, onPick = discovery::pick, devices)
+                    LocalNetworkGate(denied, onAsk = { ask.launch(ACCESS_LOCAL_NETWORK) }, onPick = discovery::pick, devices, forget)
                 }
             }
         }
@@ -74,7 +82,13 @@ class MainActivity : ComponentActivity() {
 // The explanation comes before the prompt, and the system picker is the way in when the
 // answer was no: Android shows the PCs it can see and hands over the one chosen.
 @Composable
-private fun LocalNetworkGate(denied: Boolean, onAsk: () -> Unit, onPick: () -> Unit, devices: Devices) {
+private fun LocalNetworkGate(
+    denied: Boolean,
+    onAsk: () -> Unit,
+    onPick: () -> Unit,
+    devices: Devices,
+    onForget: (Device) -> Unit,
+) {
     MaterialTheme {
         Column(Modifier.padding(24.dp)) {
             Text("PCs on this network", style = MaterialTheme.typography.titleLarge)
@@ -96,7 +110,7 @@ private fun LocalNetworkGate(denied: Boolean, onAsk: () -> Unit, onPick: () -> U
             }
             if (devices.found.isNotEmpty()) {
                 Spacer(Modifier.height(24.dp))
-                DeviceList(devices)
+                DeviceList(devices, onForget)
             }
         }
     }
