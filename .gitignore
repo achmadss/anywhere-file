@@ -4,19 +4,30 @@
 /device/agent/agent
 /agent
 
-# packages
-/dist/
+# packages and other build output
+dist/
 
 # kotlin / gradle
 /client/.gradle/
 /client/**/build/
 /client/local.properties
 
+# node
+node_modules/
+
+# rust
+target/
+
 # editors / os
 .DS_Store
+Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# logs and scratch
+*.log
+*.tmp
 
 # local config and secrets
 .env
