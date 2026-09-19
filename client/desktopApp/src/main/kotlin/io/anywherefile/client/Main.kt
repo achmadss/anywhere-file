@@ -2,7 +2,9 @@ package io.anywherefile.client
 
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import java.awt.Desktop
 import java.io.File
+import java.net.URI
 
 fun main() {
     val devices = Devices()
@@ -11,9 +13,20 @@ fun main() {
     discovery.start()
     application {
         Window(onCloseRequest = ::exitApplication, title = "anywhere-file") {
-            DeviceList(devices, onForget = { forget(it, devices, known) })
+            DeviceList(
+                devices,
+                onForget = { forget(it, devices, known) },
+                onOpen = { device, app -> openApp(device, app, devices, ::browse) },
+            )
         }
     }
+}
+
+// The system browser. Desktop.browse is the portable way and is missing on a Linux box
+// with no desktop session, where xdg-open is what every other program falls back to.
+private fun browse(url: String) {
+    val desktop = Desktop.getDesktop().takeIf { Desktop.isDesktopSupported() && it.isSupported(Desktop.Action.BROWSE) }
+    if (desktop != null) desktop.browse(URI(url)) else ProcessBuilder("xdg-open", url).start()
 }
 
 // Where this client keeps what it has learned, next to where the agent keeps its own on

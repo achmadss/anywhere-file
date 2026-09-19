@@ -1,6 +1,7 @@
 package io.anywherefile.client
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -26,7 +27,7 @@ import kotlinx.coroutines.delay
 const val BROWSE_DEADLINE_MS = 5_000L
 
 @Composable
-fun DeviceList(devices: Devices, onForget: (Device) -> Unit = {}) {
+fun DeviceList(devices: Devices, onForget: (Device) -> Unit = {}, onOpen: (Device, String) -> Unit = { _, _ -> }) {
     var pastDeadline by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(BROWSE_DEADLINE_MS)
@@ -38,7 +39,7 @@ fun DeviceList(devices: Devices, onForget: (Device) -> Unit = {}) {
             Spacer(Modifier.height(16.dp))
             when {
                 devices.found.isNotEmpty() -> LazyColumn {
-                    items(devices.found, key = { it.id }) { DeviceRow(it, onForget) }
+                    items(devices.found, key = { it.id }) { DeviceRow(it, onForget, onOpen) }
                 }
                 pastDeadline -> Text(
                     "None found. A PC shows up here when the agent is running on it and it is on the same network as this device.",
@@ -51,16 +52,17 @@ fun DeviceList(devices: Devices, onForget: (Device) -> Unit = {}) {
 }
 
 @Composable
-private fun DeviceRow(device: Device, onForget: (Device) -> Unit) {
+private fun DeviceRow(device: Device, onForget: (Device) -> Unit, onOpen: (Device, String) -> Unit) {
     Column(Modifier.padding(vertical = 8.dp)) {
         Text(device.name, style = MaterialTheme.typography.titleMedium)
         if (device.refused != null) {
             Text(device.refused, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+        } else if (device.apps.isEmpty()) {
+            Text("shares nothing yet", style = MaterialTheme.typography.bodyMedium)
         } else {
-            Text(
-                if (device.apps.isEmpty()) "shares nothing yet" else device.apps.joinToString(", "),
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            // One button per application. It opens in the system browser, through a
+            // loopback address this client is holding the other end of (#99).
+            Row { device.apps.forEach { app -> TextButton(onClick = { onOpen(device, app) }) { Text(app) } } }
         }
         Text(device.address, style = MaterialTheme.typography.bodySmall)
         // The fingerprint is what `agent key` prints on the PC itself, so a person can hold

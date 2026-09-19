@@ -50,19 +50,33 @@ class MainActivity : ComponentActivity() {
         setContent {
             var allowed by remember { mutableStateOf(localNetworkAllowed()) }
             var denied by remember { mutableStateOf(false) }
+            // The application the person is looking at, or null for the list of PCs. What
+            // opens it is a loopback address the client itself is serving (#99).
+            var open by remember { mutableStateOf<String?>(null) }
+            val onOpen = { device: Device, app: String -> openApp(device, app, devices) { open = it } }
             val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                 allowed = granted
                 denied = !granted
             }
+            val url = open
             Box(Modifier.safeDrawingPadding()) {
-                if (allowed) {
+                if (url != null) {
+                    AppScreen(url) { open = null }
+                } else if (allowed) {
                     DisposableEffect(Unit) {
                         discovery.start()
                         onDispose { discovery.stop() }
                     }
-                    DeviceList(devices, onForget)
+                    DeviceList(devices, onForget, onOpen)
                 } else {
-                    LocalNetworkGate(denied, onAsk = { ask.launch(ACCESS_LOCAL_NETWORK) }, onPick = discovery::pick, devices, onForget)
+                    LocalNetworkGate(
+                        denied,
+                        onAsk = { ask.launch(ACCESS_LOCAL_NETWORK) },
+                        onPick = discovery::pick,
+                        devices,
+                        onForget,
+                        onOpen,
+                    )
                 }
             }
         }
@@ -83,6 +97,7 @@ private fun LocalNetworkGate(
     onPick: () -> Unit,
     devices: Devices,
     onForget: (Device) -> Unit,
+    onOpen: (Device, String) -> Unit,
 ) {
     MaterialTheme {
         Column(Modifier.padding(24.dp)) {
@@ -105,7 +120,7 @@ private fun LocalNetworkGate(
             }
             if (devices.found.isNotEmpty()) {
                 Spacer(Modifier.height(24.dp))
-                DeviceList(devices, onForget)
+                DeviceList(devices, onForget, onOpen)
             }
         }
     }

@@ -24,6 +24,11 @@ data class DiscoveryDocument(
     @SerialName("tls_proof") val tlsProof: String = "",
 )
 
+// What one read of a PC learned: what the document says, and the public key of the
+// certificate the PC proved is its own. The key is what the relay that carries a browser
+// to an application requires on every connection afterwards (#99).
+class Contact(val doc: DiscoveryDocument, val certificateKey: ByteArray)
+
 private val json = Json { ignoreUnknownKeys = true }
 
 // No authority signs the gateway's certificate, so the platform's trust store has nothing
@@ -32,7 +37,7 @@ private val json = Json { ignoreUnknownKeys = true }
 // only order it can happen in: the document is what says which key to expect. Nothing is
 // sent up before it passes. The request is a GET of a document the PC serves to anyone, and
 // the answer is thrown away unless the signature holds.
-private val lanTls: SSLContext = SSLContext.getInstance("TLS").apply {
+internal val lanTls: SSLContext = SSLContext.getInstance("TLS").apply {
     val unchecked = object : X509TrustManager {
         override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
         override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
@@ -44,7 +49,7 @@ private val lanTls: SSLContext = SSLContext.getInstance("TLS").apply {
 // readDiscoveryDocument returns the document only when the PC proved it holds deviceId's
 // key. It throws WrongDevice when the PC is somebody else, and an IOException when the PC
 // is not there or answered with something else.
-fun readDiscoveryDocument(address: String, deviceId: String): DiscoveryDocument {
+fun readDiscoveryDocument(address: String, deviceId: String): Contact {
     val conn = URI("https://$address/.well-known/anywhere-file").toURL().openConnection() as HttpsURLConnection
     conn.sslSocketFactory = lanTls.socketFactory
     // The certificate names the device, under a suffix that resolves nowhere, and the
@@ -58,7 +63,7 @@ fun readDiscoveryDocument(address: String, deviceId: String): DiscoveryDocument 
         val certificate = conn.serverCertificates.firstOrNull() as? X509Certificate
             ?: throw WrongDevice("This PC served no certificate.")
         verifyDeviceProof(deviceId, doc.publicKey, doc.tlsProof, certificate)
-        return doc
+        return Contact(doc, certificate.publicKey.encoded)
     }
 }
 
@@ -68,7 +73,7 @@ fun readDiscoveryDocument(address: String, deviceId: String): DiscoveryDocument 
 fun confirm(device: Device, devices: Devices, known: KnownDevices) {
     thread(isDaemon = true, name = "discovery-document ${device.id.take(8)}") {
         val doc = try {
-            readDiscoveryDocument(device.address, device.id)
+            readDiscoveryDocument(device.address, device.id).doc
         } catch (e: WrongDevice) {
             devices.seen(device.copy(refused = e.message))
             return@thread
