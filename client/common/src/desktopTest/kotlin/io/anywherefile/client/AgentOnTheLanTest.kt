@@ -1,17 +1,20 @@
 package io.anywherefile.client
 
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URI
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
-// #98's and #127's acceptance on the desktop: a real agent on this machine is found by the
-// browse with TXT intact, and its discovery document is read over the gateway's TLS and
-// accepted only because the agent proved the certificate is its own. It needs an agent
-// running, so it does nothing unless RFM_TEST_AGENT_ID says which one to expect, and CI
-// checks that it printed "found agent" rather than trusting a green tick.
+// #98's, #127's and #99's acceptance on the desktop: a real agent on this machine is found
+// by the browse with TXT intact, its discovery document is read over the gateway's TLS and
+// accepted only because the agent proved the certificate is its own, and a plain HTTP
+// request on loopback reaches it through the relay. It needs an agent running, so it does
+// nothing unless RFM_TEST_AGENT_ID says which one to expect, and CI checks that it printed
+// "found agent" rather than trusting a green tick.
 class AgentOnTheLanTest {
     @Test
     fun theAgentOnThisMachineIsFoundAndItsDocumentRead() {
@@ -37,6 +40,16 @@ class AgentOnTheLanTest {
             assertNull(confirmed.refused, "the agent was turned away")
             assertTrue(confirmed.firstContact, "an agent this client has never met was not new")
             println("proved agent ${confirmed.id} is ${fingerprintOf(confirmed.id)}")
+            // The relay is a pipe, so what goes down it is whatever the gateway serves.
+            // The document is the one thing the agent always has, with or without an
+            // application behind it, and it is the same pipe an application's page uses.
+            val relay = relayFor(confirmed)
+            val conn = URI("http://127.0.0.1:${relay.port}/.well-known/anywhere-file").toURL()
+                .openConnection() as HttpURLConnection
+            val body = conn.inputStream.use { it.readBytes().decodeToString() }
+            assertEquals(200, conn.responseCode, "the relay's answer")
+            assertTrue(want in body, "the document came back through the relay, got $body")
+            println("relayed to agent $want on 127.0.0.1:${relay.port}")
         } finally {
             discovery.stop()
         }

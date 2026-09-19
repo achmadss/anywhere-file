@@ -321,8 +321,11 @@ jobs:
           nohup "$RUNNER_TEMP/agent" run > "$RUNNER_TEMP/agent.log" 2>&1 &
           echo "RFM_TEST_AGENT_ID=$id" >> "$GITHUB_ENV"
       - run: ./gradlew build
-      # A test that skips reports as a pass. Fail the job if it did not find the agent.
-      - run: grep -q "found agent" common/build/test-results/desktopTest/TEST-*AgentOnTheLanTest.xml
+      # A test that skips reports as a pass. Fail the job if it did not find the agent and
+      # did not reach it again through the loopback relay (#99).
+      - run: |
+          grep -q "found agent" common/build/test-results/desktopTest/TEST-*AgentOnTheLanTest.xml
+          grep -q "relayed to agent" common/build/test-results/desktopTest/TEST-*AgentOnTheLanTest.xml
       - if: failure()
         run: |
           cat "$RUNNER_TEMP/agent.log"
