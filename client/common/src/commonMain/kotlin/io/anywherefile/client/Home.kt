@@ -28,7 +28,6 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,7 +50,7 @@ import kotlinx.coroutines.delay
 const val BROWSE_DEADLINE_MS = 5_000L
 
 @Composable
-fun Home(devices: Devices, onForget: (Device) -> Unit = {}, onOpen: (Device, String) -> Unit = { _, _ -> }) {
+fun Home(devices: Devices, onOpen: (Device, String) -> Unit = { _, _ -> }) {
     // The screen has no bar of its own, so the background is this. Without it the window
     // shows whatever it was born with, which is the wrong colour half the time.
     Surface(Modifier.fillMaxSize()) {
@@ -70,7 +69,7 @@ fun Home(devices: Devices, onForget: (Device) -> Unit = {}, onOpen: (Device, Str
                 )
             }
             item { Heading("On this network") }
-            deviceItems(devices, onForget, onOpen)
+            deviceItems(devices, onOpen)
             item { Heading("Away from home") }
             item { AwayFromHome() }
         }
@@ -82,12 +81,11 @@ fun Home(devices: Devices, onForget: (Device) -> Unit = {}, onOpen: (Device, Str
 @Composable
 fun DeviceRows(
     devices: Devices,
-    onForget: (Device) -> Unit = {},
     onOpen: (Device, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        deviceItems(devices, onForget, onOpen)
+        deviceItems(devices, onOpen)
     }
 }
 
@@ -95,14 +93,13 @@ fun DeviceRows(
 // them while there are none.
 private fun LazyListScope.deviceItems(
     devices: Devices,
-    onForget: (Device) -> Unit,
     onOpen: (Device, String) -> Unit,
 ) {
     if (devices.found.isEmpty()) {
         item { Waiting() }
         return
     }
-    items(devices.found, key = { it.id }) { DeviceCard(it, onForget, onOpen) }
+    items(devices.found, key = { it.id }) { DeviceCard(it, onOpen) }
 }
 
 @Composable
@@ -120,7 +117,7 @@ private fun Heading(text: String) {
 // be tapped. One that cannot be opened yet stays quiet.
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DeviceCard(device: Device, onForget: (Device) -> Unit, onOpen: (Device, String) -> Unit) {
+private fun DeviceCard(device: Device, onOpen: (Device, String) -> Unit) {
     val ready = device.refused == null && device.apps.isNotEmpty()
     Card(
         Modifier.fillMaxWidth(),
@@ -161,18 +158,12 @@ private fun DeviceCard(device: Device, onForget: (Device) -> Unit, onOpen: (Devi
                     }
                 }
             }
-            if (device.firstContact) SafetyCode(device)
             // Two devices can carry the same name, and this is what tells them apart.
             Text(
                 device.address,
                 style = MaterialTheme.typography.bodySmall,
                 color = LocalContentColor.current.copy(alpha = 0.7f),
             )
-            if (device.confirmed && !device.firstContact) {
-                Row {
-                    TextButton(onClick = { onForget(device) }) { Text("Forget this device") }
-                }
-            }
         }
     }
 }
@@ -194,24 +185,6 @@ private fun FolderTile(name: String, onOpen: () -> Unit) {
             Icon(Icons.Filled.Folder, null, Modifier.size(20.dp))
             Text(name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-    }
-}
-
-// The one moment the code on the screen is worth reading: this device has never been
-// connected to before, so there is nothing yet to say it is the one it claims to be. The
-// same code is what `agent key` prints on the device itself.
-@Composable
-private fun SafetyCode(device: Device) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            "First time here. Check the code below against the one shown on the device itself.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Text(
-            fingerprintOf(device.id),
-            style = MaterialTheme.typography.bodySmall,
-            color = LocalContentColor.current.copy(alpha = 0.7f),
-        )
     }
 }
 

@@ -29,13 +29,9 @@ fun main() {
                 if (files != null) {
                     FileBrowser(files) { browsing = null }
                 } else {
-                    Home(
-                        devices,
-                        onForget = { forget(it, devices, known) },
-                        onOpen = { device, app ->
-                            openFiles(device, app, devices, transfers) { browsing = it }
-                        },
-                    )
+                    Home(devices) { device, app ->
+                        openFiles(device, app, devices, transfers) { browsing = it }
+                    }
                 }
             }
         }

@@ -42,7 +42,6 @@ class MainActivity : ComponentActivity() {
         val devices = Devices()
         val known = KnownDevices(File(filesDir, "known-devices"))
         val discovery = NsdDiscovery(this, devices, known)
-        val onForget = { device: Device -> forget(device, devices, known) }
         val transfers = AndroidTransfers(applicationContext)
         setContent {
             val dark = isSystemInDarkTheme()
@@ -73,14 +72,13 @@ class MainActivity : ComponentActivity() {
                             discovery.start()
                             onDispose { discovery.stop() }
                         }
-                        Home(devices, onForget, onOpen)
+                        Home(devices, onOpen)
                     }
                     else -> LocalNetworkGate(
                         denied,
                         onAsk = { ask.launch(ACCESS_LOCAL_NETWORK) },
                         onPick = discovery::pick,
                         devices,
-                        onForget,
                         onOpen,
                     )
                 }
@@ -102,7 +100,6 @@ private fun LocalNetworkGate(
     onAsk: () -> Unit,
     onPick: () -> Unit,
     devices: Devices,
-    onForget: (Device) -> Unit,
     onOpen: (Device, String) -> Unit,
 ) {
     Column(
@@ -122,6 +119,6 @@ private fun LocalNetworkGate(
             )
             Button(onClick = onPick) { Text("Choose a device") }
         }
-        if (devices.found.isNotEmpty()) DeviceRows(devices, onForget, onOpen)
+        if (devices.found.isNotEmpty()) DeviceRows(devices, onOpen)
     }
 }
