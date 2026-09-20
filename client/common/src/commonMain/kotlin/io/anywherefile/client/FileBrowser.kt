@@ -104,7 +104,7 @@ fun FileBrowser(files: Files, onLeave: () -> Unit) {
         try {
             listing = withContext(Dispatchers.Default) { files.list(dir) }
         } catch (e: Exception) {
-            failed = e.message ?: "This PC did not answer."
+            failed = e.message ?: "That device did not answer."
         }
     }
 
@@ -143,11 +143,11 @@ fun FileBrowser(files: Files, onLeave: () -> Unit) {
                 },
                 navigationIcon = {
                     IconButton(onClick = up) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, if (dir.isEmpty()) "Back to the PCs" else "Up a folder")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, if (dir.isEmpty()) "Back to your devices" else "Up a folder")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { again++ }) { Icon(Icons.Default.Refresh, "Look again") }
+                    IconButton(onClick = { again++ }) { Icon(Icons.Default.Refresh, "Refresh") }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -215,12 +215,12 @@ private fun EntryRow(
                     IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "More for ${entry.name}") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(
-                            text = { Text("Save to this device") },
+                            text = { Text("Save a copy here") },
                             onClick = { menu = false; onDownload() },
                         )
                         if (canDelete) {
                             DropdownMenuItem(
-                                text = { Text("Delete from the PC") },
+                                text = { Text("Delete from the device") },
                                 leadingIcon = { Icon(Icons.Default.Delete, null) },
                                 onClick = { menu = false; onDelete() },
                             )

@@ -29,21 +29,21 @@ class WrongDevice(message: String) : Exception(message)
 // use the connection or shows the reason it stopped.
 fun verifyDeviceProof(deviceId: String, publicKey: String, proof: String, certificate: X509Certificate) {
     val key = hexBytes(publicKey)
-    if (key == null || key.size != Ed25519.PUBLIC_KEY_SIZE) throw WrongDevice("This PC offered no usable public key.")
+    if (key == null || key.size != Ed25519.PUBLIC_KEY_SIZE) throw WrongDevice("This device did not offer a usable identity.")
     // The device id is the digest of the key, so a PC cannot hold a key under an id that is
     // not its own.
     if (!sha256(key).contentEquals(hexBytes(deviceId))) {
-        throw WrongDevice("This PC's key is not the one ${deviceId.take(8)} stands for.")
+        throw WrongDevice("This device's identity is not the one ${deviceId.take(8)} stands for.")
     }
     val signature = hexBytes(proof)
     if (signature == null || signature.size != Ed25519.SIGNATURE_SIZE) {
-        throw WrongDevice("This PC's proof is not a signature.")
+        throw WrongDevice("This device's proof of identity cannot be read.")
     }
     // The message is the context and the digest of the certificate's key, exactly as the
     // agent assembles it.
     val signed = PROOF_CONTEXT.toByteArray() + sha256(certificate.publicKey.encoded)
     if (!Ed25519.verify(signature, 0, key, 0, signed, 0, signed.size)) {
-        throw WrongDevice("This PC did not sign its certificate with ${deviceId.take(8)}'s key, so it is a different PC.")
+        throw WrongDevice("This did not prove it is ${deviceId.take(8)}, so it is a different device.")
     }
 }
 

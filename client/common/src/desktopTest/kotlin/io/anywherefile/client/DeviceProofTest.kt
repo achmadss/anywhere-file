@@ -39,7 +39,7 @@ class DeviceProofTest {
         val e = assertFailsWith<WrongDevice> {
             verifyDeviceProof(DEVICE_ID, PUBLIC_KEY, PROOF, certificate(OTHER_CERT))
         }
-        assertEquals(true, e.message?.contains("different PC"), e.message)
+        assertEquals(true, e.message?.contains("different device"), e.message)
     }
 
     // The cheaper lie is a key that is not the device being looked for, and it fails before
