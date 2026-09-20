@@ -302,11 +302,21 @@ jobs:
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
+      # The folder the agent shares is served by dufs, the same build it ships with (#124).
+      # The client asks dufs for the listing and sends a file to it, so it has to be running
+      # here and not only advertised.
+      - name: dufs
+        working-directory: .
+        run: |
+          DUFS_VERSION=$(cat packaging/dufs.version)
+          name="dufs-v${DUFS_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          curl -sSLo dufs.tar.gz "https://github.com/sigoden/dufs/releases/download/v${DUFS_VERSION}/${name}"
+          tar xzf dufs.tar.gz dufs
+          echo "$PWD" >> "$GITHUB_PATH"
       # #98's acceptance on the desktop: a real agent on the runner is found by the client's
       # browse, with the record intact, and its discovery document is read. Same multicast
       # caveat as the go job, so ubuntu is the runner that can do it, which is the only one
-      # this job has. dufs is not on PATH here, so the shared folder never starts; the record
-      # is advertised all the same.
+      # this job has.
       - name: an agent on the runner
         working-directory: .
         env:
@@ -322,10 +332,10 @@ jobs:
           echo "RFM_TEST_AGENT_ID=$id" >> "$GITHUB_ENV"
       - run: ./gradlew build
       # A test that skips reports as a pass. Fail the job if it did not find the agent and
-      # did not reach it again through the loopback relay (#99).
+      # did not carry a file to it and back (#155).
       - run: |
           grep -q "found agent" common/build/test-results/desktopTest/TEST-*AgentOnTheLanTest.xml
-          grep -q "relayed to agent" common/build/test-results/desktopTest/TEST-*AgentOnTheLanTest.xml
+          grep -q "carried a file" common/build/test-results/desktopTest/TEST-*AgentOnTheLanTest.xml
       - if: failure()
         run: |
           cat "$RUNNER_TEMP/agent.log"
