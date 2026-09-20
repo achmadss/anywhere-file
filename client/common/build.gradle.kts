@@ -24,7 +24,7 @@ kotlin {
             api(compose.runtime)
             api(compose.foundation)
             api(compose.material3)
-            implementation(libs.compose.material.icons.core)
+            implementation(libs.compose.material.icons.extended)
             api(compose.ui)
             implementation(libs.kotlinx.serialization.json)
         }

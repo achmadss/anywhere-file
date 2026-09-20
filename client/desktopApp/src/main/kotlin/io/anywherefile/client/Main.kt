@@ -22,20 +22,16 @@ fun main() {
     val transfers = DesktopTransfers()
     application {
         Window(onCloseRequest = ::exitApplication, title = "anywhere-file") {
-            // The folder the person is looking at, or null for the list of PCs.
+            // The folder the person is looking at, or null for the home screen.
             var browsing by remember { mutableStateOf<Files?>(null) }
             AnywhereFile {
                 val files = browsing
                 if (files != null) {
                     FileBrowser(files) { browsing = null }
                 } else {
-                    DeviceList(
-                        devices,
-                        onForget = { forget(it, devices, known) },
-                        onOpen = { device, app ->
-                            openFiles(device, app, devices, transfers) { browsing = it }
-                        },
-                    )
+                    Home(devices) { device, app ->
+                        openFiles(device, app, devices, transfers) { browsing = it }
+                    }
                 }
             }
         }

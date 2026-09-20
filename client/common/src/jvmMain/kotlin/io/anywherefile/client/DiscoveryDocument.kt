@@ -61,7 +61,7 @@ fun readDiscoveryDocument(address: String, deviceId: String): Contact {
     conn.inputStream.use { body ->
         val doc = json.decodeFromString(DiscoveryDocument.serializer(), body.readBytes().decodeToString())
         val certificate = conn.serverCertificates.firstOrNull() as? X509Certificate
-            ?: throw WrongDevice("This PC served no certificate.")
+            ?: throw WrongDevice("This device did not identify itself.")
         verifyDeviceProof(deviceId, doc.publicKey, doc.tlsProof, certificate)
         return Contact(doc, certificate.publicKey.encoded)
     }

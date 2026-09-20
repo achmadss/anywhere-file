@@ -65,7 +65,7 @@ class DufsFiles(
         val conn = open(url(dir, query = "?json"), "GET")
         val body = conn.answer("read $dir").use { it.readBytes().decodeToString() }
         val index = json.decodeFromString(DufsIndex.serializer(), body)
-        if (!index.dirExists) throw IllegalStateException("That folder is not on the PC any more.")
+        if (!index.dirExists) throw IllegalStateException("That folder is not on the device any more.")
         val entries = index.paths
             .map { Entry(it.name, it.pathType == "Dir", it.size, day.format(Instant.ofEpochMilli(it.mtime))) }
             // Folders first and then by name, the way every file list a person has used
@@ -127,7 +127,7 @@ class DufsFiles(
         val certificate = serverCertificates.firstOrNull() as? X509Certificate
         if (certificate == null || !certificate.publicKey.encoded.contentEquals(certificateKey)) {
             disconnect()
-            throw WrongDevice("This PC is answering with a different key than the one it proved.")
+            throw WrongDevice("This is no longer the device it proved it was, so nothing was sent.")
         }
     }
 
@@ -138,7 +138,7 @@ class DufsFiles(
         if (responseCode !in 200..299) {
             val why = errorStream?.use { it.readBytes().decodeToString() }.orEmpty().trim().take(200)
             disconnect()
-            throw IllegalStateException("The PC would not $what ($responseCode${if (why.isEmpty()) "" else ": $why"}).")
+            throw IllegalStateException("The device would not $what ($responseCode${if (why.isEmpty()) "" else ": $why"}).")
         }
         return inputStream
     }
@@ -156,7 +156,7 @@ fun openFiles(device: Device, app: String, devices: Devices, transfers: Transfer
             devices.seen(device.copy(refused = e.message))
             return@thread
         } catch (e: Exception) {
-            devices.seen(device.copy(refused = "This PC did not answer."))
+            devices.seen(device.copy(refused = "That device did not answer."))
             return@thread
         }
         devices.seen(device.copy(refused = null))

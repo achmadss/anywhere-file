@@ -42,7 +42,6 @@ class MainActivity : ComponentActivity() {
         val devices = Devices()
         val known = KnownDevices(File(filesDir, "known-devices"))
         val discovery = NsdDiscovery(this, devices, known)
-        val onForget = { device: Device -> forget(device, devices, known) }
         val transfers = AndroidTransfers(applicationContext)
         setContent {
             val dark = isSystemInDarkTheme()
@@ -53,7 +52,7 @@ class MainActivity : ComponentActivity() {
             }
             var allowed by remember { mutableStateOf(localNetworkAllowed()) }
             var denied by remember { mutableStateOf(false) }
-            // The folder the person is looking at, or null for the list of PCs.
+            // The folder the person is looking at, or null for the home screen.
             var browsing by remember { mutableStateOf<Files?>(null) }
             val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                 allowed = granted
@@ -73,14 +72,13 @@ class MainActivity : ComponentActivity() {
                             discovery.start()
                             onDispose { discovery.stop() }
                         }
-                        DeviceList(devices, onForget, onOpen)
+                        Home(devices, onOpen)
                     }
                     else -> LocalNetworkGate(
                         denied,
                         onAsk = { ask.launch(ACCESS_LOCAL_NETWORK) },
                         onPick = discovery::pick,
                         devices,
-                        onForget,
                         onOpen,
                     )
                 }
@@ -95,33 +93,32 @@ class MainActivity : ComponentActivity() {
 }
 
 // The explanation comes before the prompt, and the system picker is the way in when the
-// answer was no: Android shows the PCs it can see and hands over the one chosen.
+// answer was no: Android shows the devices it can see and hands over the one chosen.
 @Composable
 private fun LocalNetworkGate(
     denied: Boolean,
     onAsk: () -> Unit,
     onPick: () -> Unit,
     devices: Devices,
-    onForget: (Device) -> Unit,
     onOpen: (Device, String) -> Unit,
 ) {
     Column(
         Modifier.safeDrawingPadding().fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("PCs on this network", style = MaterialTheme.typography.headlineSmall)
+        Text("Devices on this network", style = MaterialTheme.typography.headlineSmall)
         Text(
-            "anywhere-file finds your PCs by asking this network which of them run the agent. Android asks you before an app may do that.",
+            "anywhere-file finds your devices by asking this network which of them are running it too. Android checks with you first.",
             style = MaterialTheme.typography.bodyMedium,
         )
         Button(onClick = onAsk) { Text("Allow") }
         if (denied) {
             Text(
-                "Without that, Android can still hand over one PC at a time from its own list.",
+                "Without it, you can still pick one device at a time from Android's own list.",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Button(onClick = onPick) { Text("Pick a PC") }
+            Button(onClick = onPick) { Text("Choose a device") }
         }
-        if (devices.found.isNotEmpty()) DeviceRows(devices, onForget, onOpen)
+        if (devices.found.isNotEmpty()) DeviceRows(devices, onOpen)
     }
 }
