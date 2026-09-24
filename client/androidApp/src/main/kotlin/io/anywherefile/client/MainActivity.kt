@@ -43,6 +43,10 @@ class MainActivity : ComponentActivity() {
         val known = KnownDevices(File(filesDir, "known-devices"))
         val discovery = NsdDiscovery(this, devices, known)
         val transfers = AndroidTransfers(applicationContext)
+        // The account and where its token is kept (#100). Android keeps it encrypted under a
+        // Keystore key; the server address is a plain file beside it, because an address is
+        // not a secret.
+        val session = Session(AndroidSessions(applicationContext), ServerAddress(File(filesDir, "server")))
         setContent {
             val dark = isSystemInDarkTheme()
             // There is no bar behind the status icons, so they are drawn over whatever the
@@ -54,6 +58,9 @@ class MainActivity : ComponentActivity() {
             var denied by remember { mutableStateOf(false) }
             // The folder the person is looking at, or null for the home screen.
             var browsing by remember { mutableStateOf<Files?>(null) }
+            // True while the sign-in screen is up (#100). Signing in does not need the local
+            // network, so this is reachable from the screen that asks for it as well.
+            var signingIn by remember { mutableStateOf(false) }
             val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                 allowed = granted
                 denied = !granted
@@ -63,22 +70,26 @@ class MainActivity : ComponentActivity() {
             val onOpen = { device: Device, app: String ->
                 openFiles(device, app, devices, transfers) { browsing = it }
             }
+            val onSignIn = { signingIn = true }
             AnywhereFile {
                 val files = browsing
                 when {
                     files != null -> FileBrowser(files) { browsing = null }
+                    signingIn -> SignIn(session) { signingIn = false }
                     allowed -> {
                         DisposableEffect(Unit) {
                             discovery.start()
                             onDispose { discovery.stop() }
                         }
-                        Home(devices, onOpen)
+                        Home(devices, session, onSignIn, onOpen)
                     }
                     else -> LocalNetworkGate(
                         denied,
                         onAsk = { ask.launch(ACCESS_LOCAL_NETWORK) },
                         onPick = discovery::pick,
                         devices,
+                        session,
+                        onSignIn,
                         onOpen,
                     )
                 }
@@ -93,13 +104,17 @@ class MainActivity : ComponentActivity() {
 }
 
 // The explanation comes before the prompt, and the system picker is the way in when the
-// answer was no: Android shows the devices it can see and hands over the one chosen.
+// answer was no: Android shows the devices it can see and hands over the one chosen. The
+// account is here as well, because reaching a PC from outside the house is the one thing
+// that does not need this permission.
 @Composable
 private fun LocalNetworkGate(
     denied: Boolean,
     onAsk: () -> Unit,
     onPick: () -> Unit,
     devices: Devices,
+    session: Account,
+    onSignIn: () -> Unit,
     onOpen: (Device, String) -> Unit,
 ) {
     Column(
@@ -120,5 +135,6 @@ private fun LocalNetworkGate(
             Button(onClick = onPick) { Text("Choose a device") }
         }
         if (devices.found.isNotEmpty()) DeviceRows(devices, onOpen)
+        AccountCard(session, onSignIn)
     }
 }

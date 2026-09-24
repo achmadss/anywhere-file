@@ -1,0 +1,92 @@
+# The endpoints the account half of this client talks to (#100). Every request below has
+# been run against a real control plane, and what came back is recorded under it.
+#
+# The server answers JSON under /v1, and a session is an opaque token: it is returned once
+# by sign in, kept by the client, and sent back as `Authorization: Bearer`. The website
+# pages below are the ones the client opens in a browser instead of drawing a form of its
+# own, so signing up and resetting a password are not requests this client makes.
+#
+# What this was run against:
+#
+#   cd hosted/control-plane
+#   docker compose up -d
+#   export RFM_DATABASE_URL='postgres://rfm:rfm@localhost:5433/rfm?sslmode=disable'
+#   go run . migrate up
+#   RFM_BASE_URL=http://127.0.0.1:8443 RFM_INSECURE_COOKIES=1 go run . serve
+#
+# The same requests with curl, for a terminal:
+#
+#   curl -s -X POST localhost:8443/v1/auth/signin -H 'Content-Type: application/json' \
+#     -d '{"email":"ana@example.test","password":"correct-horse-123"}'
+
+@base = 127.0.0.1:8443
+@token = paste-what-sign-in-answered-with
+
+### Create an account. The website's /signup page makes this request; the client never does.
+POST http://{{base}}/v1/auth/signup
+Content-Type: application/json
+
+{"email": "ana@example.test", "password": "correct-horse-123"}
+
+# 200 {"ok": true}
+#
+# An address that is already taken answers exactly the same, which is what keeps this
+# endpoint from listing who has signed up. Signing in is what says whether the account is
+# there, and signing up again is not an error the client has to report.
+
+### Sign in. This is the call behind the client's sign-in button.
+POST http://{{base}}/v1/auth/signin
+Content-Type: application/json
+
+{"email": "ana@example.test", "password": "correct-horse-123"}
+
+# 200 {"ok": true, "token": "ryTxT-R9usDX5gejevUeSwa5VAcsbTffr84o04gFbnY"}
+#
+# The token is 43 characters of base64url. It is returned here and nowhere else, and the
+# server keeps only its hash. The same answer carries a session cookie for the browser,
+# which this client ignores.
+#
+# Set-Cookie: rfm_session=...; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax
+
+### A wrong password, an address with no account, and a password under twelve characters all
+### answer the same thing. The client shows it as it is.
+POST http://{{base}}/v1/auth/signin
+Content-Type: application/json
+
+{"email": "ana@example.test", "password": "wrong-password-123"}
+
+# 401 {"error": "invalid email or password"}
+
+### Who the session belongs to. This is what the client asks on every start, so a session
+### revoked somewhere else is noticed at the next request rather than at the next sign in.
+GET http://{{base}}/v1/me
+Authorization: Bearer {{token}}
+
+# 200 {"email": "ana@example.test", "email_verified": false, "id": "710a5b8c-55e8-427d-8f14-7bb10ad40521"}
+#
+# email_verified is false until the link in the confirmation message is opened. Nothing
+# this client does is gated on it yet.
+
+### The same request with no token, or with one that was signed out, or with one the server
+### no longer has.
+GET http://{{base}}/v1/me
+Authorization: Bearer {{token}}
+
+# 401 {"error": "unauthorized"}
+#
+# One answer for unknown, expired and revoked. Asking again with the same token gives the
+# same 401, which is how the client tells "signed out somewhere else" from "the server is
+# not answering": the second one is a connection error, not this.
+
+### Sign out. The session row goes, so the next request with this token is a 401.
+POST http://{{base}}/v1/auth/signout
+Authorization: Bearer {{token}}
+
+# 200 {"ok": true}
+
+### The website pages the client opens in a browser rather than drawing itself. There is no
+### sign-up form, no reset form, and no token handling in the client for either.
+GET http://{{base}}/signup
+
+# 200 text/html, 2670 bytes: the page posts {"email","password"} to /v1/auth/signup above.
+# The password reset page is /reset, which posts {"email"} to /v1/auth/password-reset/request.

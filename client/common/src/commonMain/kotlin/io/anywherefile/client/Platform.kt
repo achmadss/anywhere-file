@@ -15,6 +15,12 @@ expect fun anywhereColors(dark: Boolean): ColorScheme
 @Composable
 expect fun SystemBack(onBack: () -> Unit)
 
+// A way to hand a URL to this platform's own browser. The account pages are the browser's
+// job: creating an account and resetting a password happen there, so the client draws no
+// form for either and never holds a token that arrives by mail (#100).
+@Composable
+expect fun rememberBrowser(): (String) -> Unit
+
 @Composable
 fun AnywhereFile(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = anywhereColors(isSystemInDarkTheme()), content = content)

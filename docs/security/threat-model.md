@@ -18,6 +18,7 @@ application on a PC without an authorized user asking it to.
 |---|---|---|---|
 | Client to agent, on the LAN | HTTP to a registered application | A request for an unregistered host or port | agent gateway |
 | Client to server | Session token, account and device management, remote application requests | A device private key | control plane |
+| A local user to the client's session | The session token, and the account requests made with it | The token in the hands of anybody but this app on this machine | the client's own store (`client/common/src/androidMain/kotlin/io/anywherefile/client/AndroidSessions.kt`, `client/common/src/desktopMain/kotlin/io/anywherefile/client/DesktopSessions.kt`) |
 | Agent to server | Enrolment and app registry, signed with the device key; the tunnel | The device private key | control plane, agent tunnel |
 | Server to agent, down the tunnel | HTTP requests for a named application | A request the server did not authorize against `device_users` and `device_apps` | remote routing |
 | Agent to OS keystore | The device seed | An exportable copy leaving the machine | agent identity |
@@ -141,6 +142,16 @@ too.
 
 The subscription status is set by an operator. Nothing enforces payment. Remote access is
 gated on `status = active`, so the gate exists and the thing behind it does not.
+
+### A5. A desktop with no keychain keeps the session in a file
+
+The client asks the system for a secret store and gets one on macOS (the login keychain),
+on Windows (the Data Protection API) and on any Linux with libsecret installed
+(`client/common/src/desktopMain/kotlin/io/anywherefile/client/DesktopSessions.kt`, `verified`).
+A system with none of those keeps the token in a mode 0600 file in a directory only its owner
+can read, and the account card says so, which is the same bargain the agent makes for a device
+key on a machine with no keystore (A3). Android is not on this footing: the token is encrypted
+under a key in the Keystore, so reading the app's data on a rooted phone yields ciphertext.
 
 ## Gaps
 
