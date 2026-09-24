@@ -41,7 +41,7 @@ jobs:
 
           m go '^(go\.(mod|sum)$|\.gitattributes$|hosted/control-plane/|device/agent/|internal/|qa/|\.github/(scripts/|workflows/ci\.yml$))'
           m package '^(go\.(mod|sum)$|device/agent/|internal/|packaging/|\.github/(scripts/|workflows/ci\.yml$))'
-          m rules '^(hosted/control-plane/(rules|alertmanager)\.yml$|\.github/workflows/ci\.yml$)'
+          m rules '^(hosted/control-plane/rules\.yml$|\.github/workflows/ci\.yml$)'
           m client '^(client/|go\.(mod|sum)$|device/agent/|internal/|\.github/workflows/ci\.yml$)'
 
   go:

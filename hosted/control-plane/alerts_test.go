@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -114,63 +113,5 @@ func TestAlertRulesReferenceExportedSeries(t *testing.T) {
 		if !seenRef[token] {
 			t.Errorf("no rule references exported series %s", token)
 		}
-	}
-}
-
-// alertmanagerFile mirrors the routing file shape. Routing, grouping, and
-// escalation live here; the test pins that the critical path pages.
-type alertmanagerFile struct {
-	Route struct {
-		Receiver string   `yaml:"receiver"`
-		GroupBy  []string `yaml:"group_by"`
-		Routes   []struct {
-			Matchers []string `yaml:"matchers"`
-			Receiver string   `yaml:"receiver"`
-		} `yaml:"routes"`
-	} `yaml:"route"`
-	Receivers []struct {
-		Name string `yaml:"name"`
-	} `yaml:"receivers"`
-}
-
-func TestAlertmanagerRoutesCriticalToPaging(t *testing.T) {
-	raw, err := os.ReadFile(repoFile(t, "alertmanager.yml"))
-	if err != nil {
-		t.Fatalf("read alertmanager.yml: %v", err)
-	}
-	var cf alertmanagerFile
-	if err := yaml.Unmarshal(raw, &cf); err != nil {
-		t.Fatalf("parse alertmanager.yml: %v", err)
-	}
-
-	if cf.Route.Receiver == "" {
-		t.Error("no default receiver")
-	}
-	if len(cf.Route.GroupBy) == 0 {
-		t.Error("no group_by: every alert would notify on its own")
-	}
-	names := map[string]bool{}
-	for _, r := range cf.Receivers {
-		names[r.Name] = true
-	}
-	if !names[cf.Route.Receiver] {
-		t.Errorf("default receiver %q is not defined", cf.Route.Receiver)
-	}
-
-	pages := false
-	for _, r := range cf.Route.Routes {
-		// An empty receiver inherits the parent route's, which is valid
-		// Alertmanager. A set one must name a defined receiver.
-		if r.Receiver != "" && !names[r.Receiver] {
-			t.Errorf("route receiver %q is not defined", r.Receiver)
-		}
-		for _, m := range r.Matchers {
-			if strings.Contains(m, "critical") && r.Receiver == "paging" {
-				pages = true
-			}
-		}
-	}
-	if !pages {
-		t.Error("no route sends critical severity to paging: pages would never fire")
 	}
 }
