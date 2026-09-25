@@ -90,3 +90,62 @@ GET http://{{base}}/signup
 
 # 200 text/html, 2670 bytes: the page posts {"email","password"} to /v1/auth/signup above.
 # The password reset page is /reset, which posts {"email"} to /v1/auth/password-reset/request.
+
+# The PCs an account reaches, and what an admin does with one (#102). Each request below was
+# run with one account that signed a PC in and a second account it invited.
+
+@device = paste-a-device_id-from-the-list
+@user = paste-a-user_id-from-the-users-list
+
+### The PCs this account is bound to. The client asks this whenever the home screen shows.
+GET http://{{base}}/v1/devices
+Authorization: Bearer {{token}}
+
+# 200 {"devices": [{"device_id": "db7384878a924bcbc340b00fc90e5de6fd4f2322608807ef15d1911a196f20b1",
+#      "name": "2193s-MacBook-Air.local", "status": "active", "role": "admin",
+#      "revoked_at": null, "online": false, "apps": ["files"]}]}
+#
+# online is whether the PC has a tunnel open right now. A binding that was removed stays in
+# the list with revoked_at set and "apps": [], and the client leaves it out.
+
+### Who may reach a PC. Admins only.
+GET http://{{base}}/v1/devices/{{device}}/users
+Authorization: Bearer {{token}}
+
+# 200 {"users": [{"user_id": "acecae10-4648-4374-b862-d02835c40f02",
+#      "email": "ana-22829@example.test", "role": "admin",
+#      "created_at": "2026-09-25T08:03:13.151517+07:00", "revoked_at": null}]}
+#
+# A guest, or anyone not bound to the PC, gets 404 {"error": "not found"}.
+
+### Make an invitation code. Admins only. The role is guest or admin, and expires_in is up to
+### 168h.
+POST http://{{base}}/v1/devices/{{device}}/invites
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"role": "guest", "expires_in": "24h"}
+
+# 200 {"code": "BOBIEyhfUSwH8MUL8nl42HMQKuAmgoWlMdKlKrRvIZ0", "expires_at": "2026-09-26T01:03:13.22068Z", "role": "guest"}
+#
+# The code is in this answer and nowhere else. The server keeps only its hash.
+# With "expires_in": "30d": 400 {"error": "expires_in must be a duration up to 168h"}
+
+### Join a PC with a code, as the second account.
+POST http://{{base}}/v1/invites/redeem
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"code": "BOBIEyhfUSwH8MUL8nl42HMQKuAmgoWlMdKlKrRvIZ0"}
+
+# 200 {"device_id": "db7384878a924bcbc340b00fc90e5de6fd4f2322608807ef15d1911a196f20b1", "role": "guest"}
+#
+# The same code again: 404 {"error": "invite invalid, expired or used"}
+
+### Remove someone from a PC. Admins only.
+POST http://{{base}}/v1/devices/{{device}}/users/{{user}}/revoke
+Authorization: Bearer {{token}}
+
+# 200 {"ok": true}
+#
+# The last admin cannot be removed: 409 {"error": "a device keeps at least one admin"}

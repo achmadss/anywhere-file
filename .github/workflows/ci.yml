@@ -362,13 +362,14 @@ jobs:
           echo "RFM_TEST_SERVER=http://127.0.0.1:8443" >> "$GITHUB_ENV"
       - run: ./gradlew build
       # A test that skips reports as a pass. Fail the job if it did not find the agent, did
-      # not carry a file to it and back (#155), and did not sign in to the control plane
-      # (#100).
+      # not carry a file to it and back (#155), did not sign in to the control plane (#100),
+      # and did not invite and remove a guest (#102).
       - run: |
           grep -q "found agent" common/build/test-results/desktopTest/TEST-*AgentOnTheLanTest.xml
           grep -q "carried a file" common/build/test-results/desktopTest/TEST-*AgentOnTheLanTest.xml
           grep -q "signed in as" common/build/test-results/desktopTest/TEST-*ServerAccountTest.xml
           grep -q "noticed a session the server ended" common/build/test-results/desktopTest/TEST-*ServerAccountTest.xml
+          grep -q "removed the guest" common/build/test-results/desktopTest/TEST-*ServerSharingTest.xml
       - if: failure()
         run: |
           cat "$RUNNER_TEMP/agent.log"

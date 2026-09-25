@@ -30,12 +30,16 @@ fun main() {
             var browsing by remember { mutableStateOf<Files?>(null) }
             // True while the sign-in screen is up (#100).
             var signingIn by remember { mutableStateOf(false) }
+            // The PC whose people and invitations are on the screen (#102).
+            var managing by remember { mutableStateOf<RemoteDevice?>(null) }
             AnywhereFile {
                 val files = browsing
+                val managed = managing
                 when {
                     files != null -> FileBrowser(files) { browsing = null }
                     signingIn -> SignIn(session) { signingIn = false }
-                    else -> Home(devices, session, onSignIn = { signingIn = true }) { device, app ->
+                    managed != null -> ManageDevice(session, managed) { managing = null }
+                    else -> Home(devices, session, onSignIn = { signingIn = true }, onManage = { managing = it }) { device, app ->
                         openFiles(device, app, devices, transfers) { browsing = it }
                     }
                 }

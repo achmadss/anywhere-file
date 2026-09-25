@@ -42,7 +42,8 @@ func isActiveAdmin(ctx context.Context, db querer, deviceID, accountID string) (
 }
 
 // listDevices answers with every device the caller is bound to, revoked bindings included,
-// so a client can show "access removed" rather than a device silently vanishing.
+// so a client can show "access removed" rather than a device silently vanishing. The
+// applications are the names routing checks (#88), and a revoked binding gets none.
 func listDevices(db *pgxpool.Pool, reg *tunnelRegistry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		a, _, ok := accountFromContext(r.Context())
@@ -51,7 +52,10 @@ func listDevices(db *pgxpool.Pool, reg *tunnelRegistry) http.HandlerFunc {
 			return
 		}
 		rows, err := db.Query(r.Context(),
-			`SELECT d.device_id, d.name, d.status, u.role, u.revoked_at
+			`SELECT d.device_id, d.name, d.status, u.role, u.revoked_at,
+			        CASE WHEN u.revoked_at IS NULL
+			             THEN ARRAY(SELECT name FROM device_apps da WHERE da.device_id = d.device_id ORDER BY name)
+			             ELSE '{}' END
 			 FROM device_users u JOIN devices d ON d.device_id = u.device_id
 			 WHERE u.user_id = $1::uuid ORDER BY d.name, d.device_id`, a.id)
 		if err != nil {
@@ -66,11 +70,12 @@ func listDevices(db *pgxpool.Pool, reg *tunnelRegistry) http.HandlerFunc {
 			Role      string     `json:"role"`
 			RevokedAt *time.Time `json:"revoked_at"`
 			Online    bool       `json:"online"`
+			Apps      []string   `json:"apps"`
 		}
 		out := []device{}
 		for rows.Next() {
 			var d device
-			if err := rows.Scan(&d.DeviceID, &d.Name, &d.Status, &d.Role, &d.RevokedAt); err != nil {
+			if err := rows.Scan(&d.DeviceID, &d.Name, &d.Status, &d.Role, &d.RevokedAt, &d.Apps); err != nil {
 				writeAuthError(w, http.StatusInternalServerError, "try again later")
 				return
 			}

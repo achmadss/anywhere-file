@@ -61,6 +61,8 @@ class MainActivity : ComponentActivity() {
             // True while the sign-in screen is up (#100). Signing in does not need the local
             // network, so this is reachable from the screen that asks for it as well.
             var signingIn by remember { mutableStateOf(false) }
+            // The PC whose people and invitations are on the screen (#102).
+            var managing by remember { mutableStateOf<RemoteDevice?>(null) }
             val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                 allowed = granted
                 denied = !granted
@@ -71,17 +73,20 @@ class MainActivity : ComponentActivity() {
                 openFiles(device, app, devices, transfers) { browsing = it }
             }
             val onSignIn = { signingIn = true }
+            val onManage = { device: RemoteDevice -> managing = device }
             AnywhereFile {
                 val files = browsing
+                val managed = managing
                 when {
                     files != null -> FileBrowser(files) { browsing = null }
                     signingIn -> SignIn(session) { signingIn = false }
+                    managed != null -> ManageDevice(session, managed) { managing = null }
                     allowed -> {
                         DisposableEffect(Unit) {
                             discovery.start()
                             onDispose { discovery.stop() }
                         }
-                        Home(devices, session, onSignIn, onOpen)
+                        Home(devices, session, onSignIn, onManage, onOpen)
                     }
                     else -> LocalNetworkGate(
                         denied,
@@ -90,6 +95,7 @@ class MainActivity : ComponentActivity() {
                         devices,
                         session,
                         onSignIn,
+                        onManage,
                         onOpen,
                     )
                 }
@@ -115,6 +121,7 @@ private fun LocalNetworkGate(
     devices: Devices,
     session: Account,
     onSignIn: () -> Unit,
+    onManage: (RemoteDevice) -> Unit,
     onOpen: (Device, String) -> Unit,
 ) {
     Column(
@@ -134,7 +141,10 @@ private fun LocalNetworkGate(
             )
             Button(onClick = onPick) { Text("Choose a device") }
         }
-        if (devices.found.isNotEmpty()) DeviceRows(devices, onOpen)
+        // The list of PCs on this network takes what the rest leaves, so the account and its
+        // PCs below it stay on the screen.
+        if (devices.found.isNotEmpty()) DeviceRows(devices, onOpen, Modifier.weight(1f, fill = false))
         AccountCard(session, onSignIn)
+        RemoteDevices(session, onManage)
     }
 }
