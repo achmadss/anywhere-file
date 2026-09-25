@@ -53,6 +53,7 @@ fun Home(
     devices: Devices,
     session: Account,
     onSignIn: () -> Unit = {},
+    onManage: (RemoteDevice) -> Unit = {},
     onOpen: (Device, String) -> Unit = { _, _ -> },
 ) {
     // The screen has no bar of its own, so the background is this. Without it the window
@@ -76,6 +77,7 @@ fun Home(
             deviceItems(devices, onOpen)
             item { Heading("Away from home") }
             item { AccountCard(session, onSignIn) }
+            item { RemoteDevices(session, onManage) }
         }
     }
 }

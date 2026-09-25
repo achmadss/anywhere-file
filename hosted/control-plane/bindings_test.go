@@ -52,14 +52,18 @@ func TestGuestSeesOwnDevicesAndNothingElse(t *testing.T) {
 	enrolDeviceFor(t, h, "other@example.com", "pc2")
 	guest := bind(t, h, pool, pc1, "guest@example.com", "guest")
 	owner := signinToken(t, h, "owner@example.com", "correct horse battery")
+	if _, err := pool.Exec(t.Context(), `INSERT INTO device_apps (device_id, name, type) VALUES ($1, 'files', 'dufs')`, pc1); err != nil {
+		t.Fatal(err)
+	}
 	ownerID := accountIDByEmail(t, pool, "owner@example.com")
 
 	rec := doJSON(t, h, http.MethodGet, "/v1/devices", nil, bearer(guest))
 	var list struct {
 		Devices []struct {
-			DeviceID  string  `json:"device_id"`
-			Role      string  `json:"role"`
-			RevokedAt *string `json:"revoked_at"`
+			DeviceID  string   `json:"device_id"`
+			Role      string   `json:"role"`
+			RevokedAt *string  `json:"revoked_at"`
+			Apps      []string `json:"apps"`
 		} `json:"devices"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil || rec.Code != http.StatusOK {
@@ -67,6 +71,9 @@ func TestGuestSeesOwnDevicesAndNothingElse(t *testing.T) {
 	}
 	if len(list.Devices) != 1 || list.Devices[0].DeviceID != pc1 || list.Devices[0].Role != "guest" || list.Devices[0].RevokedAt != nil {
 		t.Errorf("guest list = %+v, want only pc1 as an active guest", list.Devices)
+	}
+	if len(list.Devices) == 1 && fmt.Sprint(list.Devices[0].Apps) != "[files]" {
+		t.Errorf("guest list apps = %v, want [files]", list.Devices[0].Apps)
 	}
 
 	if rec := doJSON(t, h, http.MethodGet, "/v1/devices/"+pc1+"/users", nil, bearer(guest)); rec.Code != http.StatusNotFound {
@@ -98,6 +105,9 @@ func TestRevokeKeepsTheRowAndShowsInTheList(t *testing.T) {
 	guest := bind(t, h, pool, pc1, "guest@example.com", "guest")
 	guestID := accountIDByEmail(t, pool, "guest@example.com")
 	owner := signinToken(t, h, "owner@example.com", "correct horse battery")
+	if _, err := pool.Exec(t.Context(), `INSERT INTO device_apps (device_id, name, type) VALUES ($1, 'files', 'dufs')`, pc1); err != nil {
+		t.Fatal(err)
+	}
 
 	if code := revoke(t, h, owner, pc1, guestID); code != http.StatusOK {
 		t.Fatalf("revoke guest: status = %d, want 200", code)
@@ -115,11 +125,15 @@ func TestRevokeKeepsTheRowAndShowsInTheList(t *testing.T) {
 	rec := doJSON(t, h, http.MethodGet, "/v1/devices", nil, bearer(guest))
 	var list struct {
 		Devices []struct {
-			RevokedAt *string `json:"revoked_at"`
+			RevokedAt *string  `json:"revoked_at"`
+			Apps      []string `json:"apps"`
 		} `json:"devices"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil || len(list.Devices) != 1 || list.Devices[0].RevokedAt == nil {
 		t.Errorf("guest list after revoke = %s, want one device with revoked_at set", rec.Body)
+	}
+	if len(list.Devices) == 1 && len(list.Devices[0].Apps) != 0 {
+		t.Errorf("revoked guest still sees apps %v", list.Devices[0].Apps)
 	}
 }
 

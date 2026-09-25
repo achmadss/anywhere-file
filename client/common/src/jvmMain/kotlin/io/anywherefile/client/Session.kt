@@ -11,6 +11,10 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 // The account over the wire: the control plane's account endpoints, and the session this
 // client holds once it has signed in. Every request is written down, with what it answered,
@@ -56,6 +60,33 @@ private class Refusal(@SerialName("error") val why: String = "")
 @Serializable
 private class Identity(val email: String = "")
 
+@Serializable
+private class DeviceList(val devices: List<Listed> = emptyList())
+
+@Serializable
+private class Listed(
+    @SerialName("device_id") val id: String = "",
+    val name: String = "",
+    val role: String = "",
+    val online: Boolean = false,
+    val apps: List<String>? = null,
+    @SerialName("revoked_at") val revokedAt: String? = null,
+)
+
+@Serializable
+private class UserList(val users: List<Member> = emptyList())
+
+@Serializable
+private class Member(
+    @SerialName("user_id") val id: String = "",
+    val email: String = "",
+    val role: String = "",
+    @SerialName("revoked_at") val revokedAt: String? = null,
+)
+
+@Serializable
+private class Minted(val code: String = "", val role: String = "", @SerialName("expires_at") val expiresAt: String = "")
+
 private val json = Json { ignoreUnknownKeys = true }
 
 // The JSON form of a string, so a password holding a quote or a backslash still makes a body
@@ -89,6 +120,48 @@ class ControlPlane(private val base: String) {
         val (status, answer) = call("POST", "/v1/auth/signout", token = token)
         // 401 is a session that is already gone, which is what this was asking for.
         if (status != 200 && status != 401) throw refusal(status, answer)
+    }
+
+    // devices lists the PCs this account is bound to, without the ones it was removed from.
+    // Null is a session the server does not know any more, as with me.
+    fun devices(token: String): List<RemoteDevice>? {
+        val (status, answer) = call("GET", "/v1/devices", token = token)
+        if (status == 401) return null
+        if (status != 200) throw refusal(status, answer)
+        return json.decodeFromString(DeviceList.serializer(), answer).devices
+            .filter { it.revokedAt == null }
+            .map { RemoteDevice(it.id, it.name, it.online, it.role, it.apps.orEmpty()) }
+    }
+
+    // users lists who may reach a PC now. The server keeps removed people in the list, for
+    // history, and there is nothing to do about them here.
+    fun users(token: String, device: String): List<DeviceUser> {
+        val (status, answer) = call("GET", "/v1/devices/$device/users", token = token)
+        if (status != 200) throw refusal(status, answer)
+        return json.decodeFromString(UserList.serializer(), answer).users
+            .filter { it.revokedAt == null }
+            .map { DeviceUser(it.id, it.email, it.role) }
+    }
+
+    fun revoke(token: String, device: String, user: String) {
+        val (status, answer) = call("POST", "/v1/devices/$device/users/$user/revoke", token = token)
+        if (status != 200) throw refusal(status, answer)
+    }
+
+    // invite makes a single-use code. The expiry is a Go duration, such as "24h", which is
+    // what the server parses.
+    fun invite(token: String, device: String, role: String, expiresIn: String): Invitation {
+        val body = """{"role":${quoted(role)},"expires_in":${quoted(expiresIn)}}"""
+        val (status, answer) = call("POST", "/v1/devices/$device/invites", body = body, token = token)
+        if (status != 200) throw refusal(status, answer)
+        val minted = json.decodeFromString(Minted.serializer(), answer)
+        if (minted.code.isEmpty()) throw IllegalStateException("The server did not send a code.")
+        return Invitation(minted.code, minted.role, readable(minted.expiresAt))
+    }
+
+    fun redeem(token: String, code: String) {
+        val (status, answer) = call("POST", "/v1/invites/redeem", body = """{"code":${quoted(code)}}""", token = token)
+        if (status != 200) throw refusal(status, answer)
     }
 
     // call is one request. The timeouts are short, because the person is standing in front of
@@ -128,6 +201,14 @@ class ControlPlane(private val base: String) {
     }
 }
 
+// readable turns the server's timestamp into this phone's time, in this phone's words.
+private fun readable(at: String): String = try {
+    Instant.parse(at).atZone(ZoneId.systemDefault())
+        .format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT))
+} catch (e: Exception) {
+    at
+}
+
 // The signed-in account. Writes come from a coroutine off the UI thread; Compose state takes
 // them from any thread.
 class Session(private val store: SessionStore, private val address: ServerAddress) : Account {
@@ -149,6 +230,9 @@ class Session(private val store: SessionStore, private val address: ServerAddres
     override val signedIn: Boolean get() = token != null
 
     override val caveat: String? get() = store.caveat
+
+    override var remote: List<RemoteDevice>? by mutableStateOf(null)
+        private set
 
     // resume picks up the session the last run left. The token is checked against the server
     // once, which is what makes "signed out somewhere else" show up at the next start rather
@@ -190,6 +274,7 @@ class Session(private val store: SessionStore, private val address: ServerAddres
         this.token = token
         this.email = who
         trouble = null
+        remote = null
     }
 
     // signOut ends the session here first and tells the server after. The person asked to be
@@ -200,6 +285,7 @@ class Session(private val store: SessionStore, private val address: ServerAddres
         token = null
         email = null
         trouble = null
+        remote = null
         if (going != null) {
             try {
                 ControlPlane(server).signOut(going)
@@ -209,4 +295,30 @@ class Session(private val store: SessionStore, private val address: ServerAddres
             }
         }
     }
+
+    // refresh asks for the list again. A session the server has ended is noticed here too, and
+    // handled the way resume handles it.
+    override suspend fun refresh() {
+        val listed = ControlPlane(server).devices(held())
+        if (listed == null) {
+            store.forget()
+            token = null
+            email = null
+            remote = null
+            trouble = "That session ended. Sign in again."
+            return
+        }
+        remote = listed
+    }
+
+    override suspend fun users(device: String) = ControlPlane(server).users(held(), device)
+
+    override suspend fun revoke(device: String, user: String) = ControlPlane(server).revoke(held(), device, user)
+
+    override suspend fun invite(device: String, role: String, expiresIn: String) =
+        ControlPlane(server).invite(held(), device, role, expiresIn)
+
+    override suspend fun redeem(code: String) = ControlPlane(server).redeem(held(), code.trim())
+
+    private fun held() = token ?: throw IllegalStateException("Sign in first.")
 }

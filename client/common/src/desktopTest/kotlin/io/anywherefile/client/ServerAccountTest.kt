@@ -109,11 +109,11 @@ class ServerAccountTest {
     }
 }
 
-private const val PASSWORD = "correct-horse-123"
+internal const val PASSWORD = "correct-horse-123"
 
 // A session store that holds the token for as long as the test runs. What each platform
-// really does with it is the subject of SessionsTest.
-private class Held : SessionStore {
+// really does with it is the subject of SessionsTest. ServerSharingTest uses it too.
+internal class Held : SessionStore {
     private var held: String? = null
 
     override fun token(): String? = held
