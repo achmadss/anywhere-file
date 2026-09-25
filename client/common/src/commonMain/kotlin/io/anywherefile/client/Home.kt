@@ -19,7 +19,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -50,7 +49,12 @@ import kotlinx.coroutines.delay
 const val BROWSE_DEADLINE_MS = 5_000L
 
 @Composable
-fun Home(devices: Devices, onOpen: (Device, String) -> Unit = { _, _ -> }) {
+fun Home(
+    devices: Devices,
+    session: Account,
+    onSignIn: () -> Unit = {},
+    onOpen: (Device, String) -> Unit = { _, _ -> },
+) {
     // The screen has no bar of its own, so the background is this. Without it the window
     // shows whatever it was born with, which is the wrong colour half the time.
     Surface(Modifier.fillMaxSize()) {
@@ -71,7 +75,7 @@ fun Home(devices: Devices, onOpen: (Device, String) -> Unit = { _, _ -> }) {
             item { Heading("On this network") }
             deviceItems(devices, onOpen)
             item { Heading("Away from home") }
-            item { AwayFromHome() }
+            item { AccountCard(session, onSignIn) }
         }
     }
 }
@@ -184,34 +188,6 @@ private fun FolderTile(name: String, onOpen: () -> Unit) {
         ) {
             Icon(Icons.Filled.Folder, null, Modifier.size(20.dp))
             Text(name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}
-
-// The place the devices you reach from outside the house will go. Nothing lists here until
-// signing in exists (#102), and an empty section says more than a section that is missing.
-@Composable
-private fun AwayFromHome() {
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Row(
-            Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Icon(
-                Icons.Outlined.CloudOff,
-                null,
-                Modifier.size(32.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "Reaching your devices from anywhere needs an account. That is still being built.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
