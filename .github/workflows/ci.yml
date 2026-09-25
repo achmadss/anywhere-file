@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       go: ${{ steps.filter.outputs.go }}
+      service: ${{ steps.filter.outputs.service }}
+      dufs: ${{ steps.filter.outputs.dufs }}
+      e2e: ${{ steps.filter.outputs.e2e }}
       package: ${{ steps.filter.outputs.package }}
       rules: ${{ steps.filter.outputs.rules }}
       client: ${{ steps.filter.outputs.client }}
@@ -39,10 +42,20 @@ jobs:
           match() { echo "$files" | grep -qE "$1"; }
           m() { if match "$2"; then echo "$1=true"; else echo "$1=false"; fi; } >> "$GITHUB_OUTPUT"
 
+          # One line per job, and it runs when a file that job builds, starts or downloads
+          # changed. The agent's four jobs are narrower than the Go module they share, so a
+          # control plane change does not install a service on three runners or start dufs.
+          # Every line names the workflow, because a change to it changes how each job runs.
           m go '^(go\.(mod|sum)$|\.gitattributes$|hosted/control-plane/|device/agent/|internal/|qa/|\.github/(scripts/|workflows/ci\.yml$))'
+          m service '^(go\.(mod|sum)$|device/agent/|internal/|\.github/(scripts/|workflows/ci\.yml$))'
+          m dufs '^(go\.(mod|sum)$|device/agent/|internal/|packaging/dufs\.version$|\.github/(scripts/|workflows/ci\.yml$))'
+          m e2e '^(go\.(mod|sum)$|device/agent/|hosted/control-plane/|internal/|qa/|packaging/dufs\.version$|\.github/(scripts/|workflows/ci\.yml$))'
           m package '^(go\.(mod|sum)$|device/agent/|internal/|packaging/|\.github/(scripts/|workflows/ci\.yml$))'
           m rules '^(hosted/control-plane/rules\.yml$|\.github/workflows/ci\.yml$)'
-          m client '^(client/|go\.(mod|sum)$|device/agent/|internal/|\.github/workflows/ci\.yml$)'
+          # client/ alone, so nothing on the agent or the server side runs this job. It
+          # builds an agent and downloads dufs to test against, so a change there is caught
+          # by the next client change and not by this one.
+          m client '^(client/|\.github/workflows/ci\.yml$)'
 
   go:
     needs: changes
@@ -114,7 +127,7 @@ jobs:
     # window. A runner cannot be rebooted, so what is checked here is that the manifest
     # installs, the service comes up on its own, and uninstalling takes it away again.
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    if: needs.changes.outputs.service == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -171,7 +184,7 @@ jobs:
     # from the settings endpoint is served without the agent being restarted. One runner,
     # because what is checked here is the agent's behaviour and not dufs's.
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    if: needs.changes.outputs.dufs == 'true'
     runs-on: ubuntu-latest
     env:
       RFM_AGENT_ADDR: 127.0.0.1:7433
@@ -207,7 +220,7 @@ jobs:
     # on PostgreSQL, the agent, dufs, and a switchboard the harness cuts to take the PC off
     # the Internet. One runner, because what is under test is the network between them.
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
