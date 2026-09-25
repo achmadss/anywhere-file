@@ -34,10 +34,10 @@ serves the pages a browser needs, for signup, email verification, password reset
 approving a PC that asks to join an account, and a download page that lists the packages
 on the current release, which a version tag publishes. `client/` builds for Android and the
 desktop (#97), lists the PCs it finds on the LAN (#98), checks each one holds the device
-key it claims before showing what it shares (#127) and browses, sends and fetches the files
-on it (#155). Signing in and reaching a PC from outside the house is #100 onward. The work
-is broken down in the issue tracker, starting at the
-[epic](https://github.com/achmadss/anywhere-file/issues/41).
+key it claims before showing what it shares (#127), browses, sends and fetches the files
+on it (#155), and signs in to an account (#100), which is what reaching a PC from outside
+the house will go through (#102, #103). The work is broken down in the issue tracker,
+starting at the [epic](https://github.com/achmadss/anywhere-file/issues/41).
 
 ## Building
 

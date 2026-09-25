@@ -51,6 +51,21 @@ that is asking. It signs the visitor in on the page itself, so the code in the U
 Over plain HTTP that needs `RFM_INSECURE_COOKIES`, because the session cookie is otherwise
 marked `Secure` and the browser will not send it back.
 
+## The client against this server
+
+The desktop client signs in to `http://127.0.0.1:8443` before anyone types an address, because
+that is where this document says the server runs. The Android app has to be told
+`http://10.0.2.2:8443`, which is how the emulator reaches the machine it is running on: on a
+phone, `127.0.0.1` is the phone.
+
+Cleartext is refused by Android except in debug builds, and there only for `10.0.2.2`,
+`127.0.0.1` and `localhost` (see `client/androidApp/src/debug/res/xml/network_security_config.xml`).
+A release build needs a server with a certificate the platform trusts, which for a local run
+means terminating TLS in front of this process rather than pointing the app at it directly.
+
+Signing in needs an account, and creating one is the website's job: `GET /signup`, which posts
+the same JSON body to `/v1/auth/signup` that the client posts to `/v1/auth/signin`.
+
 ## Sending mail
 
 Signup and password reset mint a link each. With `RFM_SMTP_ADDR` unset the link goes to the

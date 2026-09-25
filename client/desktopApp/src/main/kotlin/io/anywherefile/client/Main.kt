@@ -16,20 +16,26 @@ import java.io.InputStream
 
 fun main() {
     val devices = Devices()
-    val known = KnownDevices(File(stateDir(), "known-devices"))
+    val state = stateDir()
+    val known = KnownDevices(File(state, "known-devices"))
     val discovery = LanDiscovery(devices, known)
     discovery.start()
     val transfers = DesktopTransfers()
+    // The account and where its token is kept (#100): the login keychain where this system
+    // has one, and a file only this account can read where it does not.
+    val session = Session(DesktopSessions(File(state, "session")), ServerAddress(File(state, "server")))
     application {
         Window(onCloseRequest = ::exitApplication, title = "anywhere-file") {
             // The folder the person is looking at, or null for the home screen.
             var browsing by remember { mutableStateOf<Files?>(null) }
+            // True while the sign-in screen is up (#100).
+            var signingIn by remember { mutableStateOf(false) }
             AnywhereFile {
                 val files = browsing
-                if (files != null) {
-                    FileBrowser(files) { browsing = null }
-                } else {
-                    Home(devices) { device, app ->
+                when {
+                    files != null -> FileBrowser(files) { browsing = null }
+                    signingIn -> SignIn(session) { signingIn = false }
+                    else -> Home(devices, session, onSignIn = { signingIn = true }) { device, app ->
                         openFiles(device, app, devices, transfers) { browsing = it }
                     }
                 }

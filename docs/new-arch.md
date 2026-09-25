@@ -9,8 +9,8 @@ matches the record, so that block is gone.
 
 Built: the agent, its settings UI (#136), signing a PC in and out of an account (#139, #141),
 the control plane, the website's account pages (#137), the downloads (#138), the client's
-build for Android and the desktop (#97), its LAN discovery (#98) and its file browser
-(#155). Not built: the rest of what the client does (#100 to #103).
+build for Android and the desktop (#97), its LAN discovery (#98), its file browser (#155) and
+its sign-in (#100). Not built: the rest of what the client does (#102, #103).
 Where a section describes something not yet written, it names the issue.
 
 ## Overview
@@ -75,6 +75,12 @@ every request, so nothing is trusted because it decodes.
 - Created by `POST /v1/auth/signin`, returned once, stored only as a hash.
 - Carried as `Authorization: Bearer` or as the session cookie the website sets.
 - Revoked by deleting the row, which takes effect on the next request.
+
+The client keeps the token in the platform's secret store: the Android Keystore, under a key
+that never leaves it, and the system keychain on the desktop, falling back to a mode 0600 file
+where a system has none and saying so on the screen (#100). It sends the token as a bearer
+header and asks `GET /v1/me` once at each start, so a session that ended somewhere else is
+noticed at the next start rather than at the next sign in.
 
 There is no JWT anywhere. An earlier draft of this document described one; ADR 0005 chose
 opaque tokens so that revocation does not wait for an expiry.
@@ -455,7 +461,9 @@ The adversarial review is #48, run against these once the client exists.
 ### Sessions
 
 Forged, expired, replayed after sign-out, one account's token used against another's device,
-a token in a URL or a log, and a cookie accepted where a bearer header was meant.
+a token in a URL or a log, and a cookie accepted where a bearer header was meant. The token
+where the client keeps it, which is the Keystore on Android and the system keychain or a mode
+0600 file on the desktop (#100).
 
 ### Device identity
 
