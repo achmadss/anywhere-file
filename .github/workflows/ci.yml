@@ -18,7 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       go: ${{ steps.filter.outputs.go }}
-      service: ${{ steps.filter.outputs.service }}
       dufs: ${{ steps.filter.outputs.dufs }}
       e2e: ${{ steps.filter.outputs.e2e }}
       package: ${{ steps.filter.outputs.package }}
@@ -43,11 +42,10 @@ jobs:
           m() { if match "$2"; then echo "$1=true"; else echo "$1=false"; fi; } >> "$GITHUB_OUTPUT"
 
           # One line per job, and it runs when a file that job builds, starts or downloads
-          # changed. The agent's four jobs are narrower than the Go module they share, so a
-          # control plane change does not install a service on three runners or start dufs.
+          # changed. The agent's three jobs are narrower than the Go module they share, so a
+          # control plane change does not install a package on three runners or start dufs.
           # Every line names the workflow, because a change to it changes how each job runs.
           m go '^(go\.(mod|sum)$|\.gitattributes$|hosted/control-plane/|device/agent/|internal/|qa/|\.github/(scripts/|workflows/ci\.yml$))'
-          m service '^(go\.(mod|sum)$|device/agent/|internal/|\.github/(scripts/|workflows/ci\.yml$))'
           m dufs '^(go\.(mod|sum)$|device/agent/|internal/|packaging/dufs\.version$|\.github/(scripts/|workflows/ci\.yml$))'
           m e2e '^(go\.(mod|sum)$|device/agent/|hosted/control-plane/|internal/|qa/|packaging/dufs\.version$|\.github/(scripts/|workflows/ci\.yml$))'
           m package '^(go\.(mod|sum)$|device/agent/|internal/|packaging/|\.github/(scripts/|workflows/ci\.yml$))'
@@ -122,62 +120,6 @@ jobs:
         if: runner.os == 'Linux'
         run: .github/scripts/mdns-containers.sh
 
-  service:
-    # #33's acceptance: the OS starts the agent and keeps it, with nothing typed into a
-    # window. A runner cannot be rebooted, so what is checked here is that the manifest
-    # installs, the service comes up on its own, and uninstalling takes it away again.
-    needs: changes
-    if: needs.changes.outputs.service == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: bash
-    env:
-      # No multicast and no server on a runner, and the keystore has no unlocked session
-      # behind it, so the service gets the settings that leave only the gateway.
-      RFM_AGENT_ADDR: 127.0.0.1:7433
-      RFM_AGENT_SETTINGS_ADDR: 127.0.0.1:7434
-      RFM_AGENT_MDNS: "off"
-      RFM_AGENT_TUNNEL: "off"
-      RFM_AGENT_KEYSTORE: file
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: go.sum
-      - name: build
-        run: |
-          agent="$RUNNER_TEMP/agent"
-          [ "$RUNNER_OS" = Windows ] && agent="$agent.exe"
-          go build -o "$agent" ./device/agent
-          echo "AGENT=$agent" >> "$GITHUB_ENV"
-      # A systemd user manager exists on the runner only once the user lingers, and it is
-      # reached through XDG_RUNTIME_DIR. On a desktop both are already true.
-      - if: runner.os == 'Linux'
-        run: |
-          sudo loginctl enable-linger "$USER"
-          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
-      - name: install
-        run: |
-          "$AGENT" install
-      - name: the service answers on its own
-        run: .github/scripts/service-up.sh up
-      # #96: the certificate on the LAN is the one the device key signed, so a client that
-      # knows a device id can tell whether it is talking to that PC.
-      - name: the device key signed the certificate
-        if: runner.os == 'Linux'
-        run: .github/scripts/lan-tls.sh
-      - name: uninstall
-        run: |
-          "$AGENT" uninstall
-      - name: and stops answering
-        run: .github/scripts/service-up.sh down
-
   dufs:
     # What needs the application itself. #92: the agent starts dufs, the gateway serves it,
     # and dufs is reachable through the gateway and nowhere else. #136: a folder chosen
@@ -247,6 +189,8 @@ jobs:
     # #124 and #130: the installer for each OS, checked by installing what it just built. A
     # runner cannot be rebooted, so what is proven here is the rest of the acceptance: the
     # package starts the service, the uninstall stops it, and a reinstall is the same device.
+    # The installer runs `agent install`, so this is #33's acceptance too: the OS starts the
+    # agent, with nothing typed into a window.
     needs: changes
     if: needs.changes.outputs.package == 'true'
     strategy:
@@ -269,8 +213,8 @@ jobs:
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
-      # Same as the service job: a systemd user manager exists on the runner only once the
-      # user lingers, which on a desktop is already true.
+      # A systemd user manager exists on the runner only once the user lingers, which on a
+      # desktop is already true.
       - if: runner.os == 'Linux'
         run: sudo loginctl enable-linger "$USER"
       - name: install the package, uninstall it, install it again
@@ -414,7 +358,7 @@ jobs:
   ci-ok:
     # The one check branch protection requires. Green when every job that ran passed, and
     # when a job was skipped because nothing in its language changed.
-    needs: [changes, go, service, dufs, e2e, package, rules, client, blockers, prose]
+    needs: [changes, go, dufs, e2e, package, rules, client, blockers, prose]
     if: always()
     runs-on: ubuntu-latest
     steps:
