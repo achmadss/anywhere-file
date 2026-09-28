@@ -37,7 +37,39 @@ interface Account {
     suspend fun signIn(server: String, email: String, password: String)
 
     suspend fun signOut()
+
+    // The PCs this account may reach from outside the house (#102), as the server last
+    // listed them. Null until it has been asked. A PC this account was removed from is left
+    // out, so it is gone from the screen at the next refresh.
+    val remote: List<RemoteDevice>?
+
+    suspend fun refresh()
+
+    // What an admin of a PC does with it. The server refuses anyone else with the answer an
+    // unknown PC gets, so a guest is never shown these to begin with.
+    suspend fun users(device: String): List<DeviceUser>
+    suspend fun revoke(device: String, user: String)
+    suspend fun invite(device: String, role: String, expiresIn: String): Invitation
+
+    // redeem turns a code somebody shared into access to their PC.
+    suspend fun redeem(code: String)
 }
+
+data class RemoteDevice(
+    val id: String,
+    val name: String,
+    // Whether the PC has a tunnel open to the server right now.
+    val online: Boolean,
+    // "admin" or "guest".
+    val role: String,
+    val apps: List<String>,
+)
+
+data class DeviceUser(val id: String, val email: String, val role: String)
+
+// A code as it was made. It is shown and shared once, and the server keeps only its hash, so
+// there is no asking for it again.
+data class Invitation(val code: String, val role: String, val until: String)
 
 // Where this platform keeps the session token. Android has the Keystore and the desktop has
 // whatever its system has.

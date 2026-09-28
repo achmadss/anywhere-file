@@ -21,6 +21,11 @@ expect fun SystemBack(onBack: () -> Unit)
 @Composable
 expect fun rememberBrowser(): (String) -> Unit
 
+// Hands text to whatever this platform shares with: the share sheet on Android. The desktop
+// has no share sheet, so the text goes on the clipboard and the answer says so for the screen.
+@Composable
+expect fun rememberShare(): (String) -> String?
+
 @Composable
 fun AnywhereFile(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = anywhereColors(isSystemInDarkTheme()), content = content)

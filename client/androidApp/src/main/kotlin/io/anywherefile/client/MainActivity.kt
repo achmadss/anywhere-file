@@ -9,10 +9,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,6 +61,8 @@ class MainActivity : ComponentActivity() {
             // True while the sign-in screen is up (#100). Signing in does not need the local
             // network, so this is reachable from the screen that asks for it as well.
             var signingIn by remember { mutableStateOf(false) }
+            // The PC whose people and invitations are on the screen (#102).
+            var managing by remember { mutableStateOf<RemoteDevice?>(null) }
             val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                 allowed = granted
                 denied = !granted
@@ -71,17 +73,20 @@ class MainActivity : ComponentActivity() {
                 openFiles(device, app, devices, transfers) { browsing = it }
             }
             val onSignIn = { signingIn = true }
+            val onManage = { device: RemoteDevice -> managing = device }
             AnywhereFile {
                 val files = browsing
+                val managed = managing
                 when {
                     files != null -> FileBrowser(files) { browsing = null }
                     signingIn -> SignIn(session) { signingIn = false }
+                    managed != null -> ManageDevice(session, managed) { managing = null }
                     allowed -> {
                         DisposableEffect(Unit) {
                             discovery.start()
                             onDispose { discovery.stop() }
                         }
-                        Home(devices, session, onSignIn, onOpen)
+                        Home(devices, session, onSignIn, onManage, onOpen)
                     }
                     else -> LocalNetworkGate(
                         denied,
@@ -90,6 +95,7 @@ class MainActivity : ComponentActivity() {
                         devices,
                         session,
                         onSignIn,
+                        onManage,
                         onOpen,
                     )
                 }
@@ -115,26 +121,35 @@ private fun LocalNetworkGate(
     devices: Devices,
     session: Account,
     onSignIn: () -> Unit,
+    onManage: (RemoteDevice) -> Unit,
     onOpen: (Device, String) -> Unit,
 ) {
-    Column(
-        Modifier.safeDrawingPadding().fillMaxSize().padding(24.dp),
+    // One list that scrolls, so the code field at the bottom stays reachable however many
+    // PCs are above it.
+    LazyColumn(
+        Modifier.safeDrawingPadding().fillMaxSize(),
+        contentPadding = PaddingValues(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Devices on this network", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            "anywhere-file finds your devices by asking this network which of them are running it too. Android checks with you first.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Button(onClick = onAsk) { Text("Allow") }
-        if (denied) {
+        item { Text("Devices on this network", style = MaterialTheme.typography.headlineSmall) }
+        item {
             Text(
-                "Without it, you can still pick one device at a time from Android's own list.",
+                "anywhere-file finds your devices by asking this network which of them are running it too. Android checks with you first.",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Button(onClick = onPick) { Text("Choose a device") }
         }
-        if (devices.found.isNotEmpty()) DeviceRows(devices, onOpen)
-        AccountCard(session, onSignIn)
+        item { Button(onClick = onAsk) { Text("Allow") } }
+        if (denied) {
+            item {
+                Text(
+                    "Without it, you can still pick one device at a time from Android's own list.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            item { Button(onClick = onPick) { Text("Choose a device") } }
+        }
+        if (devices.found.isNotEmpty()) deviceItems(devices, onOpen)
+        item { AccountCard(session, onSignIn) }
+        item { RemoteDevices(session, onManage) }
     }
 }

@@ -53,6 +53,7 @@ fun Home(
     devices: Devices,
     session: Account,
     onSignIn: () -> Unit = {},
+    onManage: (RemoteDevice) -> Unit = {},
     onOpen: (Device, String) -> Unit = { _, _ -> },
 ) {
     // The screen has no bar of its own, so the background is this. Without it the window
@@ -76,26 +77,14 @@ fun Home(
             deviceItems(devices, onOpen)
             item { Heading("Away from home") }
             item { AccountCard(session, onSignIn) }
+            item { RemoteDevices(session, onManage) }
         }
     }
 }
 
-// The devices on their own, for the screen that has to explain the local network
-// permission first and still wants to show whatever has turned up underneath.
-@Composable
-fun DeviceRows(
-    devices: Devices,
-    onOpen: (Device, String) -> Unit = { _, _ -> },
-    modifier: Modifier = Modifier,
-) {
-    LazyColumn(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        deviceItems(devices, onOpen)
-    }
-}
-
 // Whatever the list of devices is right now: the cards, or the one line that stands in for
-// them while there are none.
-private fun LazyListScope.deviceItems(
+// them while there are none. The local network permission screen lists them too.
+fun LazyListScope.deviceItems(
     devices: Devices,
     onOpen: (Device, String) -> Unit,
 ) {

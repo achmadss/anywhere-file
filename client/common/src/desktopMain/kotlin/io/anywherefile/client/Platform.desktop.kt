@@ -6,6 +6,8 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import java.awt.Desktop
+import java.awt.Toolkit
+import java.awt.datatransfer.StringSelection
 import java.net.URI
 
 @Composable
@@ -20,4 +22,12 @@ actual fun SystemBack(onBack: () -> Unit) = Unit
 @Composable
 actual fun rememberBrowser(): (String) -> Unit = remember {
     { url -> Desktop.getDesktop().browse(URI(url)) }
+}
+
+@Composable
+actual fun rememberShare(): (String) -> String? = remember {
+    { text ->
+        Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(text), null)
+        "Copied. Paste it into a message to them."
+    }
 }
