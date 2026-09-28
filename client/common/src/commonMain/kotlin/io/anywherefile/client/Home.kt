@@ -82,22 +82,9 @@ fun Home(
     }
 }
 
-// The devices on their own, for the screen that has to explain the local network
-// permission first and still wants to show whatever has turned up underneath.
-@Composable
-fun DeviceRows(
-    devices: Devices,
-    onOpen: (Device, String) -> Unit = { _, _ -> },
-    modifier: Modifier = Modifier,
-) {
-    LazyColumn(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        deviceItems(devices, onOpen)
-    }
-}
-
 // Whatever the list of devices is right now: the cards, or the one line that stands in for
-// them while there are none.
-private fun LazyListScope.deviceItems(
+// them while there are none. The local network permission screen lists them too.
+fun LazyListScope.deviceItems(
     devices: Devices,
     onOpen: (Device, String) -> Unit,
 ) {

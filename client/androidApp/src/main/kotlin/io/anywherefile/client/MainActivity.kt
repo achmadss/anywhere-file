@@ -9,10 +9,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -124,27 +124,32 @@ private fun LocalNetworkGate(
     onManage: (RemoteDevice) -> Unit,
     onOpen: (Device, String) -> Unit,
 ) {
-    Column(
-        Modifier.safeDrawingPadding().fillMaxSize().padding(24.dp),
+    // One list that scrolls, so the code field at the bottom stays reachable however many
+    // PCs are above it.
+    LazyColumn(
+        Modifier.safeDrawingPadding().fillMaxSize(),
+        contentPadding = PaddingValues(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Devices on this network", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            "anywhere-file finds your devices by asking this network which of them are running it too. Android checks with you first.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Button(onClick = onAsk) { Text("Allow") }
-        if (denied) {
+        item { Text("Devices on this network", style = MaterialTheme.typography.headlineSmall) }
+        item {
             Text(
-                "Without it, you can still pick one device at a time from Android's own list.",
+                "anywhere-file finds your devices by asking this network which of them are running it too. Android checks with you first.",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Button(onClick = onPick) { Text("Choose a device") }
         }
-        // The list of PCs on this network takes what the rest leaves, so the account and its
-        // PCs below it stay on the screen.
-        if (devices.found.isNotEmpty()) DeviceRows(devices, onOpen, Modifier.weight(1f, fill = false))
-        AccountCard(session, onSignIn)
-        RemoteDevices(session, onManage)
+        item { Button(onClick = onAsk) { Text("Allow") } }
+        if (denied) {
+            item {
+                Text(
+                    "Without it, you can still pick one device at a time from Android's own list.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            item { Button(onClick = onPick) { Text("Choose a device") } }
+        }
+        if (devices.found.isNotEmpty()) deviceItems(devices, onOpen)
+        item { AccountCard(session, onSignIn) }
+        item { RemoteDevices(session, onManage) }
     }
 }

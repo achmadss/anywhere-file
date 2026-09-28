@@ -299,8 +299,15 @@ class Session(private val store: SessionStore, private val address: ServerAddres
     // refresh asks for the list again. A session the server has ended is noticed here too, and
     // handled the way resume handles it.
     override suspend fun refresh() {
-        val listed = ControlPlane(server).devices(held())
-        if (listed == null) {
+        val asked = held()
+        val plane = ControlPlane(server)
+        val listed = plane.devices(asked)
+        // A session resume kept without reaching the server has no address yet, and the manage
+        // screen needs it to know which person is you.
+        val who = if (listed != null && email == null) plane.me(asked) else email
+        // A sign out or a new sign in while this waited makes the answer someone else's.
+        if (token != asked) return
+        if (listed == null || who == null) {
             store.forget()
             token = null
             email = null
@@ -308,6 +315,7 @@ class Session(private val store: SessionStore, private val address: ServerAddres
             trouble = "That session ended. Sign in again."
             return
         }
+        email = who
         remote = listed
     }
 
