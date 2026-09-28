@@ -82,9 +82,9 @@ Keep these words. They are already in the app's copy.
 | "Can't reach right now" | Neither path works: the PC is off, asleep, or not connected. |
 | "Checking…" | The app is still finding out. |
 | account | Email and password on our server. |
-| admin, shown as "Manages it" / "You manage it" | May see who can reach the PC, remove people and invite people. |
-| guest, shown as "Guest" | May reach the PC's folders. Sees no management. |
-| invitation code, "code" | One-time secret an admin makes and sends to someone. |
+| admin | The one account signed in on the PC's settings page. A PC has exactly one. May see who can reach the PC, remove people, invite people and remove the PC. Its PCs show under "Your devices". |
+| guest | Everyone else who can reach the PC, through an invitation code. May reach the PC's folders and leave. Its PCs show under "Shared with you". |
+| invitation code, "code" | One-time secret an admin makes and sends to someone. It always makes a guest. |
 | (never shown) "online", "LAN", "relay", "tunnel", "direct" | Technical words. Do not use them in the UI. The reach labels above replace them. |
 | fingerprint | A short text form of the PC's identity, like `SHA256:q3v...`. The same text the PC prints with `agent key`. Used to check the PC is the real one. |
 
@@ -134,7 +134,7 @@ No display name, no avatar, no "last active", no "invited by".
 | Field | Example |
 |---|---|
 | code | `BOBIEyhfUSwH8MUL8nl42HMQKuAmgoWlMdKlKrRvIZ0` (43 characters) |
-| role | guest or admin |
+| role | guest. The server still accepts admin today; that goes (#191). |
 | until | a date and time |
 
 The code is shown **once**, right after it is made. The server keeps only a hash. There is no
@@ -187,12 +187,32 @@ Home ──► File browser ──► (Search, PLANNED #164)
   └──► Account (NEW) ──► Sign in
                      └──► About (NEW)
 
-Android 17+ only: Local network permission ──► Home
+First launch only: Onboarding (5.0) ──► Home
 ```
 
-### 5.1 Local network permission (Android 17 and later only) `BUILT`
+### 5.0 Onboarding `NEW`
 
-Shown instead of Home until the person allows local network access.
+Shown on the first launch only. Later launches open Home. Every step has one main button;
+a second button appears only when the step has a real second choice. Step dots sit at the top.
+
+1. Welcome: "Your PC's folders, on your phone". Text: "Open, save and send the files in the
+   folders you share on your PC. At home over your Wi-Fi. Away from home with an account."
+   Button "Get started".
+2. "First, set up your PC": three numbered steps (go to productname.example/download, install
+   "Share this PC", open it and pick the folders to share). Under them "Not at your PC right
+   now? Send the link to yourself and open it there." with a "Send the link" button that
+   opens Android's share sheet. Button "My PC is ready".
+3. Android 17 and later only: the local network ask from 5.1. Older Android skips it.
+4. "Reach your PCs from anywhere": "Sign in to open your PCs when you are away from home. On
+   your own Wi-Fi you don't need an account." Buttons "Sign in" (opens 5.3) and
+   "Skip for now" (opens Home).
+
+### 5.1 Local network permission (Android 17 and later only) `BUILT`, `NEW` placement
+
+Step 3 of onboarding (5.0). Heading "Find your PCs on this Wi-Fi", one button "Allow" that opens
+Android's own prompt. No "Not now": Android's prompt already lets the person say no. If the
+person refuses, the screen adds the line below and "Choose a PC", and the main button becomes
+"Continue". The copy below is the built text.
 
 - Heading: "Devices on this network"
 - Text: "anywhere-file finds your devices by asking this network which of them are running it
@@ -210,13 +230,19 @@ Shown instead of Home until the person allows local network access.
 One list of devices. There are no "On this network" and "Away from home" sections. Each
 device appears once, and its card says how the app reaches it right now.
 
-1. Title row: "anywhere-file", then two icons at the end: Refresh, and Account (opens 5.8).
+1. Title row: the product name, then the Account icon (opens 5.8). No Refresh icon on the
+   phone: pull the list down to refresh. The desktop keeps a Refresh icon.
 2. `NEW`: when a newer version is out, a banner under the title: "Version {x} is available."
    with a button "Download" that opens the website's download page in the browser, and a
    way to dismiss it until the next version. No automatic install. The app asks the website
    for the latest version number when Home opens.
-3. Device cards, or one of the empty states.
-4. Signed in: a button "Join with a code" under the list (opens 5.2.3).
+3. Device cards in three groups, or one of the empty states:
+   - "Your devices": PCs this account is the admin of.
+   - "Shared with you": PCs this account is a guest on.
+   - "Nearby": PCs found on the Wi-Fi that are not on this account.
+4. Signed in: a floating button "Join with a code" at the bottom right (opens 5.2.3). It is
+   the only way a guest adds a PC, and it stays in reach however long the list is. Hidden
+   when signed out, and while the server does not answer, because joining needs both.
    Signed out: a line "Sign in to reach your devices over the internet." and a button
    "Sign in".
 
@@ -229,10 +255,10 @@ Two sources, joined by the device ID (the same PC has the same ID in both):
 - Devices on the account, from the server. Signed in only. Fetched when Home opens and on
   Refresh. Not live.
 
-A device found on the Wi-Fi that is not on the account still shows. It has no role line.
+A device found on the Wi-Fi that is not on the account still shows, under "Nearby".
 
-Order: "On your Wi-Fi" first, then "Over the internet", then "Can't reach right now". By name
-inside each group.
+Inside each group: "On your Wi-Fi" first, then "Over the internet", then "Can't reach right
+now". By name inside each.
 
 #### 5.2.2 Device card
 
@@ -249,46 +275,57 @@ A separate error state, whatever the path:
 
 | State | Look | Text |
 |---|---|---|
-| Refused | Error colour, warning icon instead of the computer icon, no tiles | "Not the device it says it is." and under it the reason, e.g. "This did not prove it is 4f3a1b2c, so it is a different device." |
+| Refused | Error colour, warning icon instead of the computer icon, no tiles | "Can't confirm it's this PC" and under it "Another device on this Wi-Fi uses this name. To keep your files safe, ProductName won't connect to it." |
 
 Under the name and the reach label:
 
-- Role line, for devices on the account only: "You manage it" or "Guest".
-- "1 shared folder", "N shared folders", or "Nothing shared yet".
-- One tile per shared folder: folder icon and name. Tapping a tile opens the File browser.
-- For a device on your Wi-Fi: the address, in small text, e.g. `192.168.1.20:7433`. It tells
-  two same-named PCs apart.
+- One row per shared folder: folder icon and name. Tapping it opens the File browser.
+  "Nothing shared yet" when there are none. No folder count: the rows are the count.
+- No role line and no address. The group heading says whose PC it is.
 
-Admins: a "Manage" text button on the card opens Manage device (5.4). Guests and devices not
-on the account have none.
+A three-dot menu on the card, for PCs on the account:
 
-Colour: a card that can be opened now is filled with the accent colour. The others stay
-quiet. The label and the dot say the same thing as the colour, so colour is never the only
-signal.
+- Admin: "Manage access" (opens 5.4) and "Remove this PC". Remove asks first, in a dialog:
+  "Remove pc1 for everyone?", "Everyone who can reach pc1 loses access, including your 2
+  guests. If pc1 comes back online, it signs out. To add it again, sign in on its settings
+  page.", buttons "Cancel" and "Remove for everyone" (#189). It is on every admin card: a PC
+  that can't be reached may only be switched off, so the app can't tell a gone PC apart.
+- Guest: "Leave this PC". Asks first: "Leave office-pc?", "You won't be able to open its
+  folders. To come back, you need a new code from the person who shared it.", buttons
+  "Cancel" and "Leave" (#188).
 
-`NEW` First contact (#162 asked for it, the build dropped it): the first time this app sees a
-PC on the Wi-Fi, show its fingerprint on the card with a short hint to compare it with what the
-PC shows (`agent key` in a terminal on the PC). On a device seen before, the fingerprint is
-behind a tap.
+Colour: every card has the same quiet surface. Only the icon circle and the reach label
+change colour, and the refused card uses the error colour, so a problem stands out. The
+label and the dot say the same thing as the colour, so colour is never the only signal.
+
+`NEW` First contact (#176): the first time this app sees a PC, the card shows "First time on
+this PC. Make sure it's yours before you open files." above the folders, with a "Compare codes"
+button. It opens a bottom sheet with the fingerprint in large grouped text and "Open ProductName
+on this PC. It shows a code under "This PC". If it is not the same as the code below, don't
+open files on it." The sheet has no buttons; swipe down or go back to close it. On a PC seen
+before, the same sheet opens from the card menu.
 
 Empty states:
 
 - First 5 seconds, nothing found yet: spinner and "Looking…"
-- After 5 seconds, nothing found and nothing on the account: "No devices yet. One shows up
-  here when anywhere-file is running on it and it is on this network."
-- Server did not answer: an error line in error colour above the list, e.g. "The server did
-  not answer." Devices on the Wi-Fi still show.
+- After 5 seconds, nothing found and nothing on the account: title "No PCs found yet", text
+  "Check that ProductName is running on your PC, and that your phone is on the same Wi-Fi.",
+  a link "Get ProductName for your PC", and when signed out the sign-in line.
+- Server did not answer: a banner above the list, "Can't reach the server right now. You can
+  still open PCs on this Wi-Fi." with "Try again". Devices on the Wi-Fi still show.
 
 #### 5.2.3 Join with a code dialog `BUILT` behaviour, `NEW` placement
 
-- Title: "Join with a code"
-- Text: "Got a code from someone? It lets you reach their PC."
+Opened from the floating button on Home.
+
+- Title: "Join a PC with a code"
+- Text: "Got a code from someone? Type it here to reach their PC."
 - Field: "Invitation code"
 - Buttons: "Cancel", "Join". Join is disabled while the field is empty.
 - While sending: a thin progress bar.
-- On success: the dialog closes and the list refreshes. The new device appears with the role
-  the code carried.
-- On failure: the server's message, e.g. "invite invalid, expired or used".
+- On success: the dialog closes and the list refreshes. The PC appears under "Shared with you".
+- On failure, under the field in error colour: "This code is wrong, expired or already used.
+  Ask the person who shared it for a new one."
 
 ### 5.3 Sign in `BUILT`
 
@@ -327,8 +364,7 @@ Progress bar and error line at the top when needed.
 One row per person:
 
 - Email
-- "Manages it" or "Guest"
-- At the end: "You" for the signed-in person, otherwise a text button "Remove"
+- The admin's row says "You". Everyone else is a guest and has a text button "Remove".
 
 Remove opens a dialog:
 
@@ -336,14 +372,11 @@ Remove opens a dialog:
 - Text: "They lose access to pc1 straight away. A new code brings them back."
 - Buttons: "Cancel", "Remove"
 
-If this would remove the last admin, the server refuses with "a device keeps at least one
-admin". The app does not offer to remove yourself.
-
-There is no way to change someone's role. To change it, remove them and invite them again.
+The admin cannot remove themselves here. To give the PC to someone else, sign out on the PC's
+settings page and let them sign in there.
 
 **Invite someone**
 
-- "They join as": two chips, "Guest" (default) and "Admin"
 - "The code works once, for": three chips, "1 hour", "1 day" (default), "7 days". The server
   allows 7 days at most.
 - Button: "Make a code"
@@ -697,7 +730,7 @@ Each step names the surface. Every step is supported by the system as described.
 2. The page shows a code and opens `/approve` in a new tab.
 3. Website: sign in if needed, then "Approve".
 4. Settings page changes to "This PC belongs to the account at …".
-5. App, Home: after Refresh the PC shows "You manage it". Away from the Wi-Fi it says
+5. App, Home: after a refresh the PC shows under "Your devices". Away from the Wi-Fi it says
    "Over the internet".
 
 A PC with no screen: the agent prints the link and code in the terminal. The person opens the
@@ -705,11 +738,11 @@ link on their phone's browser and approves there.
 
 ### F4. Invite someone `BUILT`
 
-1. Admin, app, Home: "Manage" on the PC's card. Manage device opens.
-2. Choose "Guest" and "1 day", "Make a code", "Share". Send it by any app.
+1. Admin, app, Home: card menu, "Manage access". Manage device opens.
+2. Choose "1 day", "Make a code", "Share". Send it by any app.
 3. Guest, app: sign in (make an account first if needed, F2).
-4. Guest, Home: paste the code in "Got a code from someone?", "Join".
-5. The PC appears on the guest's list with "Guest" and "Over the internet".
+4. Guest, Home: "Join with a code", paste the code, "Join".
+5. The PC appears on the guest's list under "Shared with you", "Over the internet".
 
 ### F5. Remove someone `BUILT`
 
@@ -770,7 +803,7 @@ link on their phone's browser and approves there.
 - Storage used, disk space, quotas
 - Device details: OS, model, battery, last seen, IP change history
 - Profile pictures, display names, a profile screen
-- Changing someone's role (remove and invite again instead)
+- Roles beyond one admin per PC: no second admin, no "make admin", no role picker
 - A list of open invitations, or cancelling one
 - Push notifications (only Android's own transfer notification, #156)
 - Chat, comments, activity feed, audit log view
@@ -857,12 +890,27 @@ are not described above yet; design them from the issues.
 
 | Area | Issue | Number |
 |---|---|---|
-| client | A PC that speaks another version shows, with which side to update | #184 |
+| client and agent | Keep working across versions; newer features switch on when both sides have them | #184 |
 | agent | The settings page opens when the install finishes | #185 |
 | website | The approve page links to sign up and password reset, and comes back | #186 |
 | client | An invitation message that works for someone new | #187 |
 | cloud and client | A guest leaves a PC ("Leave this PC" on the card) | #188 |
-| cloud, client and agent | An admin removes a PC they no longer have ("Remove from my account") | #189 |
+| cloud, client and agent | An admin removes a PC they no longer have ("Remove this PC") | #189 |
 | agent | The settings page shows its version and says when a newer one is out | #190 |
 
 #142, #159 and #160 (the macOS menu bar item and the Windows tray icon) are P1.
+
+Changed later on 2026-09-28 while designing in Figma. The Figma design is the reference for
+layout; this file is the reference for behaviour and copy.
+
+- Home groups PCs by who owns them: "Your devices", "Shared with you", "Nearby". No role line,
+  no address, no folder count on a card (#174).
+- One admin per PC, the account signed in on it. Everyone else is a guest. Invitation codes
+  only make guests (#191).
+- The card's three-dot menu holds "Manage access" and "Remove this PC" for the admin, "Leave
+  this PC" for a guest. Both ask first (#188, #189).
+- "Join with a code" is a floating button, signed in only (#174).
+- First contact shows a "Compare codes" bottom sheet (#176).
+- No "needs an update" card. The old protocol stays supported, and a newer feature switches
+  on only when both sides support it (#184, rewritten).
+- Onboarding on the first launch (5.0), with the local network ask as its third step (#192).
