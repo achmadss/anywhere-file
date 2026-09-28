@@ -54,6 +54,11 @@ install_it
 up
 first=$(device_id)
 echo "device id: $first"
+# #96: the certificate on the LAN is the one the device key signed. Linux only, as it
+# always was.
+if [ "$(uname -s)" = Linux ]; then
+	AGENT="$agent" "$root/.github/scripts/lan-tls.sh"
+fi
 # The package puts dufs where the agent can find it without a PATH, which is what a
 # registry entry saying `dufs` depends on.
 "$dufs" --version
