@@ -336,6 +336,13 @@ Empty states:
   only the Account icon.
 - Server did not answer: a notice card at the top, "Can't reach the server right now. You can
   still open devices on this Wi-Fi." with "Try again". Devices on the Wi-Fi still show.
+- `NEW` Nearby devices turned off (Android 17 and later, for example turned off later in
+  Android's settings): a notice card at the top, "ProductName can't find devices on this Wi-Fi
+  until you allow it to find nearby devices." with "Allow". After two refusals the card shows
+  "How to allow it" (Help at "Allow nearby devices") and "Open settings" instead. Devices the
+  account can reach over the internet still show. Once allowed, the card goes and devices on
+  the Wi-Fi show under Nearby. Signed out with nothing found, the card sits above the empty
+  state.
 
 #### 5.2.3 Joining a device `NEW` (#187)
 
@@ -1106,3 +1113,4 @@ Changed on 2026-09-29 from comments on the Figma page "Akdes New".
 - The join page is centred top to bottom, shows nothing about the invite until the person
   signs in, and says "Accept invite" (#194).
 - The empty Home has one text button, "How to set up your device" with the help icon, in place of "Get ProductName for your device" and the "?" in the top bar. The Help steps start with getting the app, so one button covers both.
+- When nearby devices are turned off after onboarding, Home shows a notice card with the same buttons as onboarding. Devices over the internet keep working, so Home stays usable while the card says why the Wi-Fi ones are missing.
