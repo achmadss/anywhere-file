@@ -104,7 +104,7 @@ Only these fields exist. Do not add fields that are not in these tables.
 | confirmed | yes / no | "No" while the app is still checking the PC. |
 | refused | `This did not prove it is 4f3a1b2c, so it is a different device.` | Set when the PC failed the identity check. The card must show this text. |
 | first contact | yes / no | Yes when this app has never seen this PC before. |
-| fingerprint | `SHA256:q3vX...` (43 characters after the prefix) | Always derivable. Show it on first contact, behind a tap otherwise (#162). |
+| fingerprint | `SHA256:q3vX...` (43 characters after the prefix) | Always derivable. Shown behind "Show code" in the device sheet (#176). |
 
 There is no OS, no icon, no disk size, no "last seen" time, no owner name.
 
@@ -164,7 +164,7 @@ extension), no owner, no permissions per file, no preview.
 | server address | Built in (`NEW`). Can be changed behind "Use a different server". Starts with `http://` or `https://`. |
 | email | Known once the server answered. |
 | signed in | yes / no |
-| ready | No while the app checks a saved session at start. Show a neutral state, not "signed out". |
+| session | `NEW`: stays signed in until the person signs out. The app renews the sign-in in the background with a refresh token, and for now that token never runs out. There is no "checking" or "session ended" screen. If the server refuses the token (password reset, account deleted), the app is simply signed out. |
 | trouble | Last error, in words. |
 | caveat | A sentence shown when the session is stored in a plain file because the system has no keychain. |
 
@@ -180,11 +180,11 @@ it with a back arrow (and the Android back gesture). There is no bottom bar, no 
 tabs.
 
 ```text
-Home ──► File browser ──► (Search, PLANNED #164)
+Home ──► Device (NEW) ──► File browser ──► (Search, PLANNED #164)
   │
-  ├──► Manage device (admins only)
+  ├──► Device sheet (NEW) ──► Manage device (admins only)
   │
-  └──► Account (NEW) ──► Sign in
+  └──► Account (NEW) ──► Sign in ──► Create an account (NEW)
                      └──► About (NEW)
 
 First launch only: Onboarding (5.0) ──► Home
@@ -203,34 +203,33 @@ Every step uses the same screen:
 - Under them, one rounded box (surface container high) with the step's content.
 - At the bottom, above a thin line, one full-width filled button: "Next", and "Get started" on
   the last step. Next is never greyed out, because no step is required.
-- Buttons inside the box are tonal. They do an optional side job.
+- Buttons inside the box do an optional side job, so they are quieter than the filled button:
+  tonal, or outlined for a second choice.
 - No step dots and no Skip. The back gesture goes one step back.
 
-Steps:
+Two steps:
 
 1. Set up your device. "On the device that has your files: 1. Go to
    productname.example/download 2. Install "Share this PC" 3. Open it and pick the folders to
    share". Then a divider, "Not at your device right now? Send the link to yourself and open it
    there." and a tonal button "Send the link" that opens Android's share sheet.
-2. Android 17 and later only: find devices on this Wi-Fi (5.1). Older Android skips it.
-3. Account. "Have an account? Sign in to open your devices when you are away from home. On your
-   own Wi-Fi you don't need one." and a tonal "Sign in" (opens 5.3, then comes back here). A
-   divider, then "No account yet? Make one on the website, then sign in here." and a tonal
-   "Create an account" with the open-in-new icon (opens the website's sign-up page). After
-   sign-in the box shows a row "Signed in", "As ewa@example.com. You can open your devices from
-   anywhere." with a check. The bottom button is "Get started" and opens Home.
+2. Wi-Fi and account, on one screen. At the top of the box, Android 17 and later only, the
+   Wi-Fi row (5.1), then a divider. Older Android hides the row and the divider. Then "Sign in
+   to open your devices when you are away from home. On your own Wi-Fi you don't need an
+   account.", a tonal "Sign in" (opens 5.3) and an outlined "Create an account" (opens 5.3.1).
+   When either one works, the app goes straight to Home, with no signed-in step. The bottom
+   button is "Get started" and opens Home, signed in or not.
 
 ### 5.1 Local network permission (Android 17 and later only) `BUILT`, `NEW` placement
 
-Step 2 of onboarding (5.0). The box holds one list row, as TachiyomiSY shows its permissions:
+The top of onboarding step 2 (5.0). One list row, as TachiyomiSY shows its permissions:
 
 - Title: "Find devices on this Wi-Fi"
 - Line: "ProductName asks this Wi-Fi which of your devices run it. Android checks with you first."
 - Trailing: an outlined button "Allow". It opens Android's own prompt. No "Not now": Android's
   prompt already lets the person say no.
 - Allowed: a check in the primary colour replaces the button.
-- Refused: under a divider, "Without it, you can still pick one device at a time from Android's
-  own list." and a tonal button "Choose a device" that opens Android's system device picker.
+- Refused: nothing changes. The row keeps its "Allow" button, and "Get started" still works.
 
 ### 5.2 Home `NEW` layout, built on `BUILT` data
 
@@ -239,24 +238,19 @@ device appears once, and its card says how the app reaches it right now.
 
 1. Title row: the product name, then the Account icon (opens 5.8). No Refresh icon on the
    phone: pull the list down to refresh. The desktop keeps a Refresh icon.
-2. `NEW`: when a newer version is out, a notice card at the top of the list: "Version {x} is
-   available." with text buttons "Later" (hides it until the next version) and "Download"
-   (opens the website's download page in the browser). No automatic install. The app asks the
-   website for the latest version number when Home opens.
-3. Device cards in three groups, or one of the empty states:
+2. Device cards in three groups, or one of the empty states:
    - "Your devices": PCs this account is the admin of.
    - "Shared with you": PCs this account is a guest on.
    - "Nearby": PCs found on the Wi-Fi that are not on this account.
-4. `NEW` (#187): no join button. A guest joins a PC from the invite link in a browser (7.7),
+3. `NEW` (#187): no join button. A guest joins a PC from the invite link in a browser (7.7),
    and the PC shows under "Shared with you" at the next refresh.
-   Signed out: a notice card at the end of the list, "Sign in to reach your devices over the
-   internet." with a text button "Sign in". It sits at the end because Home works without an
-   account.
 
-Notice card: one part for everything Home needs to tell the person. A rounded card (surface
-container high) with a leading icon, one line of text and text buttons on the right under it.
-Notices that change what works now (update, server did not answer, session ended) sit at the
-top of the list. The sign-in offer sits at the end.
+`NEW`: Home has no update notice and no sign-in notice. Updates live in About (5.7), and
+signing in lives in Account (5.8). Home stays about devices.
+
+Notice card: the one notice Home still has is "server did not answer" (below). A rounded card
+(surface container high) with a leading icon, one line of text and a text button on the right
+under it, at the top of the list.
 
 #### 5.2.1 How the list is built
 
@@ -280,56 +274,65 @@ Top of the card: computer icon, name, and the reach label with a small dot.
 |---|---|---|---|
 | "On your Wi-Fi" | Found on the network and it proved who it is. The app talks to it directly. Wins when both paths work. | filled | Yes, directly `BUILT` |
 | "Over the internet" | On the account, the server says it is connected, and it is not on this network. | filled | Yes, through the server `PLANNED #103` |
-| "Can't reach right now" | On the account, not connected to the server, and not on this network. | hollow | No. Folder rows are shown but disabled. |
+| "Can't reach right now" | On the account, not connected to the server, and not on this network. | hollow | No. The device screen opens, with its folder rows disabled. |
 | "Checking…" | Just found on the network and still being checked, or the server list is still loading. | dotted | Not yet |
 
 A separate error state, whatever the path:
 
 | State | Look | Text |
 |---|---|---|
-| Refused | Error colour, warning icon instead of the computer icon, no folder rows | "Can't confirm it's this device" and under it "Another device on this Wi-Fi uses this name. To keep your files safe, ProductName won't connect to it." |
+| Refused | Error colour, warning icon instead of the computer icon. It can't be opened. | "Can't confirm it's this device" and under it "Another device on this Wi-Fi uses this name. To keep your files safe, ProductName won't connect to it." |
 
-Under the name and the reach label:
+`NEW`: the card holds only the icon, the name, the reach label and the three dots. No folders,
+no role line, no address. The group heading says whose PC it is. A short card keeps Home
+readable with many devices, and a device with many folders doesn't push the others down.
 
-- One list row per shared folder, inside the card and as wide as it: folder icon, name and a
-  chevron. Tapping it opens the File browser. The rows have no card of their own. "Nothing
-  shared yet" when there are none. No folder count: the rows are the count.
-- No role line and no address. The group heading says whose PC it is.
+Tapping a card opens the device screen:
 
-A three-dot menu on the card, for PCs on the account:
+- Top bar: back arrow, the device name as the title, the reach label under it, and the three
+  dots on the right (the same sheet as on Home).
+- One list row per shared folder: folder icon, name and a chevron, lined up under the back
+  arrow. Tapping a row opens the File browser. A long list scrolls. "Nothing shared yet" when
+  there are none.
 
-- Admin: "Manage access" (opens 5.4) and "Remove this device". Remove asks first, in a dialog:
-  "Remove pc1 for everyone?", "Everyone who can reach pc1 loses access, including your 2
-  guests. If pc1 comes back online, it signs out. To add it again, sign in on its settings
-  page.", buttons "Cancel" and "Remove for everyone" (#189). It is on every admin card: a PC
-  that can't be reached may only be switched off, so the app can't tell a gone PC apart.
-- Guest: "Leave this device". Asks first: "Leave office-pc?", "You won't be able to open its
-  folders. To come back, you need a new link from the person who shared it.", buttons
-  "Cancel" and "Leave" (#188).
+The three dots open a bottom sheet (`NEW`, in place of a dropdown menu):
+
+- At the top, the same device card, without the three dots, so the person sees which device
+  they act on.
+- Then list rows with leading icons:
+  - Admin: "Show code", "Manage access" (opens 5.4) and "Remove".
+  - Guest: "Show code" and "Remove".
+  - A nearby device that is not on the account: "Show code" only.
+- The sheet has room for more device actions later.
+- Admin "Remove" asks first, in a dialog: "Remove pc1 for everyone?", "Everyone who can reach
+  pc1 loses access, including your 2 guests. If pc1 comes back online, it signs out. To add it
+  again, sign in on its settings page.", buttons "Cancel" and "Remove for everyone" (#189). It
+  is on every admin card: a PC that can't be reached may only be switched off, so the app
+  can't tell a gone PC apart.
+- Guest "Remove" asks first: "Remove office-pc?", "You won't be able to open its folders. To
+  come back, you need a new link from the person who shared it.", buttons "Cancel" and
+  "Remove" (#188). The menu says "Remove" in both cases, and the dialog says what happens.
 
 Colour: every card is a filled card with the same quiet surface (surface container highest,
 12 px corners). Only the icon circle and the reach label
 change colour, and the refused card uses the error colour, so a problem stands out. The
 label and the dot say the same thing as the colour, so colour is never the only signal.
 
-`NEW` First contact (#176): the first time this app sees a PC, the card shows "First time on
-this device. Make sure it's yours before you open files." above the folders, with a "Compare codes"
-button. It opens a bottom sheet with the fingerprint in large grouped text and "Open ProductName
-on that device. It shows a code under "This PC". If it is not the same as the code below, don't
-open files on it." The sheet has no buttons; swipe down or go back to close it. On a PC seen
-before, the same sheet opens from the card menu.
+`NEW` Show code (#176): "Show code" in the sheet opens a second bottom sheet, "Compare codes",
+with the fingerprint in large grouped text and "Open ProductName on that device. It shows a
+code under "This device". If it is not the same as the code below, don't open files on it."
+The sheet has no buttons; swipe down or go back to close it. The card shows no first-contact
+line: most people never check the code, so it waits in the sheet until someone wants it.
 
 Empty states:
 
 - First 5 seconds, nothing found yet: a centred spinner and "Looking for devices on this Wi-Fi…"
 - After 5 seconds, nothing found and nothing on the account, centred: a computer icon, title "No
   devices found yet", text "Check that ProductName is running on your device, and that your
-  phone is on the same Wi-Fi.", a text button "Get ProductName for your device" with the
-  open-in-new icon. When signed out, the sign-in notice card at the bottom.
+  phone is on the same Wi-Fi." (every line centred), a text button "Get ProductName for your
+  device" with the open-in-new icon.
 - Server did not answer: a notice card at the top, "Can't reach the server right now. You can
   still open devices on this Wi-Fi." with "Try again". Devices on the Wi-Fi still show.
-- Session ended: a notice card at the top, "That session ended. Sign in again to reach your
-  devices over the internet." with "Sign in", and the dot on the Account icon.
 
 #### 5.2.3 Joining a device `NEW` (#187)
 
@@ -355,13 +358,48 @@ Top bar: back arrow, title "Sign in".
   - "The address has to start with http:// or https://."
   - "Only the address goes here, with nothing after it."
 - Button "Sign in", full width. Disabled until email and password are filled.
-- Text button "Create an account", at the bottom. Opens the website's signup page in the system browser.
-- Text button "Forgot your password?", under "Sign in". Opens the website's reset page in the system browser.
+- `NEW`: an outlined button "Create an account", full width, right under "Sign in". It opens
+  5.3.1 in the app.
+- Text button "Forgot your password?", under "Create an account", with the open-in-new icon.
+  Opens the website's reset page in the system browser.
 
-On success the screen closes and Home shows the signed-in account.
+On success the screen closes and the person is back where they came from (Home or
+onboarding).
 
-There is no sign-up form, no password reset form, no "remember me", no social login and no
-two-factor step in the app.
+There is no password reset form, no "remember me", no social login and no two-factor step in
+the app.
+
+#### 5.3.1 Create an account `NEW`
+
+Top bar: back arrow, title "Create an account".
+
+- Text: "Make an account to reach your devices from anywhere."
+- Fields "Email" and "Password" (with the eye icon), the same outlined fields as Sign in.
+- Button "Create account", full width. The same progress bar and greyed-out fields while it
+  works.
+- Errors under the field they belong to, e.g. "An account with this email already exists."
+  (only for an active account) or "Use at least 12 characters."
+
+"Create account" makes the account at once. The server stores the email and the password
+hash with the account marked as not active yet, and emails a 6 digit code to that address.
+The code screen opens.
+
+Code screen: top bar "Check your email".
+
+- Text: "We sent a code to ana@example.com. Type it here to finish making your account."
+- Field "Code", the same outlined field.
+- Button "Activate account", full width.
+- Text button "Resend code". It emails a new code, and the old one stops working. After each
+  email it is greyed out for 60 seconds with a countdown, "Resend code in 0:42". The server
+  refuses a resend inside those 60 seconds too, so the limit holds without the app.
+- A wrong or old code: "That code doesn't work." under the field.
+
+A right code turns the account active and signs the app in. All the screens close and the
+person is back where they came from.
+
+An account that is not active can't sign in or be invited. Signing in to it with the right
+password opens the code screen, with a new code sent. "Create account" again with the same
+email while it is not active replaces the password and sends a new code.
 
 ### 5.4 Manage device (admins only) `BUILT`
 
@@ -521,7 +559,7 @@ new from the system.
 | device offline | "Can't reach right now." The PC may be off or asleep. |
 | not found | You can no longer reach this, or the folder is gone. |
 | subscription inactive | The owner's subscription is not active. |
-| unauthorized | "That session ended. Sign in again." |
+| unauthorized | The app is signed out (F7). The browser goes back to the device screen. |
 
 The server gives no more detail than that on purpose.
 
@@ -543,29 +581,36 @@ old account card on Home held.
 
 | State | Text | Action |
 |---|---|---|
-| Checking saved session | A spinner and "Checking your account…" | none |
 | Signed out | Title "Not signed in", then "On your own Wi-Fi you don't need an account. To reach your devices from anywhere, sign in." | Button "Sign in", full width (opens 5.3) |
 | Signed in | The email as the title, then "Signed in. You can reach your devices from anywhere." | Row "Sign out" |
 | Signed in, server not answered | The email as the title, then "Signed in. The server has not answered yet." | Row "Sign out" |
 
-Under the text, when set: the trouble line in error colour (e.g. "That session ended. Sign in
-again.") and the caveat line in muted colour.
+`NEW`: no "checking your account" and no "session ended" state. A sign-in lasts until the
+person signs out (4.6).
+
+Under the text, when set: the caveat line in muted colour.
 
 Under that: a row "About ProductName" with the line "Version 1.4.0, help, privacy and terms"
 that opens 5.7, then the "Sign out" row with the line "Devices on your Wi-Fi keep working" when
 signed in. Each row has a leading icon in the primary colour and a one-line summary, as in
 TachiyomiSY's More screen. Sign out has no confirm step: signing in again undoes it.
 
-The Account icon on Home can show a small dot when there is trouble to read, e.g. the session
-ended. That is the only badge in the app.
+The Account icon on Home has no badge.
 
 ### 5.7 About `NEW`
 
-Opened from the Account screen. Top bar: back arrow, title "About".
+Opened from the Account screen. Top bar: back arrow, title "About". A plain list with no
+header and no leading icons:
 
-- App name and version, e.g. "ProductName 1.4.0"
-- The update state: "You have the latest version." or the same "Version {x} is available."
-  and a tonal button "Download" that opens the website's download page
+- "Check for updates", with the version under it, e.g. "Version 1.4.0". Tapping it:
+  - While it checks, the line says "Checking…" and a small circular spinner sits at the end of
+    the row, where the other rows have their icon.
+  - A newer version: a dialog "Version 1.5.0 is out", "You have 1.4.0. Download the new
+    version from productname.example.", text buttons "Later" on the left and "Download" on the
+    right. Download opens the website's download page. Later closes the dialog.
+  - No newer version: the line says "You have the latest version".
+  - The check fails: the line says "Couldn't check. Try again later".
+  The app checks only when asked. No automatic install.
 - Server in use, e.g. "productname.example". Plain text, not editable here.
 - Links that open the browser, each with an "opens outside" icon: Help, Privacy, Terms, Delete
   my account
@@ -731,8 +776,11 @@ button. After success the form is replaced by a message.
 Approve page intro, signed in: "{PC name} is asking to join {email}. Approving lets you reach
 it from away. Only approve it if you just asked this PC to sign in."
 
-Sign up always answers the same, even for an email already taken. Do not design a "this email
-is taken" error.
+`NEW`: sign up uses a code on the website too, the same way as the app (5.3.1). `/signup`
+makes the account, not active yet, and shows a code field with "Activate account" and "Resend
+code" (with the same 60 second wait) in place of "Check your email for a link". The `/verify` link goes. An email that
+already has an active account gets "An account with this email already exists.", as in the
+app.
 
 The packages are not code signed yet (#131). The download page warns that macOS and Windows
 will ask the person to allow the installer.
@@ -747,18 +795,20 @@ it in the address. The page's script reads it and asks the server about it.
 
 Same layout as the account pages (7.6): one column, a title, a line, then the form or
 buttons. The main button sits right under the fields or the text, never pinned to the bottom,
-because the page scrolls and a phone keyboard covers the bottom.
+because the page scrolls and a phone keyboard covers the bottom. `NEW`: that block sits in the
+middle of the page, top to bottom, on every state.
 
-Signed out and signed in start with an invite card: a rounded card with the device icon, the
-device name ("pc1") and "Invited by ana@example.com". The guest checks which device and who
-sent it before anything else. Joined and "doesn't work" start with a large check or error
-icon tile.
+Signed out, the page shows nothing about the invite: no device name and no inviter. It can't
+know yet that the link was meant for this person. Signed in, the block starts with an invite
+card: a rounded card with the device icon, the device name ("pc1") and "Invited by
+ana@example.com", right above the question. Joined and "doesn't work" start with a large check
+or error icon tile.
 
 | State | Title | Text | Buttons |
 |---|---|---|---|
-| Signed out | "Sign in to join pc1" | "Sign in to accept the invite." Fields Email and Password. | "Sign in", then text buttons "Forgot your password?" and "Create an account". Both go to their page and come back to this link (as #186 does for the approve page). |
-| Signed in | "Join pc1?" | "You can open pc1's shared folders as a guest. Only ana@example.com can manage it." and "Signed in as ewa@example.com." | "Join pc1", and a text button "Use another account" that signs out and shows the signed-out state |
-| Joined | "You joined pc1" | "pc1 is under "Shared with you" in ProductName, on any device where you sign in as ewa@example.com." | "Open ProductName" (opens the app on Home through an app link; without the app it lands on the download page), text button "Get the app" |
+| Signed out | "Sign in to see your invite" | "You need an account to accept it." Fields Email and Password. | "Sign in", then text buttons "Forgot your password?" and "Create an account". Both go to their page and come back to this link (as #186 does for the approve page). |
+| Signed in | "Accept the invite to pc1?" | "You can open pc1's shared folders as a guest. Only ana@example.com can manage it." and "Signed in as ewa@example.com." | "Accept invite", and a text button "Use another account" that signs out and shows the signed-out state |
+| Accepted | "Invite accepted" | "pc1 is under "Shared with you" in ProductName, on any device where you sign in as ewa@example.com." | "Open ProductName" (opens the app on Home through an app link; without the app it lands on the download page), text button "Get the app" |
 | Link doesn't work | "This invite link doesn't work" | "It was used, cancelled or is out of date. Ask the person who sent it for a new one." | none |
 
 A wrong password shows "The email or password is wrong." under the password field, as on the
@@ -775,16 +825,19 @@ Each step names the surface. Every step is supported by the system as described.
 3. PC: open the settings page, walk to a folder, "Share this folder".
 4. Phone: download the APK from `/download` ("Reach your devices"), allow the install, open it.
    (Android 17+: allow local network access.)
-5. Phone, Home: the PC appears as "Checking…", then "On your Wi-Fi", filled
-   with the folder row. First time: the fingerprint is shown to compare.
-6. Phone: tap the folder row. File browser opens. Save, send and delete files.
+5. Phone, Home: the PC appears as "Checking…", then "On your Wi-Fi". To compare codes: three
+   dots, "Show code".
+6. Phone: tap the card, then the folder row. File browser opens. Save, send and delete files.
 
-### F2. Make an account and sign in to the app `BUILT`
+### F2. Make an account in the app `NEW`
 
-1. App, Home: "Sign in" under the list (or Account icon, then "Sign in").
-2. Sign in screen: "Create an account". The browser opens `/signup`.
-3. Website: sign up. An email arrives. The link opens `/verify`.
-4. App: type email and password, "Sign in". Home opens with the PCs on the account. The Account screen shows the email.
+1. App: onboarding step 2 or the Account screen, then "Create an account" (from Account, it
+   sits under "Sign in" on the Sign in screen).
+2. Create an account: type email and password, "Create account". The account exists, not
+   active yet, and an email with a code arrives.
+3. Code screen: type the code, "Activate account". The account is active, the app is signed in
+   and goes back where it came from. The Account screen shows the email. No code: "Resend
+   code".
 
 ### F3. Add a PC to the account `BUILT`
 
@@ -800,13 +853,13 @@ link on their phone's browser and approves there.
 
 ### F4. Invite someone `BUILT`, `NEW` as a link (#187, #193, #194)
 
-1. Admin, app, Home: card menu, "Manage access". Manage device opens.
+1. Admin, app, Home: three dots on the card, "Manage access". Manage device opens.
 2. "Invite links", then "Create". In the link dialog, "Copy link". Paste it into any app. Later, tap the link's row to see it
    and copy it again.
 3. Guest opens the link in any browser. The join page (7.7) asks them to sign in if needed
-   (or make an account and come back), then shows "Join pc1?".
-4. "Join". The page says "You joined pc1" and offers "Open ProductName". In the app, the PC is
-   under "Shared with you", "Over the internet".
+   (or make an account and come back), then shows "Accept the invite to pc1?".
+4. "Accept invite". The page says "Invite accepted" and offers "Open ProductName". In the app,
+   the PC is under "Shared with you", "Over the internet".
 5. The link leaves the admin's Invite links screen.
 
 ### F5. Remove someone `BUILT`
@@ -817,14 +870,15 @@ link on their phone's browser and approves there.
 ### F6. Reach files from outside the house `PLANNED #103`
 
 1. Not on the same Wi-Fi, signed in: Home shows the PC as "Over the internet".
-2. Tap a shared folder on that card. The File browser opens, marked "Remote".
+2. Tap the card, then a shared folder. The File browser opens, marked "Remote".
 3. If the PC is off: the card says "Can't reach right now" and its folder rows are disabled.
 
-### F7. Session ended somewhere else `BUILT`
+### F7. Signed out somewhere else `BUILT`, `NEW` without a message
 
-1. The password was reset on the website, which signs out every session.
-2. App start: the Account icon gets a dot. The Account screen shows "That session ended.
-   Sign in again." and a "Sign in" button. Devices on the Wi-Fi keep working.
+1. The password was reset on the website, which ends every sign-in.
+2. The app's next renewal is refused, and the app is signed out. The Account screen shows
+   "Not signed in" and "Sign in". There is no dot and no "session ended" message. Devices on
+   the Wi-Fi keep working.
 
 ### F8. Take a PC off the account `BUILT`
 
@@ -835,12 +889,12 @@ link on their phone's browser and approves there.
 ### F9. A PC that is not what it claims `BUILT`
 
 1. Something on the network advertises a known PC's identity but cannot prove it.
-2. Home: that card turns to the error colour with a warning icon and the reason. It has no
-   folder rows and cannot be opened.
+2. Home: that card turns to the error colour with a warning icon and the reason. It cannot be
+   opened.
 
 ### F10. Update the app `NEW`
 
-1. App, Home: a notice card "Version {x} is available.", "Download".
+1. App, Account, About: "Check for updates". A dialog says "Version {x} is out". "Download".
 2. Browser: `/download` opens. Download the new APK or desktop app.
 3. Install over the old one. Sign-in and known PCs are kept.
 
@@ -848,13 +902,13 @@ link on their phone's browser and approves there.
 
 1. App, About: "Delete my account". The browser opens `/account/delete`.
 2. Website: sign in if needed, type the password, "Delete my account".
-3. App: at the next start the Account screen shows "That session ended. Sign in again."
+3. App: at the next renewal the app is signed out, as in F7.
 
 ---
 
 ## 9. Not supported: do not design
 
-- Sign up, password reset, or email change forms inside the app
+- Password reset or email change forms inside the app (sign up is in the app, 5.3.1)
 - Sharing a folder, or adding a PC to an account, from the app
 - Changing what a PC shares from anywhere except its settings page
 - Thumbnails, image or video preview, a media player, a text viewer
@@ -1011,3 +1065,28 @@ was added as a guide. Each row there has a note that gives the reason for every 
   button.
 - Every text field is outlined, and every main button is the standard filled button.
 - The join page opens with an invite card, and its buttons sit under the text.
+
+Changed on 2026-09-29 from comments on the Figma page "Akdes New".
+
+- Home cards hold only the icon, name, reach label and three dots. Tapping a card opens a
+  device screen with its folders, so Home stays short with many devices and many folders
+  (#174).
+- The three dots open a bottom sheet: the same card without the dots, then "Show code",
+  "Manage access" and "Remove" for an admin, "Show code" and "Remove" for a guest (#174, #176,
+  #188, #189).
+- The card has no first-contact line. The fingerprint is behind "Show code" (#176).
+- The guest's action is "Remove", with the dialog "Remove office-pc?" (#188).
+- Home has no update, sign-in or session-ended notices. The only notice left is "server did
+  not answer".
+- About starts with "Check for updates". A spinner sits at the end of the row while it checks,
+  and a new version shows in a dialog with "Later" and "Download" (#177, #178).
+- A sign-in never runs out for now. The app renews it with a refresh token that has no end
+  date, so there is no "checking" or "session ended" state (#195).
+- An account is made in the app: "Create an account" is an outlined button under "Sign in".
+  The account is stored at once, not active, and a 6 digit code is emailed. Typing the code
+  activates it and signs the app in. The code can be sent again, at most once a minute
+  (#196).
+- Onboarding has two steps. The Wi-Fi ask sits at the top of the account step, on Android 17
+  and later. There is no Wi-Fi refused screen and no signed-in screen (#192).
+- The join page is centred top to bottom, shows nothing about the invite until the person
+  signs in, and says "Accept invite" (#194).
