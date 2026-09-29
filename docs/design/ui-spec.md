@@ -799,9 +799,10 @@ because the page scrolls and a phone keyboard covers the bottom. `NEW`: that blo
 middle of the page, top to bottom, on every state.
 
 Signed out, the page shows nothing about the invite: no device name and no inviter. It can't
-know yet that the link was meant for this person. Signed in, the block starts with an invite
-card: a rounded card with the device icon, the device name ("pc1") and "Invited by
-ana@example.com", right above the question. Joined and "doesn't work" start with a large check
+know yet that the link was meant for this person. Signed in, the block has an invite card: a
+rounded card with the device icon, the device name ("pc1") and "Invited by ana@example.com".
+It sits under the title and the guest line, and above "Signed in as ewa@example.com.", so the
+account that accepts sits right above the button. Joined and "doesn't work" start with a large check
 or error icon tile.
 
 | State | Title | Text | Buttons |
