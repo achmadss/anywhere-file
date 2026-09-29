@@ -138,9 +138,9 @@ No display name, no avatar, no "last active", no "invited by".
 | until | a date and time, or none. `NEW` (#193) |
 | note | "For Ewa", optional, seen only by the admin. `NEW` (#193) |
 
-The link is shown **once**, right after it is made. The server keeps only a hash of the code,
-so the list of unused links shows the note and the end date, never the link. `NEW` (#193): no
-end date, the note, the list of unused links, and cancelling one.
+The admin can open an unused link again and copy it at any time. So the server must keep the
+code in a form it can give back to the admin. A hash alone is not enough (#193). `NEW` (#193):
+no end date, the note, the list of unused links, seeing a link again, and removing one.
 
 ### 4.5 A file or folder in a shared folder (`Entry`, `Listing`)
 
@@ -370,8 +370,8 @@ Top bar: back arrow, the title "Manage access" and the device name under it.
 Progress bar and error line at the top when needed.
 
 Two lists, each under a section header in the primary colour, and an extended floating button
-"Invite" with a plus icon at the bottom right. `NEW` (#187): inviting moves to its own screen,
-so the form no longer sits between the two lists.
+"Invite" with a plus icon at the bottom right. `NEW` (#187): "Invite" opens a dialog, so the
+form never sits between the two lists.
 
 **Who can reach pc1**
 
@@ -389,36 +389,45 @@ Remove opens a dialog:
 The admin cannot remove themselves here. To give the PC to someone else, sign out on the PC's
 settings page and let them sign in there.
 
-**Invite someone** `NEW` (#187), its own screen
+**Invite someone** `NEW` (#187), a dialog
 
-Opened from the "Invite" button. Top bar: back arrow, the title "Invite someone" and the device
-name under it.
+Opened from the "Invite" button, over Manage access.
 
+- Title: "Invite someone"
 - Text: "Make a link for one person. They can open pc1's folders as a guest. Only you can
   manage pc1."
 - "The link works for": a segmented button with "1 hour", "1 day" (default), "7 days" and
   "No end".
 - Field "Who is it for? (optional)", outlined. Only the admin sees it.
-- Button: "Make a link", full width, right under the field
+- Buttons: "Cancel", "Make a link"
 
-After making a link, the form is replaced by a card in the primary container colour:
+"Make a link" closes this dialog and opens the link dialog. The new link is also in the second
+list.
 
-- The link in monospace, selectable
-- "For Ewa. Works for one person, until {date}. You can't see this link again, so share it
-  now." Without a note it starts at "Works for one person".
-- Button "Share". On Android it opens the share sheet. On desktop it copies to the clipboard,
-  and a line under the button says so.
+**Invite link** `NEW` (#187, #193), a dialog
 
-The shared text is: "{admin email} invited you to reach pc1 with ProductName: {link}"
+Opens after "Make a link", and again when the admin taps a row under "Invite links not used
+yet".
 
-Back returns to Manage access, where the new link is in the second list.
+- Title: "Invite link"
+- Text: "For Ewa. Works for one person, until {date}." Without a note it starts at "Works for
+  one person". Without an end date it ends at "Works for one person, with no end date."
+- The link in monospace, selectable, in a box of the highest surface container colour
+- Buttons: "Copy link" on the left, "Remove" on the right in the error colour
+
+Copy link copies the link, and a snackbar says "Link copied". The dialog stays open. Remove asks
+first, with the dialog below. Tapping outside or Back closes the dialog.
 
 **Invite links not used yet** `NEW` (#187, #193), the second list on Manage access
 
-One row per unused link: the note (or "No note"), "Works until {date}" or "No end date", and a
-text button "Cancel". Cancel asks first: "Cancel the link for Ewa?", "Nobody can join with it
-after this. To invite Ewa later, make a new link.", buttons "Keep" and "Cancel link". The
-section is hidden when there are none.
+One row per unused link: the note (or "No note"), then "Works until {date}" or "No end date".
+Two icon buttons on the right:
+
+- Copy: copies the link, and a snackbar says "Link copied".
+- Trash: asks first. "Remove the link for Ewa?", "Nobody can join with it after this. To invite
+  Ewa later, make a new link.", buttons "Cancel" and "Remove".
+
+Tapping the row opens the link dialog. The section is hidden when there are none.
 
 `SERVER ONLY`: disabling a device. The server has it, there is no way to undo it, and no issue
 asks for a screen. Do not design it.
@@ -796,13 +805,14 @@ link on their phone's browser and approves there.
 ### F4. Invite someone `BUILT`, `NEW` as a link (#187, #193, #194)
 
 1. Admin, app, Home: card menu, "Manage access". Manage device opens.
-2. Choose "1 day" or "No end", add a note if you like, "Make a link", "Share". Send it by any
-   app.
+2. "Invite". In the dialog, choose "1 day" or "No end", add a note if you like, "Make a link".
+   In the link dialog, "Copy link". Paste it into any app. Later, tap the link's row to see it
+   and copy it again.
 3. Guest opens the link in any browser. The join page (7.7) asks them to sign in if needed
    (or make an account and come back), then shows "Join pc1?".
 4. "Join". The page says "You joined pc1" and offers "Open ProductName". In the app, the PC is
    under "Shared with you", "Over the internet".
-5. The link leaves the admin's "Links not used yet".
+5. The link leaves the admin's "Invite links not used yet".
 
 ### F5. Remove someone `BUILT`
 
@@ -995,6 +1005,11 @@ was added as a guide. Each row there has a note that gives the reason for every 
 - Home cards hold their folders as plain list rows. No card sits inside another card.
 - Home has one notice card part for update, server down, session ended and sign in. Urgent
   notices go at the top; the sign-in offer goes at the end.
-- Manage access has an "Invite" floating button. Inviting is its own screen, "Invite someone".
+- Manage access has an "Invite" floating button. It opens the "Invite someone" dialog.
+- A made link shows in an "Invite link" dialog, with "Copy link" on the left and "Remove" on the
+  right. The admin can open it again by tapping the link's row, so the link is no longer shown
+  only once and there is no Share button.
+- Each unused link row has two icon buttons, copy and trash, in place of the "Cancel" text
+  button.
 - Every text field is outlined, and every main button is the standard filled button.
 - The join page opens with an invite card, and its buttons sit under the text.
