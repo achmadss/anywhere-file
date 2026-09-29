@@ -64,7 +64,7 @@ one is possible behind an "advanced" link, for testing.
 website. So the app cannot update itself, and it tells the person when a new version is out
 (`NEW`, 5.2).
 
-**Two separate downloads on a desktop.** "Share this PC" is the agent. "Reach your PCs" is
+**Two separate downloads on a desktop.** "Share this PC" is the agent. "Reach your devices" is
 the client app. A person may need one or both. They are separate installers.
 
 ---
@@ -634,14 +634,14 @@ Two groups, each with the visitor's own system first:
 
 - **Share this PC** (the agent): Windows, macOS, Linux packages. Each with its warning line
   about the unsigned installer and its next step ("then open settings and pick a folder").
-- **Reach your PCs** (the client app): Android APK, Windows, macOS, Linux.
+- **Reach your devices** (the client app): Android APK, Windows, macOS, Linux.
   - The Android APK has a line: Android asks to allow installs from this browser once. Link
     to the Help page for it.
   - Updates: the app tells you when a new version is here. You download it from this page
     again.
 
 A line at the top helps a visitor pick: "On the PC with the files: Share this PC. On your phone
-or laptop: Reach your PCs. A laptop can have both."
+or laptop: Reach your devices. A laptop can have both."
 
 Version number in the title. The package files themselves are hosted on the release page,
 which the links point at; the page does not show a "see all on GitHub" link.
@@ -656,7 +656,7 @@ designs. Topics:
 - Pick folders to share (the settings page)
 - Install the app: Android APK (allow installs from the browser), desktop
 - Check a PC is the real one (compare the fingerprint in the app with `agent key` on the PC)
-- Reach your PCs from away (make an account, add the PC from its settings page)
+- Reach your devices from away (make an account, add the PC from its settings page)
 - Share a PC with someone (invitation code), and remove them
 - Take a PC off your account
 - Update the app
@@ -716,7 +716,7 @@ Each step names the surface. Every step is supported by the system as described.
 1. Website: landing page, "Download".
 2. PC: install "Share this PC" from `/download`. It starts at login and shares nothing.
 3. PC: open the settings page, walk to a folder, "Share this folder".
-4. Phone: download the APK from `/download` ("Reach your PCs"), allow the install, open it.
+4. Phone: download the APK from `/download` ("Reach your devices"), allow the install, open it.
    (Android 17+: allow local network access.)
 5. Phone, Home: the PC appears as "Checking…", then "On your Wi-Fi", filled
    with the folder tile. First time: the fingerprint is shown to compare.
