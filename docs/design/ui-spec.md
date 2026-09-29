@@ -214,10 +214,12 @@ Two steps:
    productname.example/download 2. Install "Share this PC" 3. Open it and pick the folders to
    share". Then a divider, "Not at your device right now? Send the link to yourself and open it
    there." and a tonal button "Send the link" that opens Android's share sheet.
-2. Wi-Fi and account, on one screen. At the top of the box, Android 17 and later only, the
-   Wi-Fi row (5.1), then a divider. Older Android hides the row and the divider. Then "Sign in
-   to open your devices when you are away from home. On your own Wi-Fi you don't need an
-   account.", a tonal "Sign in" (opens 5.3) and an outlined "Create an account" (opens 5.3.1).
+2. Wi-Fi and account, on one screen, in two separate boxes. The Wi-Fi ask is needed and the
+   account is not, so they don't share a box. The first box, Android 17 and later only, holds
+   the Wi-Fi row (5.1). Older Android hides it. The second box has the title "Account
+   (optional)", then "Sign in to open your devices when you are away from home. On your own
+   Wi-Fi you don't need an account.", a tonal "Sign in" (opens 5.3) and an outlined "Create
+   an account" (opens 5.3.1).
    When either one works and the Wi-Fi ask is allowed, the app goes straight to Home, with no
    signed-in step. The bottom button is "Get started" and opens Home, signed in or not. On
    Android 17 and later it is greyed out until Android allows the Wi-Fi ask, because without
@@ -225,7 +227,7 @@ Two steps:
 
 ### 5.1 Local network permission (Android 17 and later only) `BUILT`, `NEW` placement
 
-The top of onboarding step 2 (5.0). One list row, as TachiyomiSY shows its permissions:
+The first box of onboarding step 2 (5.0). One list row, as TachiyomiSY shows its permissions:
 
 - Title: "Find devices on this Wi-Fi"
 - Line: "ProductName asks this Wi-Fi which of your devices run it. Android checks with you first."
@@ -1097,7 +1099,8 @@ Changed on 2026-09-29 from comments on the Figma page "Akdes New".
   The account is stored at once, not active, and a 6 digit code is emailed. Typing the code
   activates it and signs the app in. The code can be sent again, at most once a minute
   (#196).
-- Onboarding has two steps. The Wi-Fi ask sits at the top of the account step, on Android 17
-  and later. There is no Wi-Fi refused screen and no signed-in screen (#192).
+- Onboarding has two steps. Step 2 has two boxes: the Wi-Fi ask (Android 17 and later), which
+  "Get started" waits for, and "Account (optional)". After 3 refusals the Wi-Fi row offers
+  "Open settings". There is no signed-in screen (#192).
 - The join page is centred top to bottom, shows nothing about the invite until the person
   signs in, and says "Accept invite" (#194).
