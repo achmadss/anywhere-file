@@ -380,7 +380,7 @@ settings page and let them sign in there.
 
 - Text: "Make a one-time code for one person. They can open pc1's folders as a guest. Only you
   can manage pc1."
-- "The code works for": three chips, "1 hour", "1 day" (default), "7 days". The server
+- "The code works for": a segmented button with "1 hour", "1 day" (default) and "7 days". The server
   allows 7 days at most.
 - Button: "Make a code", full width
 
@@ -427,7 +427,7 @@ Rows:
 - File: name (long names shortened in the middle), "2.4 MB · 3 Sep 2026", and a three-dot
   menu. Tapping the row saves the file.
   - Menu item "Save a copy here"
-  - Menu item "Delete from the device", with a bin icon. Only when the folder allows delete.
+  - Menu item "Delete from the device". Only when the folder allows delete.
 
 Floating button "Send a file" with a plus icon. Only when the folder allows upload. It opens
 the system file picker (Android) or a file dialog (desktop).
