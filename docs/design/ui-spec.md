@@ -193,52 +193,44 @@ First launch only: Onboarding (5.0) ──► Home
 ### 5.0 Onboarding `NEW`
 
 Shown on the first launch only. Later launches open Home. Built like TachiyomiSY's onboarding
-(Figma page "Akdes New", row 01).
-
-Every step uses the same screen:
+(Figma page "Akdes New", row 01). One screen, no steps:
 
 - At the top, a 48 px icon in the primary colour, the heading "Welcome to ProductName" and the
-  line "A few steps, and you can open the files on your devices from this phone." These stay
-  the same on every step.
-- Under them, one rounded box (surface container high) with the step's content.
-- At the bottom, above a thin line, one full-width filled button: "Next", and "Get started" on
-  the last step. Next is never greyed out. "Get started" waits for the Wi-Fi ask on Android 17
-  and later (5.1); the account is optional.
-- Buttons inside the box do an optional side job, so they are quieter than the filled button:
-  tonal, or outlined for a second choice.
-- No step dots and no Skip. The back gesture goes one step back.
+  line "Set up this phone to open the files on your devices."
+- Then two rounded boxes (surface container high), each with a title, a line, then full-width
+  buttons at the bottom of the box. Nearby devices is needed and the account is not, so they
+  don't share a box.
+  1. Nearby devices, Android 17 and later only (5.1). Older Android hides this box.
+  2. "Account (optional)", then "Sign in to open your devices when you are away from home. On
+     your own Wi-Fi you don't need an account.", a tonal "Sign in" (opens 5.3) and an outlined
+     "Create an account" (opens 5.3.1).
+- At the bottom, above a thin line, one full-width filled button "Get started" that opens
+  Home, signed in or not. On Android 17 and later it is greyed out until Android allows nearby
+  devices, because without it the app can't find any device. On older Android it works at
+  once.
+- When sign in or create an account works and nearby devices are allowed, the app goes
+  straight to Home, with no signed-in step.
+- No step dots and no Skip.
 
-Two steps:
+Setting up the device that has the files is not in onboarding: it happens on that device.
+Its steps are on the Help page (7.3), reached from the "?" icon on the empty Home (5.2).
 
-1. Set up your device. "On the device that has your files: 1. Go to
-   productname.example/download 2. Install "Share this PC" 3. Open it and pick the folders to
-   share". Then a divider, "Not at your device right now? Send the link to yourself and open it
-   there." and a tonal button "Send the link" that opens Android's share sheet.
-2. Wi-Fi and account, on one screen, in two separate boxes. The Wi-Fi ask is needed and the
-   account is not, so they don't share a box. The first box, Android 17 and later only, holds
-   the Wi-Fi row (5.1). Older Android hides it. The second box has the title "Account
-   (optional)", then "Sign in to open your devices when you are away from home. On your own
-   Wi-Fi you don't need an account.", a tonal "Sign in" (opens 5.3) and an outlined "Create
-   an account" (opens 5.3.1).
-   When either one works and the Wi-Fi ask is allowed, the app goes straight to Home, with no
-   signed-in step. The bottom button is "Get started" and opens Home, signed in or not. On
-   Android 17 and later it is greyed out until Android allows the Wi-Fi ask, because without
-   it the app can't find any device. On older Android it works at once.
+### 5.1 Nearby devices permission (Android 17 and later only) `BUILT`, `NEW` placement
 
-### 5.1 Local network permission (Android 17 and later only) `BUILT`, `NEW` placement
+The first box of onboarding (5.0):
 
-The first box of onboarding step 2 (5.0). One list row, as TachiyomiSY shows its permissions:
-
-- Title: "Find devices on this Wi-Fi"
-- Line: "ProductName asks this Wi-Fi which of your devices run it. Android checks with you first."
-- Trailing: an outlined button "Allow". It opens Android's own prompt. No "Not now": Android's
-  prompt already lets the person say no.
-- Allowed: a check in the primary colour replaces the button.
-- Refused: the row keeps its "Allow" button, and "Get started" stays greyed out.
-- Refused 3 times: Android stops showing its prompt. The line becomes "Android stopped asking.
-  Allow it in Settings to go on." and the button becomes an outlined "Open settings", which
-  opens the app's page in Android's settings. When the person comes back with it allowed, the
-  check replaces the button and "Get started" works.
+- Title: "Allow ProductName to find nearby devices"
+- Line: "Starting with Android 17, permission to find nearby devices is needed."
+- Buttons, full width at the bottom of the box, like the account box:
+  - Not allowed yet: a tonal "Allow". It opens Android's own prompt. No "Not now": Android's
+    prompt already lets the person say no.
+  - Refused twice: Android stops showing its prompt, so "Allow" would do nothing. The box shows
+    a tonal "Open settings", which opens the app's page in Android's settings, and an outlined
+    "How to allow it", which opens the Help page (7.3) at "Allow nearby devices" in the
+    browser.
+  - Allowed: no buttons. A check in the primary colour sits at the end of the title.
+- "Get started" stays greyed out until it is allowed, including after coming back from
+  Settings without allowing it.
 
 ### 5.2 Home `NEW` layout, built on `BUILT` data
 
@@ -339,7 +331,8 @@ Empty states:
 - After 5 seconds, nothing found and nothing on the account, centred: a computer icon, title "No
   devices found yet", text "Check that ProductName is running on your device, and that your
   phone is on the same Wi-Fi." (every line centred), a text button "Get ProductName for your
-  device" with the open-in-new icon.
+  device" with the open-in-new icon. `NEW`: the top bar gets a "?" icon button, left of the
+  Account icon. It opens the Help page (7.3) at "Set up your device" in the browser.
 - Server did not answer: a notice card at the top, "Can't reach the server right now. You can
   still open devices on this Wi-Fi." with "Try again". Devices on the Wi-Fi still show.
 
@@ -737,6 +730,11 @@ which the links point at; the page does not show a "see all on GitHub" link.
 One page with sections, or a small set of pages. Plain text with screenshots from the Figma
 designs. Topics:
 
+- `NEW` Set up your device, moved here from the app's onboarding: "On the device that has
+  your files: 1. Go to productname.example/download 2. Install "Share this PC" 3. Open it and
+  pick the folders to share". The "?" icon on the app's empty Home opens this section.
+- `NEW` Allow nearby devices (Android 17 and later): where the permission is in Android's
+  settings, with screenshots. "How to allow it" in the app opens this section.
 - Install on a PC: Windows, macOS (allow the unidentified developer: System Settings, Privacy
   and Security, Open Anyway), Linux
 - Pick folders to share (the settings page)
@@ -837,7 +835,8 @@ Each step names the surface. Every step is supported by the system as described.
 2. PC: install "Share this PC" from `/download`. It starts at login and shares nothing.
 3. PC: open the settings page, walk to a folder, "Share this folder".
 4. Phone: download the APK from `/download` ("Reach your devices"), allow the install, open it.
-   (Android 17+: allow local network access.)
+   Onboarding: allow nearby devices (Android 17+), then "Get started". Setup help: the "?"
+   on the empty Home.
 5. Phone, Home: the PC appears as "Checking…", then "On your Wi-Fi". To compare codes: three
    dots, "Show code".
 6. Phone: tap the card, then the folder row. File browser opens. Save, send and delete files.
@@ -1099,8 +1098,9 @@ Changed on 2026-09-29 from comments on the Figma page "Akdes New".
   The account is stored at once, not active, and a 6 digit code is emailed. Typing the code
   activates it and signs the app in. The code can be sent again, at most once a minute
   (#196).
-- Onboarding has two steps. Step 2 has two boxes: the Wi-Fi ask (Android 17 and later), which
-  "Get started" waits for, and "Account (optional)". After 3 refusals the Wi-Fi row offers
-  "Open settings". There is no signed-in screen (#192).
+- Onboarding is one screen with two boxes: nearby devices (Android 17 and later), which
+  "Get started" waits for, and "Account (optional)". After two refusals the nearby devices box
+  offers "Open settings" and "How to allow it". The device setup steps move to the Help page,
+  opened from a "?" icon on the empty Home. There is no signed-in screen (#192).
 - The join page is centred top to bottom, shows nothing about the invite until the person
   signs in, and says "Accept invite" (#194).
