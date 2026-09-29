@@ -793,6 +793,9 @@ An invite link opens this page in the browser. The whole join happens here, so i
 desktop or a phone with no app at all. The code sits after the `#`, so the browser never sends
 it in the address. The page's script reads it and asks the server about it.
 
+The page follows the website's design system. The Figma row "05 Browser · Join from an invite
+link" is a reference for content and flow only; the website's own parts, colours and type win.
+
 Same layout as the account pages (7.6): one column, a title, a line, then the form or
 buttons. The main button sits right under the fields or the text, never pinned to the bottom,
 because the page scrolls and a phone keyboard covers the bottom. `NEW`: that block sits in the
@@ -807,8 +810,8 @@ or error icon tile.
 
 | State | Title | Text | Buttons |
 |---|---|---|---|
-| Signed out | "Sign in to see your invite" | "You need an account to accept it." Fields Email and Password. | "Sign in", then text buttons "Forgot your password?" and "Create an account". Both go to their page and come back to this link (as #186 does for the approve page). |
-| Signed in | "Accept the invite to pc1?" | "You can open pc1's shared folders as a guest. Only ana@example.com can manage it." and "Signed in as ewa@example.com." | "Accept invite", and a text button "Use another account" that signs out and shows the signed-out state |
+| Signed out | "Sign in", the same words as every other sign-in | "Sign in to reach your devices from anywhere. On your own Wi-Fi you don't need an account." Fields Email and Password. | "Sign in", then text buttons "Forgot your password?" and "Create an account". Both go to their page and come back to this link (as #186 does for the approve page). |
+| Signed in | "You have been invited" | "You can open pc1's shared folders as a guest. Only ana@example.com can manage it." and "Signed in as ewa@example.com." | "Accept invite", and a text button "Use another account" that signs out and shows the signed-out state |
 | Accepted | "Invite accepted" | "pc1 is under "Shared with you" in ProductName, on any device where you sign in as ewa@example.com." | "Open ProductName" (opens the app on Home through an app link; without the app it lands on the download page), text button "Get the app" |
 | Link doesn't work | "This invite link doesn't work" | "It was used, cancelled or is out of date. Ask the person who sent it for a new one." | none |
 
@@ -858,7 +861,7 @@ link on their phone's browser and approves there.
 2. "Invite links", then "Create". In the link dialog, "Copy link". Paste it into any app. Later, tap the link's row to see it
    and copy it again.
 3. Guest opens the link in any browser. The join page (7.7) asks them to sign in if needed
-   (or make an account and come back), then shows "Accept the invite to pc1?".
+   (or make an account and come back), then shows "You have been invited".
 4. "Accept invite". The page says "Invite accepted" and offers "Open ProductName". In the app,
    the PC is under "Shared with you", "Over the internet".
 5. The link leaves the admin's Invite links screen.
