@@ -213,7 +213,7 @@ Shown on the first launch only. Later launches open Home. Built like TachiyomiSY
 - No step dots and no Skip.
 
 Setting up the device that has the files is not in onboarding: it happens on that device.
-Its steps are on the Help page (7.3), reached from the "?" icon on the empty Home (5.2).
+Its steps are on the Help page (7.3), reached from "How to set up your device" on the empty Home (5.2).
 
 ### 5.1 Nearby devices permission (Android 17 and later only) `BUILT`, `NEW` placement
 
@@ -330,9 +330,10 @@ Empty states:
 - First 5 seconds, nothing found yet: a centred spinner and "Looking for devices on this Wi-Fi…"
 - After 5 seconds, nothing found and nothing on the account, centred: a computer icon, title "No
   devices found yet", text "Check that ProductName is running on your device, and that your
-  phone is on the same Wi-Fi." (every line centred), a text button "Get ProductName for your
-  device" with the open-in-new icon. `NEW`: the top bar gets a "?" icon button, left of the
-  Account icon. It opens the Help page (7.3) at "Set up your device" in the browser.
+  phone is on the same Wi-Fi." (every line centred), a text button "How to set up your device"
+  with the help icon. It opens the Help page (7.3) at "Set up your device" in the browser. Those
+  steps include getting ProductName for the device, so one button covers both. The top bar has
+  only the Account icon.
 - Server did not answer: a notice card at the top, "Can't reach the server right now. You can
   still open devices on this Wi-Fi." with "Try again". Devices on the Wi-Fi still show.
 
@@ -732,7 +733,7 @@ designs. Topics:
 
 - `NEW` Set up your device, moved here from the app's onboarding: "On the device that has
   your files: 1. Go to productname.example/download 2. Install "Share this PC" 3. Open it and
-  pick the folders to share". The "?" icon on the app's empty Home opens this section.
+  pick the folders to share". "How to set up your device" on the app's empty Home opens this section.
 - `NEW` Allow nearby devices (Android 17 and later): where the permission is in Android's
   settings, with screenshots. "How to allow it" in the app opens this section.
 - Install on a PC: Windows, macOS (allow the unidentified developer: System Settings, Privacy
@@ -835,8 +836,8 @@ Each step names the surface. Every step is supported by the system as described.
 2. PC: install "Share this PC" from `/download`. It starts at login and shares nothing.
 3. PC: open the settings page, walk to a folder, "Share this folder".
 4. Phone: download the APK from `/download` ("Reach your devices"), allow the install, open it.
-   Onboarding: allow nearby devices (Android 17+), then "Get started". Setup help: the "?"
-   on the empty Home.
+   Onboarding: allow nearby devices (Android 17+), then "Get started". Setup help: "How to set up
+   your device" on the empty Home.
 5. Phone, Home: the PC appears as "Checking…", then "On your Wi-Fi". To compare codes: three
    dots, "Show code".
 6. Phone: tap the card, then the folder row. File browser opens. Save, send and delete files.
@@ -1101,6 +1102,7 @@ Changed on 2026-09-29 from comments on the Figma page "Akdes New".
 - Onboarding is one screen with two boxes: nearby devices (Android 17 and later), which
   "Get started" waits for, and "Account (optional)". After two refusals the nearby devices box
   offers "Open settings" and "How to allow it". The device setup steps move to the Help page,
-  opened from a "?" icon on the empty Home. There is no signed-in screen (#192).
+  opened from "How to set up your device" on the empty Home. There is no signed-in screen (#192).
 - The join page is centred top to bottom, shows nothing about the invite until the person
   signs in, and says "Accept invite" (#194).
+- The empty Home has one text button, "How to set up your device" with the help icon, in place of "Get ProductName for your device" and the "?" in the top bar. The Help steps start with getting the app, so one button covers both.
