@@ -184,8 +184,6 @@ Home ──► File browser ──► (Search, PLANNED #164)
   │
   ├──► Manage device (admins only)
   │
-  ├──► Join with a link (dialog, or opened from a link)
-  │
   └──► Account (NEW) ──► Sign in
                      └──► About (NEW)
 
@@ -242,9 +240,8 @@ device appears once, and its card says how the app reaches it right now.
    - "Your devices": PCs this account is the admin of.
    - "Shared with you": PCs this account is a guest on.
    - "Nearby": PCs found on the Wi-Fi that are not on this account.
-4. Signed in: a floating button "Join with a link" at the bottom right (opens 5.2.3). It is
-   the only way a guest adds a PC, and it stays in reach however long the list is. Hidden
-   when signed out, and while the server does not answer, because joining needs both.
+4. `NEW` (#187): no join button. A guest joins a PC from the invite link in a browser (7.7),
+   and the PC shows under "Shared with you" at the next refresh.
    Signed out: a line "Sign in to reach your devices over the internet." and a button
    "Sign in".
 
@@ -316,30 +313,10 @@ Empty states:
 - Server did not answer: a banner above the list, "Can't reach the server right now. You can
   still open devices on this Wi-Fi." with "Try again". Devices on the Wi-Fi still show.
 
-#### 5.2.3 Join with a link dialog `BUILT` behaviour, `NEW` copy (#187)
+#### 5.2.3 Joining a device `NEW` (#187)
 
-Opened from the floating button on Home, for when someone pastes a link by hand.
-
-- Title: "Join a device"
-- Text: "Paste the invite link someone sent you."
-- Field: "Invite link", outlined. A bare code works too.
-- Buttons: "Cancel", "Join". Join is disabled while the field is empty.
-- While sending: a thin progress bar.
-- On success: the dialog closes and the list refreshes. The PC appears under "Shared with you".
-- On failure, under the field in error colour: "This invite is wrong, cancelled or already
-  used. Ask the person who sent it for a new one."
-
-#### 5.2.4 Join from a link `NEW` (#187)
-
-Tapping an invite link on Android opens the app (verified app links), which shows a dialog over
-Home:
-
-- Title: "Join pc1?"
-- Text: "ana@example.com invited you. You can open pc1's shared folders as a guest."
-- Buttons: "Cancel", "Join"
-
-Signed out, the Sign in screen (5.3) comes first, then the dialog. A link that no longer works
-shows the dialog's error text instead. Without the app, the link opens the web page (7.7).
+The app has no join screen. Joining happens on the website (7.7), in any browser, with or
+without the app. The `BUILT` "Join with a code" dialog goes.
 
 ### 5.3 Sign in `BUILT`
 
@@ -730,17 +707,24 @@ will ask the person to allow the installer.
 
 ---
 
-### 7.7 Invite page `NEW`, at `/join` (#194)
+### 7.7 Join page `NEW`, at `/join` (#194)
 
-The page an invite link opens when the app does not. The code sits after the `#`, so the
-browser never sends it in the address. The page's script reads it and asks the server about it.
+An invite link opens this page in the browser. The whole join happens here, so it works on a
+desktop or a phone with no app at all. The code sits after the `#`, so the browser never sends
+it in the address. The page's script reads it and asks the server about it.
 
-- Good link: the computer icon, "{admin email} invited you to {device}", "You can open
-  {device}'s shared folders as a guest. Only {admin} can manage it.", "No app yet? Get it, then
-  open this link again.", a filled button "Open in the app" and a text button "Get the app"
-  (the download page).
-- Link that doesn't work: an error icon, "This invite link doesn't work", "It was used,
-  cancelled or is out of date. Ask the person who sent it for a new one." No buttons.
+Same layout as the account pages (7.6): one column, an icon tile, a title, a line, then the
+form or buttons.
+
+| State | Title | Text | Buttons |
+|---|---|---|---|
+| Signed out | "Sign in to join pc1" | "ana@example.com invited you to pc1. Sign in to accept." Fields Email and Password. | "Sign in", then text buttons "Create an account" and "Forgot your password?". Both go to their page and come back to this link (as #186 does for the approve page). |
+| Signed in | "Join pc1?" | "ana@example.com invited you to pc1. You can open its shared folders as a guest. Only ana can manage it." and "Signed in as ewa@example.com." | "Join", and a text button "Use another account" that signs out and shows the signed-out state |
+| Joined | "You joined pc1" | "pc1 is under "Shared with you" in ProductName, on any device where you sign in as ewa@example.com." | "Open ProductName" (opens the app on Home through an app link; without the app it lands on the download page), text button "Get the app" |
+| Link doesn't work | "This invite link doesn't work" | "It was used, cancelled or is out of date. Ask the person who sent it for a new one." | none |
+
+A wrong password shows "The email or password is wrong." under the password field, as on the
+approve page.
 
 ## 8. Flows
 
@@ -781,9 +765,10 @@ link on their phone's browser and approves there.
 1. Admin, app, Home: card menu, "Manage access". Manage device opens.
 2. Choose "1 day" or "No end", add a note if you like, "Make a link", "Share". Send it by any
    app.
-3. Guest taps the link. With the app: the "Join pc1?" dialog (5.2.4), after signing in if
-   needed (F2). Without the app: the web page (7.7), "Get the app", then the link again.
-4. "Join". The PC appears on the guest's list under "Shared with you", "Over the internet".
+3. Guest opens the link in any browser. The join page (7.7) asks them to sign in if needed
+   (or make an account and come back), then shows "Join pc1?".
+4. "Join". The page says "You joined pc1" and offers "Open ProductName". In the app, the PC is
+   under "Shared with you", "Over the internet".
 5. The link leaves the admin's "Links not used yet".
 
 ### F5. Remove someone `BUILT`
@@ -959,8 +944,8 @@ layout; this file is the reference for behaviour and copy.
 Changed on 2026-09-29, after a Material 3 review against the TachiyomiSY app.
 
 - Invites are links. A link can have no end date and a note, and the admin sees the unused
-  ones and can cancel them. The web page at `/join` shows the invite when the app is not
-  there (#187, #193, #194).
+  ones and can cancel them. Joining happens on the web page at `/join` in any browser, and the
+  app has no join screen or button (#187, #193, #194).
 - Choosing one of a few fixed options uses a segmented button (the link's end date).
 - Dropdown menus are text only, with no icons.
 - Text fields inside a dialog are outlined.
