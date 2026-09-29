@@ -388,7 +388,7 @@ Code screen: top bar "Check your email".
 
 - Text: "We sent a code to ana@example.com. Type it here to finish making your account."
 - Field "Code", the same outlined field.
-- Button "Activate account", full width.
+- Button "Confirm", full width.
 - Text button "Resend code". It emails a new code, and the old one stops working. After each
   email it is greyed out for 60 seconds with a countdown, "Resend code in 0:42". The server
   refuses a resend inside those 60 seconds too, so the limit holds without the app.
@@ -777,7 +777,7 @@ Approve page intro, signed in: "{PC name} is asking to join {email}. Approving l
 it from away. Only approve it if you just asked this PC to sign in."
 
 `NEW`: sign up uses a code on the website too, the same way as the app (5.3.1). `/signup`
-makes the account, not active yet, and shows a code field with "Activate account" and "Resend
+makes the account, not active yet, and shows a code field with "Confirm" and "Resend
 code" (with the same 60 second wait) in place of "Check your email for a link". The `/verify` link goes. An email that
 already has an active account gets "An account with this email already exists.", as in the
 app.
@@ -839,7 +839,7 @@ Each step names the surface. Every step is supported by the system as described.
    sits under "Sign in" on the Sign in screen).
 2. Create an account: type email and password, "Create account". The account exists, not
    active yet, and an email with a code arrives.
-3. Code screen: type the code, "Activate account". The account is active, the app is signed in
+3. Code screen: type the code, "Confirm". The account is active, the app is signed in
    and goes back where it came from. The Account screen shows the email. No code: "Resend
    code".
 
