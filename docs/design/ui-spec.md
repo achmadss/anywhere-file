@@ -403,8 +403,11 @@ both show, then "Expires at {date}". Two icon buttons on the right:
 - Trash: asks first. "Remove this link?", "Nobody can join with it after this.", buttons
   "Cancel" and "Remove".
 
-Tapping the row opens the link dialog. With no links, the screen says "No invite links yet"
-in the middle.
+Tapping the row opens the link dialog.
+
+With no unused links, the middle of the screen shows a link icon, the heading "No invite links
+yet" and "Create a link and send it to the person you want to invite. It works for 7 days."
+There is no button in it, because "Create" is already at the bottom right.
 
 "Create" makes a link straight away, with no dialog. For now the app always asks for a link
 that expires in 7 days, with no note. The server still accepts other durations. The new link
