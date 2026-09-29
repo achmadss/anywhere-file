@@ -200,14 +200,13 @@ Shown on the first launch only. Later launches open Home. Built like TachiyomiSY
 - Then two rounded boxes (surface container high), each with a title, a line, then full-width
   buttons at the bottom of the box. Nearby devices is needed and the account is not, so they
   don't share a box.
-  1. Nearby devices, Android 17 and later only (5.1). Older Android hides this box.
+  1. "Find nearby devices", Android 17 and later only (5.1). Older Android hides this box.
   2. "Account (optional)", then "Sign in to open your devices when you are away from home. On
      your own Wi-Fi you don't need an account.", a tonal "Sign in" (opens 5.3) and an outlined
      "Create an account" (opens 5.3.1).
 - At the bottom, above a thin line, one full-width filled button "Get started" that opens
-  Home, signed in or not. On Android 17 and later it is greyed out until Android allows nearby
-  devices, because without it the app can't find any device. On older Android it works at
-  once.
+  Home, signed in or not, allowed or not. If nearby devices are not allowed, Home shows the
+  same box in its Nearby section (5.2), so the ask is not lost.
 - When sign in or create an account works and nearby devices are allowed, the app goes
   straight to Home, with no signed-in step.
 - No step dots and no Skip.
@@ -219,18 +218,17 @@ Its steps are on the Help page (7.3), reached from "How to set up your device" o
 
 The first box of onboarding (5.0):
 
-- Title: "Allow ProductName to find nearby devices"
+- Title: "Find nearby devices"
 - Line: "Starting with Android 17, permission to find nearby devices is needed."
 - Buttons, full width at the bottom of the box, like the account box:
   - Not allowed yet: a tonal "Allow". It opens Android's own prompt. No "Not now": Android's
     prompt already lets the person say no.
   - Refused twice: Android stops showing its prompt, so "Allow" would do nothing. The box shows
     a tonal "Open settings", which opens the app's page in Android's settings, and an outlined
-    "How to allow it", which opens the Help page (7.3) at "Allow nearby devices" in the
-    browser.
+    "How to allow permission" with the help icon, which opens the browser at the Help page (7.3),
+    section "Allow nearby devices".
   - Allowed: no buttons. A check in the primary colour sits at the end of the title.
-- "Get started" stays greyed out until it is allowed, including after coming back from
-  Settings without allowing it.
+- "Get started" always works. The same box shows on Home until it is allowed (5.2).
 
 ### 5.2 Home `NEW` layout, built on `BUILT` data
 
@@ -249,9 +247,9 @@ device appears once, and its card says how the app reaches it right now.
 `NEW`: Home has no update notice and no sign-in notice. Updates live in About (5.7), and
 signing in lives in Account (5.8). Home stays about devices.
 
-Notice card: the one notice Home still has is "server did not answer" (below). A rounded card
-(surface container high) with a leading icon, one line of text and a text button on the right
-under it, at the top of the list.
+`NEW`: Home has no notice card or banner at the top. Two problems can be true at once (nearby
+devices off and server down), and stacked banners push the list down and compete. Each
+problem shows inside the section it affects (below), so both can show at once and stay clear.
 
 #### 5.2.1 How the list is built
 
@@ -334,15 +332,16 @@ Empty states:
   with the help icon. It opens the Help page (7.3) at "Set up your device" in the browser. Those
   steps include getting ProductName for the device, so one button covers both. The top bar has
   only the Account icon.
-- Server did not answer: a notice card at the top, "Can't reach the server right now. You can
-  still open devices on this Wi-Fi." with "Try again". Devices on the Wi-Fi still show.
-- `NEW` Nearby devices turned off (Android 17 and later, for example turned off later in
-  Android's settings): a notice card at the top, "ProductName can't find devices on this Wi-Fi
-  until you allow it to find nearby devices." with "Allow". After two refusals the card shows
-  "How to allow it" (opens the Help page at "Allow nearby devices" in the browser) and "Open settings" instead. Devices the
-  account can reach over the internet still show. Once allowed, the card goes and devices on
-  the Wi-Fi show under Nearby. Signed out with nothing found, the card sits above the empty
-  state.
+- `NEW` Server did not answer: no banner. The account's devices stay listed from the last
+  answer, and each card says "Can't reach right now". Pull down to try again. Devices on the
+  Wi-Fi still work.
+- `NEW` Nearby devices not allowed (Android 17 and later, skipped in onboarding or turned off
+  later in Android's settings): the "Nearby" section always shows, and holds the same box as
+  onboarding (5.1) in place of devices: "Find nearby devices", the Android 17 line and "Allow".
+  After two refusals: "Open settings" and "How to allow permission" (opens the browser at the
+  Help page, "Allow nearby devices"). "Your devices" and "Shared with you" still show above it.
+  Once allowed, the box goes and devices on the Wi-Fi fill the section. Signed out, the box is
+  the only thing on Home, and the empty state does not show.
 
 #### 5.2.3 Joining a device `NEW` (#187)
 
@@ -742,7 +741,7 @@ designs. Topics:
   your files: 1. Go to productname.example/download 2. Install "Share this PC" 3. Open it and
   pick the folders to share". "How to set up your device" on the app's empty Home opens this section.
 - `NEW` Allow nearby devices (Android 17 and later): where the permission is in Android's
-  settings, with screenshots. "How to allow it" in the app opens this section.
+  settings, with screenshots. "How to allow permission" in the app opens this section in the browser.
 - Install on a PC: Windows, macOS (allow the unidentified developer: System Settings, Privacy
   and Security, Open Anyway), Linux
 - Pick folders to share (the settings page)
@@ -1106,11 +1105,11 @@ Changed on 2026-09-29 from comments on the Figma page "Akdes New".
   The account is stored at once, not active, and a 6 digit code is emailed. Typing the code
   activates it and signs the app in. The code can be sent again, at most once a minute
   (#196).
-- Onboarding is one screen with two boxes: nearby devices (Android 17 and later), which
-  "Get started" waits for, and "Account (optional)". After two refusals the nearby devices box
-  offers "Open settings" and "How to allow it". The device setup steps move to the Help page,
+- Onboarding is one screen with two boxes: nearby devices (Android 17 and later) and
+  "Account (optional)". "Get started" always works. After two refusals the nearby devices box
+  offers "Open settings" and "How to allow permission". The device setup steps move to the Help page,
   opened from "How to set up your device" on the empty Home. There is no signed-in screen (#192).
 - The join page is centred top to bottom, shows nothing about the invite until the person
   signs in, and says "Accept invite" (#194).
 - The empty Home has one text button, "How to set up your device" with the help icon, in place of "Get ProductName for your device" and the "?" in the top bar. The Help steps start with getting the app, so one button covers both.
-- When nearby devices are turned off after onboarding, Home shows a notice card with the same buttons as onboarding. Devices over the internet keep working, so Home stays usable while the card says why the Wi-Fi ones are missing.
+- Home has no banners. Nearby devices not allowed shows as the onboarding box inside the Nearby section. Server did not answer shows as "Can't reach right now" on the account's cards, with pull down to try again. Both can be true at once without one hiding the other.
