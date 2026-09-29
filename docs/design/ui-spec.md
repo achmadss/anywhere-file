@@ -75,7 +75,7 @@ Keep these words. They are already in the app's copy.
 
 | Word | Meaning |
 |---|---|
-| device / PC | A computer running the agent. The app lists "devices". Settings talk about "this PC". |
+| device | A computer running the agent. The app always says "device", never "PC". Only the computer's own settings page and the "Share this PC" installer say "this PC". |
 | shared folder | One folder a PC shares. Technically an "application" called by a short name, e.g. `files`. |
 | "On your Wi-Fi" | The app reaches this device directly, on the same Wi-Fi or network. No account needed. |
 | "Over the internet" | The app reaches this device through the ProductName server. Needs an account. |
@@ -195,23 +195,23 @@ First launch only: Onboarding (5.0) ──► Home
 Shown on the first launch only. Later launches open Home. Every step has one main button;
 a second button appears only when the step has a real second choice. Step dots sit at the top.
 
-1. Welcome: "Your PC's folders, on your phone". Text: "Open, save and send the files in the
-   folders you share on your PC. At home over your Wi-Fi. Away from home with an account."
+1. Welcome: "Your device's folders, on your phone". Text: "Open, save and send the files in the
+   folders you share on your device. At home over your Wi-Fi. Away from home with an account."
    Button "Get started".
-2. "First, set up your PC": three numbered steps (go to productname.example/download, install
-   "Share this PC", open it and pick the folders to share). Under them "Not at your PC right
+2. "First, set up your device": three numbered steps (go to productname.example/download, install
+   "Share this PC", open it and pick the folders to share). Under them "Not at your device right
    now? Send the link to yourself and open it there." with a "Send the link" button that
-   opens Android's share sheet. Button "My PC is ready".
+   opens Android's share sheet. Button "My device is ready".
 3. Android 17 and later only: the local network ask from 5.1. Older Android skips it.
-4. "Reach your PCs from anywhere": "Sign in to open your PCs when you are away from home. On
+4. "Reach your devices from anywhere": "Sign in to open your devices when you are away from home. On
    your own Wi-Fi you don't need an account." Buttons "Sign in" (opens 5.3) and
    "Skip for now" (opens Home).
 
 ### 5.1 Local network permission (Android 17 and later only) `BUILT`, `NEW` placement
 
-Step 3 of onboarding (5.0). Heading "Find your PCs on this Wi-Fi", one button "Allow" that opens
+Step 3 of onboarding (5.0). Heading "Find your devices on this Wi-Fi", one button "Allow" that opens
 Android's own prompt. No "Not now": Android's prompt already lets the person say no. If the
-person refuses, the screen adds the line below and "Choose a PC", and the main button becomes
+person refuses, the screen adds the line below and "Choose a device", and the main button becomes
 "Continue". The copy below is the built text.
 
 - Heading: "Devices on this network"
@@ -275,7 +275,7 @@ A separate error state, whatever the path:
 
 | State | Look | Text |
 |---|---|---|
-| Refused | Error colour, warning icon instead of the computer icon, no tiles | "Can't confirm it's this PC" and under it "Another device on this Wi-Fi uses this name. To keep your files safe, ProductName won't connect to it." |
+| Refused | Error colour, warning icon instead of the computer icon, no tiles | "Can't confirm it's this device" and under it "Another device on this Wi-Fi uses this name. To keep your files safe, ProductName won't connect to it." |
 
 Under the name and the reach label:
 
@@ -285,12 +285,12 @@ Under the name and the reach label:
 
 A three-dot menu on the card, for PCs on the account:
 
-- Admin: "Manage access" (opens 5.4) and "Remove this PC". Remove asks first, in a dialog:
+- Admin: "Manage access" (opens 5.4) and "Remove this device". Remove asks first, in a dialog:
   "Remove pc1 for everyone?", "Everyone who can reach pc1 loses access, including your 2
   guests. If pc1 comes back online, it signs out. To add it again, sign in on its settings
   page.", buttons "Cancel" and "Remove for everyone" (#189). It is on every admin card: a PC
   that can't be reached may only be switched off, so the app can't tell a gone PC apart.
-- Guest: "Leave this PC". Asks first: "Leave office-pc?", "You won't be able to open its
+- Guest: "Leave this device". Asks first: "Leave office-pc?", "You won't be able to open its
   folders. To come back, you need a new code from the person who shared it.", buttons
   "Cancel" and "Leave" (#188).
 
@@ -299,27 +299,27 @@ change colour, and the refused card uses the error colour, so a problem stands o
 label and the dot say the same thing as the colour, so colour is never the only signal.
 
 `NEW` First contact (#176): the first time this app sees a PC, the card shows "First time on
-this PC. Make sure it's yours before you open files." above the folders, with a "Compare codes"
+this device. Make sure it's yours before you open files." above the folders, with a "Compare codes"
 button. It opens a bottom sheet with the fingerprint in large grouped text and "Open ProductName
-on this PC. It shows a code under "This PC". If it is not the same as the code below, don't
+on that device. It shows a code under "This PC". If it is not the same as the code below, don't
 open files on it." The sheet has no buttons; swipe down or go back to close it. On a PC seen
 before, the same sheet opens from the card menu.
 
 Empty states:
 
 - First 5 seconds, nothing found yet: spinner and "Looking…"
-- After 5 seconds, nothing found and nothing on the account: title "No PCs found yet", text
-  "Check that ProductName is running on your PC, and that your phone is on the same Wi-Fi.",
-  a link "Get ProductName for your PC", and when signed out the sign-in line.
+- After 5 seconds, nothing found and nothing on the account: title "No devices found yet", text
+  "Check that ProductName is running on your device, and that your phone is on the same Wi-Fi.",
+  a link "Get ProductName for your device", and when signed out the sign-in line.
 - Server did not answer: a banner above the list, "Can't reach the server right now. You can
-  still open PCs on this Wi-Fi." with "Try again". Devices on the Wi-Fi still show.
+  still open devices on this Wi-Fi." with "Try again". Devices on the Wi-Fi still show.
 
 #### 5.2.3 Join with a code dialog `BUILT` behaviour, `NEW` placement
 
 Opened from the floating button on Home.
 
-- Title: "Join a PC with a code"
-- Text: "Got a code from someone? Type it here to reach their PC."
+- Title: "Join a device with a code"
+- Text: "Got a code from someone? Type it here to reach their device."
 - Field: "Invitation code"
 - Buttons: "Cancel", "Join". Join is disabled while the field is empty.
 - While sending: a thin progress bar.
@@ -331,22 +331,23 @@ Opened from the floating button on Home.
 
 Top bar: back arrow, title "Sign in".
 
-- Text: "An account reaches your PCs from anywhere, through the server. On this network it is
-  not needed."
+- Text: "Sign in to reach your devices from anywhere. On your own Wi-Fi you don't need an
+  account."
 - Field "Server", a web address. Pre-filled with the last one used. `NEW`: hidden by default,
-  because the hosted server is built in. A small text button "Use a different server" shows
-  it. Most people never see it.
+  because the hosted server is built in. A text button "Use a different server" at the bottom
+  shows it, with the line "Only if you run your own server." under it. The button then reads
+  "Use the ProductName server" and hides the field again. Most people never see it.
 - Field "Email"
-- Field "Password", hidden
-- Progress bar while signing in
-- Error line, for example:
-  - "invalid email or password"
+- Field "Password", hidden, with an eye icon that shows it
+- Progress bar while signing in. The fields and the button are greyed out.
+- Error line under the password field, for example:
+  - "The email or password is wrong."
   - "Type the address of your server first."
   - "The address has to start with http:// or https://."
   - "Only the address goes here, with nothing after it."
 - Button "Sign in", full width. Disabled until email and password are filled.
-- Text button "Create an account". Opens the website's signup page in the system browser.
-- Text button "Forgot your password". Opens the website's reset page in the system browser.
+- Text button "Create an account", at the bottom. Opens the website's signup page in the system browser.
+- Text button "Forgot your password?", under "Sign in". Opens the website's reset page in the system browser.
 
 On success the screen closes and Home shows the signed-in account.
 
@@ -377,14 +378,16 @@ settings page and let them sign in there.
 
 **Invite someone**
 
-- "The code works once, for": three chips, "1 hour", "1 day" (default), "7 days". The server
+- Text: "Make a one-time code for one person. They can open pc1's folders as a guest. Only you
+  can manage pc1."
+- "The code works for": three chips, "1 hour", "1 day" (default), "7 days". The server
   allows 7 days at most.
-- Button: "Make a code"
+- Button: "Make a code", full width
 
 After making a code, a card in the accent colour:
 
 - The code in monospace, selectable
-- "Works once, until {date}. It is shown only now."
+- "Works once, until {date}. It is shown only now, so share it before you leave this screen."
 - Button "Share". On Android it opens the share sheet. On desktop it copies to the clipboard,
   and a line under the button says so.
 
@@ -457,7 +460,7 @@ new from the system.
 - A search field. Results update as the person types, after a short pause.
 - A scope switch with two options: this folder and everything under it, or the whole PC
   (every shared folder on it).
-- A result row: the name, and the folder that holds it. With "whole PC", also the shared
+- A result row: the name, and the folder that holds it. With "whole device", also the shared
   folder it came from.
 - Tapping a file saves it. Tapping a folder closes search and opens the File browser in that
   folder.
@@ -510,15 +513,16 @@ old account card on Home held.
 
 | State | Text | Action |
 |---|---|---|
-| Checking saved session | "Looking for an account on this device…" | none |
-| Signed out | "Reaching your devices over the internet needs an account." | Button "Sign in" (opens 5.3) |
-| Signed in | "Signed in as ana@example.com." | Text button "Sign out" |
-| Signed in, server not answered | "Signed in. The server has not answered yet." | Text button "Sign out" |
+| Checking saved session | A spinner and "Checking your account…" | none |
+| Signed out | Title "Not signed in", then "On your own Wi-Fi you don't need an account. To reach your devices from anywhere, sign in." | Button "Sign in", full width (opens 5.3) |
+| Signed in | The email as the title, then "Signed in. You can reach your devices from anywhere." | Row "Sign out" |
+| Signed in, server not answered | The email as the title, then "Signed in. The server has not answered yet." | Row "Sign out" |
 
 Under the text, when set: the trouble line in error colour (e.g. "That session ended. Sign in
 again.") and the caveat line in muted colour.
 
-At the bottom: a row "About ProductName" that opens 5.7.
+Under that: a row "About ProductName" that opens 5.7, then the "Sign out" row when signed in.
+Sign out has no confirm step: signing in again undoes it.
 
 The Account icon on Home can show a small dot when there is trouble to read, e.g. the session
 ended. That is the only badge in the app.
@@ -529,9 +533,10 @@ Opened from the Account screen. Top bar: back arrow, title "About".
 
 - App name and version, e.g. "ProductName 1.4.0"
 - The update state: "You have the latest version." or the same "Version {x} is available."
-  and "Download" as the Home banner
+  and a tonal button "Download" that opens the website's download page
 - Server in use, e.g. "productname.example". Plain text, not editable here.
-- Links that open the browser: Help, Privacy, Terms, Delete my account
+- Links that open the browser, each with an "opens outside" icon: Help, Privacy, Terms, Delete
+  my account
 - "Open source licences": a list of the libraries the app ships with and their licences
 
 Nothing else. No theme, language or notification settings.
@@ -722,7 +727,7 @@ Each step names the surface. Every step is supported by the system as described.
 1. App, Home: "Sign in" under the list (or Account icon, then "Sign in").
 2. Sign in screen: "Create an account". The browser opens `/signup`.
 3. Website: sign up. An email arrives. The link opens `/verify`.
-4. App: type server, email, password, "Sign in". Home shows "Signed in as …".
+4. App: type email and password, "Sign in". Home opens with the PCs on the account. The Account screen shows the email.
 
 ### F3. Add a PC to the account `BUILT`
 
