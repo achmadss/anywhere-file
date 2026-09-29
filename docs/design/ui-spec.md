@@ -339,7 +339,7 @@ Empty states:
 - `NEW` Nearby devices turned off (Android 17 and later, for example turned off later in
   Android's settings): a notice card at the top, "ProductName can't find devices on this Wi-Fi
   until you allow it to find nearby devices." with "Allow". After two refusals the card shows
-  "How to allow it" (Help at "Allow nearby devices") and "Open settings" instead. Devices the
+  "How to allow it" (opens the Help page at "Allow nearby devices" in the browser) and "Open settings" instead. Devices the
   account can reach over the internet still show. Once allowed, the card goes and devices on
   the Wi-Fi show under Nearby. Signed out with nothing found, the card sits above the empty
   state.
