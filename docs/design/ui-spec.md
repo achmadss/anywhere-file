@@ -369,9 +369,11 @@ Top bar: back arrow, the title "Manage access" and the device name under it.
 
 Progress bar and error line at the top when needed.
 
-Two lists, each under a section header in the primary colour, and an extended floating button
-"Invite" with a plus icon at the bottom right. `NEW` (#187): "Invite" opens a dialog, so the
-form never sits between the two lists.
+`NEW` (#187): invite links move to their own screen. Manage access holds, from the top:
+
+- A list row "Invite links" with a link icon and "{n} not used yet" under it ("None yet" when
+  there are none). It opens the Invite links screen.
+- A divider, then the list "Who can reach pc1" under a section header in the primary colour.
 
 **Who can reach pc1**
 
@@ -389,33 +391,10 @@ Remove opens a dialog:
 The admin cannot remove themselves here. To give the PC to someone else, sign out on the PC's
 settings page and let them sign in there.
 
-**Invite someone** `NEW` (#187), a dialog
+**Invite links** `NEW` (#187, #193), its own screen
 
-Opened from the "Invite" button, over Manage access.
-
-- Title: "Invite someone"
-- Buttons: "Cancel", "Create"
-
-No text, no choices and no note. For now the app always asks for a link that expires in 7
-days. The server still accepts other durations.
-
-"Create" closes this dialog and opens the link dialog. The new link is also in the second
-list.
-
-**Invite link** `NEW` (#187, #193), a dialog
-
-Opens after "Create", and again when the admin taps a row under "Invite links not used
-yet".
-
-- Title: "Invite link"
-- Text: "Expires at {date}."
-- The link in monospace, selectable, in a box of the highest surface container colour
-- Buttons: "Copy link" on the left, "Remove" on the right in the error colour
-
-Copy link copies the link, and a snackbar says "Link copied". The dialog stays open. Remove asks
-first, with the dialog below. Tapping outside or Back closes the dialog.
-
-**Invite links not used yet** `NEW` (#187, #193), the second list on Manage access
+Top bar: back arrow, the title "Invite links" and the device name under it. An extended
+floating button "Create" with a plus icon at the bottom right.
 
 One row per unused link: the link on one line, cut in the middle with "…" so its start and end
 both show, then "Expires at {date}". Two icon buttons on the right:
@@ -424,7 +403,24 @@ both show, then "Expires at {date}". Two icon buttons on the right:
 - Trash: asks first. "Remove this link?", "Nobody can join with it after this.", buttons
   "Cancel" and "Remove".
 
-Tapping the row opens the link dialog. The section is hidden when there are none.
+Tapping the row opens the link dialog. With no links, the screen says "No invite links yet"
+in the middle.
+
+"Create" makes a link straight away, with no dialog. For now the app always asks for a link
+that expires in 7 days, with no note. The server still accepts other durations. The new link
+goes to the top of the list, and the link dialog opens.
+
+**Invite link** `NEW` (#187, #193), a dialog
+
+Opens after "Create", and again when the admin taps a link row.
+
+- Title: "Invite link"
+- Text: "Expires at {date}."
+- The link in monospace, selectable, in a box of the highest surface container colour
+- Buttons: "Copy link" on the left, "Remove" on the right in the error colour
+
+Copy link copies the link, and a snackbar says "Link copied". The dialog stays open. Remove asks
+first, with the trash dialog above. Tapping outside or Back closes the dialog.
 
 `SERVER ONLY`: disabling a device. The server has it, there is no way to undo it, and no issue
 asks for a screen. Do not design it.
@@ -802,13 +798,13 @@ link on their phone's browser and approves there.
 ### F4. Invite someone `BUILT`, `NEW` as a link (#187, #193, #194)
 
 1. Admin, app, Home: card menu, "Manage access". Manage device opens.
-2. "Invite", then "Create". In the link dialog, "Copy link". Paste it into any app. Later, tap the link's row to see it
+2. "Invite links", then "Create". In the link dialog, "Copy link". Paste it into any app. Later, tap the link's row to see it
    and copy it again.
 3. Guest opens the link in any browser. The join page (7.7) asks them to sign in if needed
    (or make an account and come back), then shows "Join pc1?".
 4. "Join". The page says "You joined pc1" and offers "Open ProductName". In the app, the PC is
    under "Shared with you", "Over the internet".
-5. The link leaves the admin's "Invite links not used yet".
+5. The link leaves the admin's Invite links screen.
 
 ### F5. Remove someone `BUILT`
 
@@ -1001,8 +997,9 @@ was added as a guide. Each row there has a note that gives the reason for every 
 - Home cards hold their folders as plain list rows. No card sits inside another card.
 - Home has one notice card part for update, server down, session ended and sign in. Urgent
   notices go at the top; the sign-in offer goes at the end.
-- Manage access has an "Invite" floating button. It opens the "Invite someone" dialog, which
-  has only "Cancel" and "Create". The app always makes 7 day links for now, with no note.
+- Invite links have their own screen. Manage access opens it from an "Invite links" row at the
+  top, above the people. The screen has a "Create" floating button that makes a link with no
+  dialog. The app always makes 7 day links for now, with no note.
 - Unused link rows show the link on one line, cut in the middle, and "Expires at {date}".
 - A made link shows in an "Invite link" dialog, with "Copy link" on the left and "Remove" on the
   right. The admin can open it again by tapping the link's row, so the link is no longer shown
