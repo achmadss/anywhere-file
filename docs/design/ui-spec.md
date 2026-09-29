@@ -325,10 +325,15 @@ line: most people never check the code, so it waits in the sheet until someone w
 
 Empty states:
 
-- First 5 seconds, nothing found yet: a centred spinner and "Looking for devices on this Wi-Fi…"
-- After 5 seconds, nothing found and nothing on the account, centred: a computer icon, title "No
-  devices found yet", text "Check that ProductName is running on your device, and that your
-  phone is on the same Wi-Fi." (every line centred), a text button "How to set up your device"
+- First 5 seconds, nothing found yet: a centred spinner and "Looking for your devices…". Home
+  asks the account and searches the Wi-Fi at the same time, so the line names neither.
+- `NEW` After 5 seconds, nothing on the account and nearby devices not allowed: the "Nearby"
+  header and the nearby devices box (5.1) are the whole screen, with no "No devices found yet".
+  Allowing is the only way to find anything. Once allowed, Home looks again.
+- After 5 seconds, nothing on the account, nearby devices allowed, and nothing on the Wi-Fi,
+  centred: a computer icon, title "No devices found yet", text "Open ProductName on your
+  device. It shows up here when it's on this Wi-Fi or signed in to your account." (every line
+  centred), a text button "How to set up your device"
   with the help icon. It opens the Help page (7.3) at "Set up your device" in the browser. Those
   steps include getting ProductName for the device, so one button covers both. The top bar has
   only the Account icon.
@@ -340,8 +345,9 @@ Empty states:
   onboarding (5.1) in place of devices: "Find nearby devices", the Android 17 line and "Allow".
   After two refusals: "Open settings" and "How to allow permission" (opens the browser at the
   Help page, "Allow nearby devices"). "Your devices" and "Shared with you" still show above it.
-  Once allowed, the box goes and devices on the Wi-Fi fill the section. Signed out, the box is
-  the only thing on Home, and the empty state does not show.
+  Once allowed, the box goes and devices on the Wi-Fi fill the section.
+- Devices on the account and none on the Wi-Fi (allowed): not empty. The list shows them and
+  the "Nearby" section is hidden.
 
 #### 5.2.3 Joining a device `NEW` (#187)
 
@@ -1113,3 +1119,4 @@ Changed on 2026-09-29 from comments on the Figma page "Akdes New".
   signs in, and says "Accept invite" (#194).
 - The empty Home has one text button, "How to set up your device" with the help icon, in place of "Get ProductName for your device" and the "?" in the top bar. The Help steps start with getting the app, so one button covers both.
 - Home has no banners. Nearby devices not allowed shows as the onboarding box inside the Nearby section. Server did not answer shows as "Can't reach right now" on the account's cards, with pull down to try again. Both can be true at once without one hiding the other.
+- Home loading says "Looking for your devices…", since it asks the account and the Wi-Fi at once. An empty Home has two versions: nearby devices not allowed shows only the nearby devices box; allowed with nothing found shows "No devices found yet" with "Open ProductName on your device. It shows up here when it's on this Wi-Fi or signed in to your account."
