@@ -236,7 +236,10 @@ One list of devices. There are no "On this network" and "Away from home" section
 device appears once, and its card says how the app reaches it right now.
 
 1. Title row: the product name, then the Account icon (opens 5.8). No Refresh icon on the
-   phone: pull the list down to refresh. The desktop keeps a Refresh icon.
+   phone: pull the list down to refresh. The standard Android spinner, in a small raised circle,
+   drops in under the top bar and the list moves down with it. Home asks the account and
+   searches the Wi-Fi again, and the circle goes when both answer. It works in every Home state,
+   empty ones too. The desktop keeps a Refresh icon.
 2. Device cards in three groups, or one of the empty states:
    - "Your devices": PCs this account is the admin of.
    - "Shared with you": PCs this account is a guest on.
