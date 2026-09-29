@@ -394,24 +394,21 @@ settings page and let them sign in there.
 Opened from the "Invite" button, over Manage access.
 
 - Title: "Invite someone"
-- Text: "Make a link for one person. They can open pc1's folders as a guest. Only you can
-  manage pc1."
-- "The link works for": a segmented button with "1 hour", "1 day" (default), "7 days" and
-  "No end".
-- Field "Who is it for? (optional)", outlined. Only the admin sees it.
-- Buttons: "Cancel", "Make a link"
+- Buttons: "Cancel", "Create"
 
-"Make a link" closes this dialog and opens the link dialog. The new link is also in the second
+No text, no choices and no note. For now the app always asks for a link that expires in 7
+days. The server still accepts other durations.
+
+"Create" closes this dialog and opens the link dialog. The new link is also in the second
 list.
 
 **Invite link** `NEW` (#187, #193), a dialog
 
-Opens after "Make a link", and again when the admin taps a row under "Invite links not used
+Opens after "Create", and again when the admin taps a row under "Invite links not used
 yet".
 
 - Title: "Invite link"
-- Text: "For Ewa. Works for one person, until {date}." Without a note it starts at "Works for
-  one person". Without an end date it ends at "Works for one person, with no end date."
+- Text: "Expires at {date}."
 - The link in monospace, selectable, in a box of the highest surface container colour
 - Buttons: "Copy link" on the left, "Remove" on the right in the error colour
 
@@ -420,12 +417,12 @@ first, with the dialog below. Tapping outside or Back closes the dialog.
 
 **Invite links not used yet** `NEW` (#187, #193), the second list on Manage access
 
-One row per unused link: the note (or "No note"), then "Works until {date}" or "No end date".
-Two icon buttons on the right:
+One row per unused link: the link on one line, cut in the middle with "…" so its start and end
+both show, then "Expires at {date}". Two icon buttons on the right:
 
 - Copy: copies the link, and a snackbar says "Link copied".
-- Trash: asks first. "Remove the link for Ewa?", "Nobody can join with it after this. To invite
-  Ewa later, make a new link.", buttons "Cancel" and "Remove".
+- Trash: asks first. "Remove this link?", "Nobody can join with it after this.", buttons
+  "Cancel" and "Remove".
 
 Tapping the row opens the link dialog. The section is hidden when there are none.
 
@@ -805,8 +802,7 @@ link on their phone's browser and approves there.
 ### F4. Invite someone `BUILT`, `NEW` as a link (#187, #193, #194)
 
 1. Admin, app, Home: card menu, "Manage access". Manage device opens.
-2. "Invite". In the dialog, choose "1 day" or "No end", add a note if you like, "Make a link".
-   In the link dialog, "Copy link". Paste it into any app. Later, tap the link's row to see it
+2. "Invite", then "Create". In the link dialog, "Copy link". Paste it into any app. Later, tap the link's row to see it
    and copy it again.
 3. Guest opens the link in any browser. The join page (7.7) asks them to sign in if needed
    (or make an account and come back), then shows "Join pc1?".
@@ -1005,7 +1001,9 @@ was added as a guide. Each row there has a note that gives the reason for every 
 - Home cards hold their folders as plain list rows. No card sits inside another card.
 - Home has one notice card part for update, server down, session ended and sign in. Urgent
   notices go at the top; the sign-in offer goes at the end.
-- Manage access has an "Invite" floating button. It opens the "Invite someone" dialog.
+- Manage access has an "Invite" floating button. It opens the "Invite someone" dialog, which
+  has only "Cancel" and "Create". The app always makes 7 day links for now, with no note.
+- Unused link rows show the link on one line, cut in the middle, and "Expires at {date}".
 - A made link shows in an "Invite link" dialog, with "Copy link" on the left and "Remove" on the
   right. The admin can open it again by tapping the link's row, so the link is no longer shown
   only once and there is no Share button.
