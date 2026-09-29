@@ -202,7 +202,8 @@ Every step uses the same screen:
   the same on every step.
 - Under them, one rounded box (surface container high) with the step's content.
 - At the bottom, above a thin line, one full-width filled button: "Next", and "Get started" on
-  the last step. Next is never greyed out, because no step is required.
+  the last step. Next is never greyed out. "Get started" waits for the Wi-Fi ask on Android 17
+  and later (5.1); the account is optional.
 - Buttons inside the box do an optional side job, so they are quieter than the filled button:
   tonal, or outlined for a second choice.
 - No step dots and no Skip. The back gesture goes one step back.
@@ -217,8 +218,10 @@ Two steps:
    Wi-Fi row (5.1), then a divider. Older Android hides the row and the divider. Then "Sign in
    to open your devices when you are away from home. On your own Wi-Fi you don't need an
    account.", a tonal "Sign in" (opens 5.3) and an outlined "Create an account" (opens 5.3.1).
-   When either one works, the app goes straight to Home, with no signed-in step. The bottom
-   button is "Get started" and opens Home, signed in or not.
+   When either one works and the Wi-Fi ask is allowed, the app goes straight to Home, with no
+   signed-in step. The bottom button is "Get started" and opens Home, signed in or not. On
+   Android 17 and later it is greyed out until Android allows the Wi-Fi ask, because without
+   it the app can't find any device. On older Android it works at once.
 
 ### 5.1 Local network permission (Android 17 and later only) `BUILT`, `NEW` placement
 
@@ -229,7 +232,11 @@ The top of onboarding step 2 (5.0). One list row, as TachiyomiSY shows its permi
 - Trailing: an outlined button "Allow". It opens Android's own prompt. No "Not now": Android's
   prompt already lets the person say no.
 - Allowed: a check in the primary colour replaces the button.
-- Refused: nothing changes. The row keeps its "Allow" button, and "Get started" still works.
+- Refused: the row keeps its "Allow" button, and "Get started" stays greyed out.
+- Refused 3 times: Android stops showing its prompt. The line becomes "Android stopped asking.
+  Allow it in Settings to go on." and the button becomes an outlined "Open settings", which
+  opens the app's page in Android's settings. When the person comes back with it allowed, the
+  check replaces the button and "Get started" works.
 
 ### 5.2 Home `NEW` layout, built on `BUILT` data
 
