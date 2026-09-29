@@ -34,7 +34,7 @@ laptop.
 3. To reach a PC from outside the house, the person makes an **account**, adds the PC to it,
    and signs in to the app. Traffic then goes through our **server**, which checks who they
    are and what they may reach.
-4. The owner of a PC can **invite** someone else with a one-time code. That person becomes a
+4. The owner of a PC can **invite** someone else with a one-time link. That person becomes a
    **guest** on the PC.
 
 ---
@@ -83,8 +83,8 @@ Keep these words. They are already in the app's copy.
 | "Checking…" | The app is still finding out. |
 | account | Email and password on our server. |
 | admin | The one account signed in on the PC's settings page. A PC has exactly one. May see who can reach the PC, remove people, invite people and remove the PC. Its PCs show under "Your devices". |
-| guest | Everyone else who can reach the PC, through an invitation code. May reach the PC's folders and leave. Its PCs show under "Shared with you". |
-| invitation code, "code" | One-time secret an admin makes and sends to someone. It always makes a guest. |
+| guest | Everyone else who can reach the PC, through an invite link. May reach the PC's folders and leave. Its PCs show under "Shared with you". |
+| invite link, "link" | A one-time web address an admin makes and sends to someone, `https://productname.example/join#<code>`. It always makes a guest. The app says "link", never "code". |
 | (never shown) "online", "LAN", "relay", "tunnel", "direct" | Technical words. Do not use them in the UI. The reach labels above replace them. |
 | fingerprint | A short text form of the PC's identity, like `SHA256:q3v...`. The same text the PC prints with `agent key`. Used to check the PC is the real one. |
 
@@ -135,10 +135,12 @@ No display name, no avatar, no "last active", no "invited by".
 |---|---|
 | code | `BOBIEyhfUSwH8MUL8nl42HMQKuAmgoWlMdKlKrRvIZ0` (43 characters) |
 | role | guest. The server still accepts admin today; that goes (#191). |
-| until | a date and time |
+| until | a date and time, or none. `NEW` (#193) |
+| note | "For Ewa", optional, seen only by the admin. `NEW` (#193) |
 
-The code is shown **once**, right after it is made. The server keeps only a hash. There is no
-list of open invitations and no way to cancel one.
+The link is shown **once**, right after it is made. The server keeps only a hash of the code,
+so the list of unused links shows the note and the end date, never the link. `NEW` (#193): no
+end date, the note, the list of unused links, and cancelling one.
 
 ### 4.5 A file or folder in a shared folder (`Entry`, `Listing`)
 
@@ -182,7 +184,7 @@ Home ──► File browser ──► (Search, PLANNED #164)
   │
   ├──► Manage device (admins only)
   │
-  ├──► Join with a code (dialog)
+  ├──► Join with a link (dialog, or opened from a link)
   │
   └──► Account (NEW) ──► Sign in
                      └──► About (NEW)
@@ -240,7 +242,7 @@ device appears once, and its card says how the app reaches it right now.
    - "Your devices": PCs this account is the admin of.
    - "Shared with you": PCs this account is a guest on.
    - "Nearby": PCs found on the Wi-Fi that are not on this account.
-4. Signed in: a floating button "Join with a code" at the bottom right (opens 5.2.3). It is
+4. Signed in: a floating button "Join with a link" at the bottom right (opens 5.2.3). It is
    the only way a guest adds a PC, and it stays in reach however long the list is. Hidden
    when signed out, and while the server does not answer, because joining needs both.
    Signed out: a line "Sign in to reach your devices over the internet." and a button
@@ -291,7 +293,7 @@ A three-dot menu on the card, for PCs on the account:
   page.", buttons "Cancel" and "Remove for everyone" (#189). It is on every admin card: a PC
   that can't be reached may only be switched off, so the app can't tell a gone PC apart.
 - Guest: "Leave this device". Asks first: "Leave office-pc?", "You won't be able to open its
-  folders. To come back, you need a new code from the person who shared it.", buttons
+  folders. To come back, you need a new link from the person who shared it.", buttons
   "Cancel" and "Leave" (#188).
 
 Colour: every card has the same quiet surface. Only the icon circle and the reach label
@@ -314,18 +316,30 @@ Empty states:
 - Server did not answer: a banner above the list, "Can't reach the server right now. You can
   still open devices on this Wi-Fi." with "Try again". Devices on the Wi-Fi still show.
 
-#### 5.2.3 Join with a code dialog `BUILT` behaviour, `NEW` placement
+#### 5.2.3 Join with a link dialog `BUILT` behaviour, `NEW` copy (#187)
 
-Opened from the floating button on Home.
+Opened from the floating button on Home, for when someone pastes a link by hand.
 
-- Title: "Join a device with a code"
-- Text: "Got a code from someone? Type it here to reach their device."
-- Field: "Invitation code"
+- Title: "Join a device"
+- Text: "Paste the invite link someone sent you."
+- Field: "Invite link", outlined. A bare code works too.
 - Buttons: "Cancel", "Join". Join is disabled while the field is empty.
 - While sending: a thin progress bar.
 - On success: the dialog closes and the list refreshes. The PC appears under "Shared with you".
-- On failure, under the field in error colour: "This code is wrong, expired or already used.
-  Ask the person who shared it for a new one."
+- On failure, under the field in error colour: "This invite is wrong, cancelled or already
+  used. Ask the person who sent it for a new one."
+
+#### 5.2.4 Join from a link `NEW` (#187)
+
+Tapping an invite link on Android opens the app (verified app links), which shows a dialog over
+Home:
+
+- Title: "Join pc1?"
+- Text: "ana@example.com invited you. You can open pc1's shared folders as a guest."
+- Buttons: "Cancel", "Join"
+
+Signed out, the Sign in screen (5.3) comes first, then the dialog. A link that no longer works
+shows the dialog's error text instead. Without the app, the link opens the web page (7.7).
 
 ### 5.3 Sign in `BUILT`
 
@@ -370,7 +384,7 @@ One row per person:
 Remove opens a dialog:
 
 - Title: "Remove ewa@example.com?"
-- Text: "They lose access to pc1 straight away. A new code brings them back."
+- Text: "They lose access to pc1 straight away. A new link brings them back."
 - Buttons: "Cancel", "Remove"
 
 The admin cannot remove themselves here. To give the PC to someone else, sign out on the PC's
@@ -378,22 +392,31 @@ settings page and let them sign in there.
 
 **Invite someone**
 
-- Text: "Make a one-time code for one person. They can open pc1's folders as a guest. Only you
-  can manage pc1."
-- "The code works for": a segmented button with "1 hour", "1 day" (default) and "7 days". The server
-  allows 7 days at most.
-- Button: "Make a code", full width
+`NEW` copy and parts (#187):
 
-After making a code, a card in the accent colour:
+- Text: "Make a link for one person. They can open pc1's folders as a guest. Only you can
+  manage pc1."
+- "The link works for": a segmented button with "1 hour", "1 day" (default), "7 days" and
+  "No end".
+- Field "Who is it for? (optional)", outlined. Only the admin sees it.
+- Button: "Make a link", full width
 
-- The code in monospace, selectable
-- "Works once, until {date}. It is shown only now, so share it before you leave this screen."
+After making a link, a card in the accent colour:
+
+- The link in monospace, selectable
+- "For Ewa. Works for one person, until {date}. You can't see this link again, so share it
+  now." Without a note it starts at "Works for one person".
 - Button "Share". On Android it opens the share sheet. On desktop it copies to the clipboard,
   and a line under the button says so.
 
-The shared text is: "You're invited to reach pc1 with anywhere-file. Sign in at
-{server} in the app, then enter this code under "Got a code from someone?": {code}. It works
-once, until {date}."
+The shared text is: "{admin email} invited you to reach pc1 with ProductName: {link}"
+
+**Links not used yet** `NEW` (#187, #193)
+
+One row per unused link: the note (or "No note"), "Works until {date}" or "No end date", and a
+text button "Cancel". Cancel asks first: "Cancel the link for Ewa?", "Nobody can join with it
+after this. To invite Ewa later, make a new link.", buttons "Keep" and "Cancel link". The
+section is hidden when there are none.
 
 `SERVER ONLY`: disabling a device. The server has it, there is no way to undo it, and no issue
 asks for a screen. Do not design it.
@@ -610,7 +633,7 @@ system as built. Sections, in order:
    - Over the internet: sign in once, add the PC to your account from the PC, and reach it
      from anywhere.
      No router setup and no port forwarding.
-4. **Share a PC with someone.** Make a one-time code in the app and send it. They get access
+4. **Share a PC with someone.** Make a one-time invite link in the app and send it. They get access
    as a guest, and you can remove them at any time.
 5. **Your files stay on your PCs.** Nothing is uploaded to a cloud drive. Files move only
    when you open, save or send one.
@@ -657,7 +680,7 @@ designs. Topics:
 - Install the app: Android APK (allow installs from the browser), desktop
 - Check a PC is the real one (compare the fingerprint in the app with `agent key` on the PC)
 - Reach your devices from away (make an account, add the PC from its settings page)
-- Share a PC with someone (invitation code), and remove them
+- Share a PC with someone (invite link), and remove them
 - Take a PC off your account
 - Update the app
 
@@ -707,6 +730,18 @@ will ask the person to allow the installer.
 
 ---
 
+### 7.7 Invite page `NEW`, at `/join` (#194)
+
+The page an invite link opens when the app does not. The code sits after the `#`, so the
+browser never sends it in the address. The page's script reads it and asks the server about it.
+
+- Good link: the computer icon, "{admin email} invited you to {device}", "You can open
+  {device}'s shared folders as a guest. Only {admin} can manage it.", "No app yet? Get it, then
+  open this link again.", a filled button "Open in the app" and a text button "Get the app"
+  (the download page).
+- Link that doesn't work: an error icon, "This invite link doesn't work", "It was used,
+  cancelled or is out of date. Ask the person who sent it for a new one." No buttons.
+
 ## 8. Flows
 
 Each step names the surface. Every step is supported by the system as described.
@@ -741,13 +776,15 @@ Each step names the surface. Every step is supported by the system as described.
 A PC with no screen: the agent prints the link and code in the terminal. The person opens the
 link on their phone's browser and approves there.
 
-### F4. Invite someone `BUILT`
+### F4. Invite someone `BUILT`, `NEW` as a link (#187, #193, #194)
 
 1. Admin, app, Home: card menu, "Manage access". Manage device opens.
-2. Choose "1 day", "Make a code", "Share". Send it by any app.
-3. Guest, app: sign in (make an account first if needed, F2).
-4. Guest, Home: "Join with a code", paste the code, "Join".
-5. The PC appears on the guest's list under "Shared with you", "Over the internet".
+2. Choose "1 day" or "No end", add a note if you like, "Make a link", "Share". Send it by any
+   app.
+3. Guest taps the link. With the app: the "Join pc1?" dialog (5.2.4), after signing in if
+   needed (F2). Without the app: the web page (7.7), "Get the app", then the link again.
+4. "Join". The PC appears on the guest's list under "Shared with you", "Over the internet".
+5. The link leaves the admin's "Links not used yet".
 
 ### F5. Remove someone `BUILT`
 
@@ -799,7 +836,7 @@ link on their phone's browser and approves there.
 - Changing what a PC shares from anywhere except its settings page
 - Thumbnails, image or video preview, a media player, a text viewer
 - Rename, move, copy, create folder, zip or unzip
-- Share links, public links, links that work without the app
+- File share links, public file links, file links that work without the app
 - Upload or download progress in percent, speed or time left (a plain bar only; "3 of 12"
   only with #165)
 - Pause, resume, or a transfer queue
@@ -809,7 +846,6 @@ link on their phone's browser and approves there.
 - Device details: OS, model, battery, last seen, IP change history
 - Profile pictures, display names, a profile screen
 - Roles beyond one admin per PC: no second admin, no "make admin", no role picker
-- A list of open invitations, or cancelling one
 - Push notifications (only Android's own transfer notification, #156)
 - Chat, comments, activity feed, audit log view
 - Billing, plans, payment, upgrade prompts
@@ -919,3 +955,13 @@ layout; this file is the reference for behaviour and copy.
 - No "needs an update" card. The old protocol stays supported, and a newer feature switches
   on only when both sides support it (#184, rewritten).
 - Onboarding on the first launch (5.0), with the local network ask as its third step (#192).
+
+Changed on 2026-09-29, after a Material 3 review against the TachiyomiSY app.
+
+- Invites are links. A link can have no end date and a note, and the admin sees the unused
+  ones and can cancel them. The web page at `/join` shows the invite when the app is not
+  there (#187, #193, #194).
+- Choosing one of a few fixed options uses a segmented button (the link's end date).
+- Dropdown menus are text only, with no icons.
+- Text fields inside a dialog are outlined.
+- About rows have no leading icons. Account rows have icons in the primary colour.
