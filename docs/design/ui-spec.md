@@ -192,38 +192,45 @@ First launch only: Onboarding (5.0) ──► Home
 
 ### 5.0 Onboarding `NEW`
 
-Shown on the first launch only. Later launches open Home. Every step has one main button;
-a second button appears only when the step has a real second choice. Step dots sit at the top.
+Shown on the first launch only. Later launches open Home. Built like TachiyomiSY's onboarding
+(Figma page "Akdes New", row 01).
 
-1. Welcome: "Your device's folders, on your phone". Text: "Open, save and send the files in the
-   folders you share on your device. At home over your Wi-Fi. Away from home with an account."
-   Button "Get started".
-2. "First, set up your device": three numbered steps (go to productname.example/download, install
-   "Share this PC", open it and pick the folders to share). Under them "Not at your device right
-   now? Send the link to yourself and open it there." with a "Send the link" button that
-   opens Android's share sheet. Button "My device is ready".
-3. Android 17 and later only: the local network ask from 5.1. Older Android skips it.
-4. "Reach your devices from anywhere": "Sign in to open your devices when you are away from home. On
-   your own Wi-Fi you don't need an account." Buttons "Sign in" (opens 5.3) and
-   "Skip for now" (opens Home).
+Every step uses the same screen:
+
+- At the top, a 48 px icon in the primary colour, the heading "Welcome to ProductName" and the
+  line "A few steps, and you can open the files on your devices from this phone." These stay
+  the same on every step.
+- Under them, one rounded box (surface container high) with the step's content.
+- At the bottom, above a thin line, one full-width filled button: "Next", and "Get started" on
+  the last step. Next is never greyed out, because no step is required.
+- Buttons inside the box are tonal. They do an optional side job.
+- No step dots and no Skip. The back gesture goes one step back.
+
+Steps:
+
+1. Set up your device. "On the device that has your files: 1. Go to
+   productname.example/download 2. Install "Share this PC" 3. Open it and pick the folders to
+   share". Then a divider, "Not at your device right now? Send the link to yourself and open it
+   there." and a tonal button "Send the link" that opens Android's share sheet.
+2. Android 17 and later only: find devices on this Wi-Fi (5.1). Older Android skips it.
+3. Account. "Have an account? Sign in to open your devices when you are away from home. On your
+   own Wi-Fi you don't need one." and a tonal "Sign in" (opens 5.3, then comes back here). A
+   divider, then "No account yet? Make one on the website, then sign in here." and a tonal
+   "Create an account" with the open-in-new icon (opens the website's sign-up page). After
+   sign-in the box shows a row "Signed in", "As ewa@example.com. You can open your devices from
+   anywhere." with a check. The bottom button is "Get started" and opens Home.
 
 ### 5.1 Local network permission (Android 17 and later only) `BUILT`, `NEW` placement
 
-Step 3 of onboarding (5.0). Heading "Find your devices on this Wi-Fi", one button "Allow" that opens
-Android's own prompt. No "Not now": Android's prompt already lets the person say no. If the
-person refuses, the screen adds the line below and "Choose a device", and the main button becomes
-"Continue". The copy below is the built text.
+Step 2 of onboarding (5.0). The box holds one list row, as TachiyomiSY shows its permissions:
 
-- Heading: "Devices on this network"
-- Text: "anywhere-file finds your devices by asking this network which of them are running it
-  too. Android checks with you first."
-- Button: "Allow". Opens Android's own permission prompt.
-- If refused, add:
-  - Text: "Without it, you can still pick one device at a time from Android's own list."
-  - Button: "Choose a device". Opens Android's system device picker.
-- Below that, in the same scrolling list: the device list as on Home (5.2). Devices on the
-  account still show and can say "Over the internet", because that path does not need this
-  permission. The Account icon is in the heading row, as on Home.
+- Title: "Find devices on this Wi-Fi"
+- Line: "ProductName asks this Wi-Fi which of your devices run it. Android checks with you first."
+- Trailing: an outlined button "Allow". It opens Android's own prompt. No "Not now": Android's
+  prompt already lets the person say no.
+- Allowed: a check in the primary colour replaces the button.
+- Refused: under a divider, "Without it, you can still pick one device at a time from Android's
+  own list." and a tonal button "Choose a device" that opens Android's system device picker.
 
 ### 5.2 Home `NEW` layout, built on `BUILT` data
 
@@ -232,18 +239,24 @@ device appears once, and its card says how the app reaches it right now.
 
 1. Title row: the product name, then the Account icon (opens 5.8). No Refresh icon on the
    phone: pull the list down to refresh. The desktop keeps a Refresh icon.
-2. `NEW`: when a newer version is out, a banner under the title: "Version {x} is available."
-   with a button "Download" that opens the website's download page in the browser, and a
-   way to dismiss it until the next version. No automatic install. The app asks the website
-   for the latest version number when Home opens.
+2. `NEW`: when a newer version is out, a notice card at the top of the list: "Version {x} is
+   available." with text buttons "Later" (hides it until the next version) and "Download"
+   (opens the website's download page in the browser). No automatic install. The app asks the
+   website for the latest version number when Home opens.
 3. Device cards in three groups, or one of the empty states:
    - "Your devices": PCs this account is the admin of.
    - "Shared with you": PCs this account is a guest on.
    - "Nearby": PCs found on the Wi-Fi that are not on this account.
 4. `NEW` (#187): no join button. A guest joins a PC from the invite link in a browser (7.7),
    and the PC shows under "Shared with you" at the next refresh.
-   Signed out: a line "Sign in to reach your devices over the internet." and a button
-   "Sign in".
+   Signed out: a notice card at the end of the list, "Sign in to reach your devices over the
+   internet." with a text button "Sign in". It sits at the end because Home works without an
+   account.
+
+Notice card: one part for everything Home needs to tell the person. A rounded card (surface
+container high) with a leading icon, one line of text and text buttons on the right under it.
+Notices that change what works now (update, server did not answer, session ended) sit at the
+top of the list. The sign-in offer sits at the end.
 
 #### 5.2.1 How the list is built
 
@@ -267,19 +280,20 @@ Top of the card: computer icon, name, and the reach label with a small dot.
 |---|---|---|---|
 | "On your Wi-Fi" | Found on the network and it proved who it is. The app talks to it directly. Wins when both paths work. | filled | Yes, directly `BUILT` |
 | "Over the internet" | On the account, the server says it is connected, and it is not on this network. | filled | Yes, through the server `PLANNED #103` |
-| "Can't reach right now" | On the account, not connected to the server, and not on this network. | hollow | No. Tiles are shown but disabled. |
+| "Can't reach right now" | On the account, not connected to the server, and not on this network. | hollow | No. Folder rows are shown but disabled. |
 | "Checking…" | Just found on the network and still being checked, or the server list is still loading. | dotted | Not yet |
 
 A separate error state, whatever the path:
 
 | State | Look | Text |
 |---|---|---|
-| Refused | Error colour, warning icon instead of the computer icon, no tiles | "Can't confirm it's this device" and under it "Another device on this Wi-Fi uses this name. To keep your files safe, ProductName won't connect to it." |
+| Refused | Error colour, warning icon instead of the computer icon, no folder rows | "Can't confirm it's this device" and under it "Another device on this Wi-Fi uses this name. To keep your files safe, ProductName won't connect to it." |
 
 Under the name and the reach label:
 
-- One row per shared folder: folder icon and name. Tapping it opens the File browser.
-  "Nothing shared yet" when there are none. No folder count: the rows are the count.
+- One list row per shared folder, inside the card and as wide as it: folder icon, name and a
+  chevron. Tapping it opens the File browser. The rows have no card of their own. "Nothing
+  shared yet" when there are none. No folder count: the rows are the count.
 - No role line and no address. The group heading says whose PC it is.
 
 A three-dot menu on the card, for PCs on the account:
@@ -293,7 +307,8 @@ A three-dot menu on the card, for PCs on the account:
   folders. To come back, you need a new link from the person who shared it.", buttons
   "Cancel" and "Leave" (#188).
 
-Colour: every card has the same quiet surface. Only the icon circle and the reach label
+Colour: every card is a filled card with the same quiet surface (surface container highest,
+12 px corners). Only the icon circle and the reach label
 change colour, and the refused card uses the error colour, so a problem stands out. The
 label and the dot say the same thing as the colour, so colour is never the only signal.
 
@@ -306,12 +321,15 @@ before, the same sheet opens from the card menu.
 
 Empty states:
 
-- First 5 seconds, nothing found yet: spinner and "Looking…"
-- After 5 seconds, nothing found and nothing on the account: title "No devices found yet", text
-  "Check that ProductName is running on your device, and that your phone is on the same Wi-Fi.",
-  a link "Get ProductName for your device", and when signed out the sign-in line.
-- Server did not answer: a banner above the list, "Can't reach the server right now. You can
+- First 5 seconds, nothing found yet: a centred spinner and "Looking for devices on this Wi-Fi…"
+- After 5 seconds, nothing found and nothing on the account, centred: a computer icon, title "No
+  devices found yet", text "Check that ProductName is running on your device, and that your
+  phone is on the same Wi-Fi.", a text button "Get ProductName for your device" with the
+  open-in-new icon. When signed out, the sign-in notice card at the bottom.
+- Server did not answer: a notice card at the top, "Can't reach the server right now. You can
   still open devices on this Wi-Fi." with "Try again". Devices on the Wi-Fi still show.
+- Session ended: a notice card at the top, "That session ended. Sign in again to reach your
+  devices over the internet." with "Sign in", and the dot on the Account icon.
 
 #### 5.2.3 Joining a device `NEW` (#187)
 
@@ -347,11 +365,15 @@ two-factor step in the app.
 
 ### 5.4 Manage device (admins only) `BUILT`
 
-Top bar: back arrow, the device name.
+Top bar: back arrow, the title "Manage access" and the device name under it.
 
 Progress bar and error line at the top when needed.
 
-**Who can reach it**
+Two lists, each under a section header in the primary colour, and an extended floating button
+"Invite" with a plus icon at the bottom right. `NEW` (#187): inviting moves to its own screen,
+so the form no longer sits between the two lists.
+
+**Who can reach pc1**
 
 One row per person:
 
@@ -367,18 +389,19 @@ Remove opens a dialog:
 The admin cannot remove themselves here. To give the PC to someone else, sign out on the PC's
 settings page and let them sign in there.
 
-**Invite someone**
+**Invite someone** `NEW` (#187), its own screen
 
-`NEW` copy and parts (#187):
+Opened from the "Invite" button. Top bar: back arrow, the title "Invite someone" and the device
+name under it.
 
 - Text: "Make a link for one person. They can open pc1's folders as a guest. Only you can
   manage pc1."
 - "The link works for": a segmented button with "1 hour", "1 day" (default), "7 days" and
   "No end".
 - Field "Who is it for? (optional)", outlined. Only the admin sees it.
-- Button: "Make a link", full width
+- Button: "Make a link", full width, right under the field
 
-After making a link, a card in the accent colour:
+After making a link, the form is replaced by a card in the primary container colour:
 
 - The link in monospace, selectable
 - "For Ewa. Works for one person, until {date}. You can't see this link again, so share it
@@ -388,7 +411,9 @@ After making a link, a card in the accent colour:
 
 The shared text is: "{admin email} invited you to reach pc1 with ProductName: {link}"
 
-**Links not used yet** `NEW` (#187, #193)
+Back returns to Manage access, where the new link is in the second list.
+
+**Invite links not used yet** `NEW` (#187, #193), the second list on Manage access
 
 One row per unused link: the note (or "No note"), "Works until {date}" or "No end date", and a
 text button "Cancel". Cancel asks first: "Cancel the link for Ewa?", "Nobody can join with it
@@ -400,7 +425,7 @@ asks for a screen. Do not design it.
 
 ### 5.5 File browser `BUILT`, with additions from `PLANNED #163 #164 #165 #103 #156`
 
-Opened from a folder tile. Shows one shared folder of one PC.
+Opened from a folder row on Home. Shows one shared folder of one PC.
 
 #### Built today
 
@@ -521,8 +546,10 @@ old account card on Home held.
 Under the text, when set: the trouble line in error colour (e.g. "That session ended. Sign in
 again.") and the caveat line in muted colour.
 
-Under that: a row "About ProductName" that opens 5.7, then the "Sign out" row when signed in.
-Sign out has no confirm step: signing in again undoes it.
+Under that: a row "About ProductName" with the line "Version 1.4.0, help, privacy and terms"
+that opens 5.7, then the "Sign out" row with the line "Devices on your Wi-Fi keep working" when
+signed in. Each row has a leading icon in the primary colour and a one-line summary, as in
+TachiyomiSY's More screen. Sign out has no confirm step: signing in again undoes it.
 
 The Account icon on Home can show a small dot when there is trouble to read, e.g. the session
 ended. That is the only badge in the app.
@@ -713,13 +740,19 @@ An invite link opens this page in the browser. The whole join happens here, so i
 desktop or a phone with no app at all. The code sits after the `#`, so the browser never sends
 it in the address. The page's script reads it and asks the server about it.
 
-Same layout as the account pages (7.6): one column, an icon tile, a title, a line, then the
-form or buttons.
+Same layout as the account pages (7.6): one column, a title, a line, then the form or
+buttons. The main button sits right under the fields or the text, never pinned to the bottom,
+because the page scrolls and a phone keyboard covers the bottom.
+
+Signed out and signed in start with an invite card: a rounded card with the device icon, the
+device name ("pc1") and "Invited by ana@example.com". The guest checks which device and who
+sent it before anything else. Joined and "doesn't work" start with a large check or error
+icon tile.
 
 | State | Title | Text | Buttons |
 |---|---|---|---|
-| Signed out | "Sign in to join pc1" | "ana@example.com invited you to pc1. Sign in to accept." Fields Email and Password. | "Sign in", then text buttons "Create an account" and "Forgot your password?". Both go to their page and come back to this link (as #186 does for the approve page). |
-| Signed in | "Join pc1?" | "ana@example.com invited you to pc1. You can open its shared folders as a guest. Only ana can manage it." and "Signed in as ewa@example.com." | "Join", and a text button "Use another account" that signs out and shows the signed-out state |
+| Signed out | "Sign in to join pc1" | "Sign in to accept the invite." Fields Email and Password. | "Sign in", then text buttons "Forgot your password?" and "Create an account". Both go to their page and come back to this link (as #186 does for the approve page). |
+| Signed in | "Join pc1?" | "You can open pc1's shared folders as a guest. Only ana@example.com can manage it." and "Signed in as ewa@example.com." | "Join pc1", and a text button "Use another account" that signs out and shows the signed-out state |
 | Joined | "You joined pc1" | "pc1 is under "Shared with you" in ProductName, on any device where you sign in as ewa@example.com." | "Open ProductName" (opens the app on Home through an app link; without the app it lands on the download page), text button "Get the app" |
 | Link doesn't work | "This invite link doesn't work" | "It was used, cancelled or is out of date. Ask the person who sent it for a new one." | none |
 
@@ -738,8 +771,8 @@ Each step names the surface. Every step is supported by the system as described.
 4. Phone: download the APK from `/download` ("Reach your devices"), allow the install, open it.
    (Android 17+: allow local network access.)
 5. Phone, Home: the PC appears as "Checking…", then "On your Wi-Fi", filled
-   with the folder tile. First time: the fingerprint is shown to compare.
-6. Phone: tap the folder tile. File browser opens. Save, send and delete files.
+   with the folder row. First time: the fingerprint is shown to compare.
+6. Phone: tap the folder row. File browser opens. Save, send and delete files.
 
 ### F2. Make an account and sign in to the app `BUILT`
 
@@ -780,7 +813,7 @@ link on their phone's browser and approves there.
 
 1. Not on the same Wi-Fi, signed in: Home shows the PC as "Over the internet".
 2. Tap a shared folder on that card. The File browser opens, marked "Remote".
-3. If the PC is off: the card says "Can't reach right now" and its tiles are disabled.
+3. If the PC is off: the card says "Can't reach right now" and its folder rows are disabled.
 
 ### F7. Session ended somewhere else `BUILT`
 
@@ -798,11 +831,11 @@ link on their phone's browser and approves there.
 
 1. Something on the network advertises a known PC's identity but cannot prove it.
 2. Home: that card turns to the error colour with a warning icon and the reason. It has no
-   folder tiles and cannot be opened.
+   folder rows and cannot be opened.
 
 ### F10. Update the app `NEW`
 
-1. App, Home: banner "Version {x} is available.", "Download".
+1. App, Home: a notice card "Version {x} is available.", "Download".
 2. Browser: `/download` opens. Download the new APK or desktop app.
 3. Install over the old one. Sign-in and known PCs are kept.
 
@@ -950,3 +983,18 @@ Changed on 2026-09-29, after a Material 3 review against the TachiyomiSY app.
 - Dropdown menus are text only, with no icons.
 - Text fields inside a dialog are outlined.
 - About rows have no leading icons. Account rows have icons in the primary colour.
+
+Redesigned later on 2026-09-29 on the Figma page "Akdes New", after TachiyomiSY's onboarding
+was added as a guide. Each row there has a note that gives the reason for every part.
+
+- Onboarding uses one screen for every step: icon, heading and line on top, the step in one
+  rounded box, and one filled button at the bottom. Three steps: set up your device, find
+  devices on this Wi-Fi (Android 17 and later), account. No step dots and no Skip.
+- The Wi-Fi ask is a list row with an outlined "Allow" button. A check replaces it once
+  Android says yes.
+- Home cards hold their folders as plain list rows. No card sits inside another card.
+- Home has one notice card part for update, server down, session ended and sign in. Urgent
+  notices go at the top; the sign-in offer goes at the end.
+- Manage access has an "Invite" floating button. Inviting is its own screen, "Invite someone".
+- Every text field is outlined, and every main button is the standard filled button.
+- The join page opens with an invite card, and its buttons sit under the text.
