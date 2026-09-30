@@ -127,6 +127,7 @@ not update live.
 |---|---|
 | email | `ewa@example.com` |
 | role | admin or guest |
+| folders | `files`, `photos`. The shared folders a guest can open. The admin opens all of them. `NEW` |
 
 No display name, no avatar, no "last active", no "invited by".
 
@@ -442,12 +443,26 @@ One row per person:
 
 - Email
 - The admin's row says "You". Everyone else is a guest and has a text button "Remove".
+- `NEW`: a guest's row says "Can open: files, photos" under the email. Tapping the row opens
+  the "Change folders" dialog.
 
 Remove opens a dialog:
 
 - Title: "Remove ewa@example.com?"
 - Text: "They lose access to pc1 straight away. A new link brings them back."
 - Buttons: "Cancel", "Remove"
+
+`NEW`: "Change folders" is the "Choose folders" dialog from Invite links, with other words:
+
+- Title: "Change folders"
+- Text: "ewa@example.com can open only the folders you tick."
+- The same scrolling list of the device's shared folders. The guest's folders are ticked.
+- Buttons: "Cancel" and "Save". "Save" is greyed out when nothing is ticked. To take all
+  access away, the admin uses "Remove".
+
+Save takes effect at once. A folder they lose leaves their device screen at the next refresh,
+and their next request for it gets "not found". A folder the device starts sharing later is
+not given to guests. The admin ticks it for each guest who needs it.
 
 The admin cannot remove themselves here. To give the PC to someone else, sign out on the PC's
 settings page and let them sign in there.
@@ -909,6 +924,13 @@ link on their phone's browser and approves there.
 1. Admin, Manage device: "Remove" next to the person, confirm.
 2. Their next request through the server fails. The PC leaves their list at the next refresh.
 
+### F5a. Change what someone can open `NEW`
+
+1. Admin, Manage device: tap the person's row. "Change folders" opens with their folders
+   ticked.
+2. Tick or untick, then "Save". Their row says the new "Can open" list.
+3. On the guest's device screen, a removed folder goes away at the next refresh.
+
 ### F6. Reach files from outside the house `PLANNED #103`
 
 1. Not on the same Wi-Fi, signed in: Home shows the PC as "Over the internet".
@@ -1141,3 +1163,4 @@ Changed on 2026-09-29 from comments on the Figma page "Akdes New".
 - An invite link gives only the folders the admin ticks. "Create" opens "Choose folders", a dialog with a scrolling list of the device's folders and "Create link", greyed out until one is ticked. The link dialog says "Can open: files, photos". The server must store the folders on the link and limit the guest to them.
 - The Account header shows the plan, "Premium" or "Free", as a small tonal label under the email.
 - The "About ProductName" row has no second line.
+- Manage access shows what each guest can open, "Can open: files, photos", and a tap on a guest opens "Change folders" with their folders ticked. "Save" is greyed out with nothing ticked, because "Remove" is the way to take all access away. A folder the device starts sharing later is not given to guests. The server needs a way to change a guest's folders, and the audit log records it (#197, #198).
