@@ -576,6 +576,11 @@ tinted box. Then one row per action, each with a leading icon:
   the left and a tonal "Paste here" button on the right. It stays while the person opens
   another folder in the same shared folder. "Paste here" moves or copies it there. × or Back
   cancels. Pasting into another shared folder is not offered.
+- The bar holds one kind at a time: all copy or all move, never both.
+- While the bar shows, Copy on another item adds it: "Copying 1 file" becomes "Copying 2
+  files". Cut while it says "Moving" adds the same way: "Moving 2 files".
+- Cut while the bar says "Copying", or Copy while it says "Moving", drops the old list and
+  starts a new one with this item.
 - "Rename": a dialog "Rename" with an outlined field "Name", the name filled in. "Rename" is
   greyed out until the name changes. A name that is taken shows an error under the field.
 - "Compress": the same dialog, titled "Compress", the name filled in as `beach.zip`, button
@@ -620,15 +625,14 @@ allows upload.
 #### `PLANNED #165`: select several files
 
 - A long press on a row starts a selection. Then a tap adds or removes a row.
-- The top bar becomes a selection bar: a close button, "3 selected" and a select all icon. When every item is picked, it turns into
-  a deselect all icon. `NEW`: the
-  actions move to a bar at the bottom, as in TachiyomiSY: cut, copy, save, delete, and three
-  dots for compress and share.
-- The bar shows only actions that work on every picked item. It holds 5 icons. With more than
-  5, the first 4 stay and the three dots open a menu with the rest. A folder in the selection
-  removes save and share (files only), which leaves 4 icons and no three dots. With one item,
-  the menu also has open with, rename and properties. Actions the folder does not allow are
-  left out.
+- `NEW` (#201): the top bar becomes a selection bar, as in Material Files: a close button, the
+  count ("3 selected"), then cut, copy, delete and three dots. The three dots open a menu: save to
+  Downloads, share, compress and select all (deselect all once every item is picked).
+- Only actions that work on every picked item show. A folder in the selection removes save
+  and share (files only). With one item, the menu also has open with, rename and properties.
+  Actions the folder does not allow are left out.
+- Cut or copy ends the selection and shows the paste bar at the bottom: "Moving 3 files" or
+  "Copying 3 files". The bottom stays free for that bar while selecting.
 - Save and delete run one file at a time. The progress bar counts files: "3 of 12".
 - A failed file does not stop the rest. At the end, one message names what failed.
 - Leaving the folder or pressing back ends the selection.
@@ -1206,4 +1210,4 @@ Changed on 2026-09-29 from comments on the Figma page "Akdes New".
 - The Account header shows the plan, "Premium" or "Free", as a small tonal label under the email.
 - The "About ProductName" row has no second line.
 - Manage access shows what each guest can open, "Can open: files, photos", and a tap on a guest opens "Change folders" with their folders ticked. "Save" is greyed out with nothing ticked, because "Remove" is the way to take all access away. A folder the device starts sharing later is not given to guests. The server needs a way to change a guest's folders, and the audit log records it (#197, #198).
-- The file browser gets file actions, from the Material Files app. Every row has three dots that open a bottom sheet: Open with, Save to Downloads, Share, Cut, Copy, Rename, Compress, Properties and Delete. A tap on a file opens it. Cut and Copy end in a "Paste here" bar at the bottom. The floating button is a "+" that opens "Send a file" and "New folder". The refresh icon goes; pull down refreshes. Selection actions move to a bottom bar, as in TachiyomiSY. Rename, move, copy and new folder are already supported by the file server on the device; compress is not (#199, #200).
+- The file browser gets file actions, from the Material Files app. Every row has three dots that open a bottom sheet: Open with, Save to Downloads, Share, Cut, Copy, Rename, Compress, Properties and Delete. A tap on a file opens it. Cut and Copy end in a "Paste here" bar at the bottom. The floating button is a "+" that opens "Send a file" and "New folder". The refresh icon goes; pull down refreshes. Selection actions sit in the top bar, as in Material Files, so the bottom stays free for the paste bar. Rename, move, copy and new folder are already supported by the file server on the device; compress is not (#199, #200).
