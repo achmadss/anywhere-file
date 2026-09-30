@@ -116,6 +116,7 @@ There is no OS, no icon, no disk size, no "last seen" time, no owner name.
 | online | yes / no |
 | role | admin or guest |
 | shared folders | `files` |
+| owner | `bob@example.com`, the admin's email. Guest devices only. `NEW` |
 
 The list is fetched when the home screen appears and when the person taps Refresh. It does
 not update live.
@@ -137,6 +138,7 @@ No display name, no avatar, no "last active", no "invited by".
 | role | guest. The server still accepts admin today; that goes (#191). |
 | until | a date and time, or none. `NEW` (#193) |
 | note | "For Ewa", optional, seen only by the admin. `NEW` (#193) |
+| folders | `files`, `photos`. The shared folders the guest can open, at least one. `NEW` |
 
 The admin can open an unused link again and copy it at any time. So the server must keep the
 code in a form it can give back to the admin. A hash alone is not enough (#193). `NEW` (#193):
@@ -163,6 +165,7 @@ extension), no owner, no permissions per file, no preview.
 |---|---|
 | server address | Built in (`NEW`). Can be changed behind "Use a different server". Starts with `http://` or `https://`. |
 | email | Known once the server answered. |
+| plan | Premium or Free. Known once the server answered. `NEW` |
 | signed in | yes / no |
 | session | `NEW`: stays signed in until the person signs out. The app renews the sign-in in the background with a refresh token, and for now that token never runs out. There is no "checking" or "session ended" screen. If the server refuses the token (password reset, account deleted), the app is simply signed out. |
 | trouble | Last error, in words. |
@@ -286,7 +289,9 @@ A separate error state, whatever the path:
 | Refused | Error colour, warning icon instead of the computer icon. It can't be opened. | "Can't confirm it's this device" and under it "Another device on this Wi-Fi uses this name. To keep your files safe, ProductName won't connect to it." |
 
 `NEW`: the card holds only the icon, the name, the reach label and the three dots. No folders,
-no role line, no address. The group heading says whose PC it is. A short card keeps Home
+no role line, no address. The group heading says whose PC it is. A card under "Shared with you"
+adds a third line, "Shared by bob@example.com" in muted colour, under the reach label, so the
+guest knows whose device it is. A short card keeps Home
 readable with many devices, and a device with many folders doesn't push the others down.
 
 Tapping a card opens the device screen:
@@ -465,16 +470,25 @@ With no unused links, the middle of the screen shows a link icon, the heading "N
 yet" and "Create a link and send it to the person you want to invite. It works for 7 days."
 There is no button in it, because "Create" is already at the bottom right.
 
-"Create" makes a link straight away, with no dialog. For now the app always asks for a link
+`NEW`: "Create" opens the "Choose folders" dialog:
+
+- Title: "Choose folders"
+- Text: "They can open only the folders you tick."
+- One row per shared folder of the device, each with a tick box. Nothing is ticked at first.
+  The list scrolls inside the dialog, between two thin lines, so the buttons stay in view.
+- Buttons: "Cancel" and "Create link". "Create link" is greyed out until a folder is ticked.
+
+"Create link" makes the link for the ticked folders. For now the app always asks for a link
 that expires in 7 days, with no note. The server still accepts other durations. The new link
 goes to the top of the list, and the link dialog opens.
 
 **Invite link** `NEW` (#187, #193), a dialog
 
-Opens after "Create", and again when the admin taps a link row.
+Opens after "Create link", and again when the admin taps a link row.
 
 - Title: "Invite link"
 - Text: "Expires at {date}."
+- Under it: "Can open: files, photos", the folders the link gives. `NEW`
 - The link in monospace, selectable, in a box of the highest surface container colour
 - Buttons: "Copy link" on the left, "Remove" on the right in the error colour
 
@@ -600,7 +614,7 @@ old account card on Home held.
 | State | Text | Action |
 |---|---|---|
 | Signed out | Title "Not signed in", then "On your own Wi-Fi you don't need an account. To reach your devices from anywhere, sign in." | Button "Sign in", full width (opens 5.3) |
-| Signed in | The email as the title, then "Signed in. You can reach your devices from anywhere." | Row "Sign out" |
+| Signed in | The email as the title, a small tonal label with the plan ("Premium" or "Free"), then "Signed in. You can reach your devices from anywhere." | Row "Sign out" |
 | Signed in, server not answered | The email as the title, then "Signed in. The server has not answered yet." | Row "Sign out" |
 
 `NEW`: no "checking your account" and no "session ended" state. A sign-in lasts until the
@@ -608,9 +622,9 @@ person signs out (4.6).
 
 Under the text, when set: the caveat line in muted colour.
 
-Under that: a row "About ProductName" with the line "Version 1.4.0, help, privacy and terms"
-that opens 5.7, then the "Sign out" row with the line "Devices on your Wi-Fi keep working" when
-signed in. Each row has a leading icon in the primary colour and a one-line summary, as in
+Under that: a row "About ProductName", one line with no summary, that opens 5.7, then the
+"Sign out" row with the line "Devices on your Wi-Fi keep working" when signed in. Each row has
+a leading icon in the primary colour, as in
 TachiyomiSY's More screen. Sign out has no confirm step: signing in again undoes it.
 
 The Account icon on Home has no badge.
@@ -1123,3 +1137,7 @@ Changed on 2026-09-29 from comments on the Figma page "Akdes New".
 - The empty Home has one text button, "How to set up your device" with the help icon, in place of "Get ProductName for your device" and the "?" in the top bar. The Help steps start with getting the app, so one button covers both.
 - Home has no banners. Nearby devices not allowed shows as the onboarding box inside the Nearby section. Server did not answer shows as "Can't reach right now" on the account's cards, with pull down to try again. Both can be true at once without one hiding the other.
 - Home loading says "Looking for your devices…", since it asks the account and the Wi-Fi at once. An empty Home has two versions: nearby devices not allowed shows only the nearby devices box; allowed with nothing found shows "No devices found yet" with "Open ProductName on your device. It shows up here when it's on this Wi-Fi or signed in to your account."
+- A card under "Shared with you" says "Shared by" and the owner's email under the reach label.
+- An invite link gives only the folders the admin ticks. "Create" opens "Choose folders", a dialog with a scrolling list of the device's folders and "Create link", greyed out until one is ticked. The link dialog says "Can open: files, photos". The server must store the folders on the link and limit the guest to them.
+- The Account header shows the plan, "Premium" or "Free", as a small tonal label under the email.
+- The "About ProductName" row has no second line.
