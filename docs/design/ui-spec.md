@@ -624,6 +624,11 @@ allows upload.
   a deselect all icon. `NEW`: the
   actions move to a bar at the bottom, as in TachiyomiSY: cut, copy, save, delete, and three
   dots for compress and share.
+- The bar shows only actions that work on every picked item. It holds 5 icons. With more than
+  5, the first 4 stay and the three dots open a menu with the rest. A folder in the selection
+  removes save and share (files only), which leaves 4 icons and no three dots. With one item,
+  the menu also has open with, rename and properties. Actions the folder does not allow are
+  left out.
 - Save and delete run one file at a time. The progress bar counts files: "3 of 12".
 - A failed file does not stop the rest. At the end, one message names what failed.
 - Leaving the folder or pressing back ends the selection.
