@@ -624,7 +624,8 @@ allows upload.
 
 #### `PLANNED #165`: select several files
 
-- A long press on a row starts a selection. Then a tap adds or removes a row.
+- A tap on a row's icon, or a long press on the row, starts a selection. A tap on the rest of
+  the row opens it. During a selection, a tap anywhere on a row adds or removes it.
 - `NEW` (#201): the top bar becomes a selection bar, as in Material Files: a close button, the
   count ("3 selected"), then cut, copy, delete and three dots. The three dots open a menu: save to
   Downloads, share, compress and select all (deselect all once every item is picked).
@@ -1052,10 +1053,24 @@ link on their phone's browser and approves there.
 
 - Phone: design at 360 × 800 and 412 × 915. Edge to edge: content sits below the status bar,
   and nothing sits under the gesture bar.
-- Desktop: a resizable window. Design at 1024 × 720 and 1440 × 900. The same screens as the
-  phone, with the same one-column flow. A wider layout is fine if it shows the same content
-  and actions.
-- Desktop has no system back. The back arrow in the top bar is the only way back.
+- Desktop: a resizable window. Design at 1024 × 720 and 1440 × 900. The same screens and
+  actions as the phone, in two panes (`NEW`, Figma row 07):
+  - Home's device list stays on the left, 360 wide (320 at 1024). The picked card is tinted.
+  - The right pane shows what the phone opens full screen: the device's folders, the file
+    browser, Account, Sign in, About and Manage access. With nothing picked it says "Pick a
+    device" and "Its shared folders open here."
+  - A window narrower than 840 shows one pane at a time, as the phone does.
+  - ⋮ or a right click opens a menu next to the row or card, in place of a bottom sheet. The
+    file menu has no Share, because Linux has no share sheet.
+  - Sheets that hold content, such as "Compare codes", open as dialogs with a "Done" button.
+  - Dialogs sit in the middle of the window. Esc closes a menu or dialog and ends selection.
+  - A click on a row's icon selects it, as on the phone. Ctrl+click and Shift+click also
+    select.
+  - One click on the rest of the row opens the file or folder, as a tap does on the phone.
+  - Forms such as Sign in are at most 480 wide, in the middle of the pane.
+  - Home keeps a Refresh icon, since there is no pull down.
+- Desktop has no system back. The back arrow in the top bar is the only way back. From a
+  device's top it goes back to "Pick a device".
 - Android back gesture: goes up a folder, then to Home.
 - Material 3 components throughout: cards, list items, filter chips, top app bar, extended
   floating action button, snackbar, dialog, linear and circular progress indicators.
@@ -1211,3 +1226,9 @@ Changed on 2026-09-29 from comments on the Figma page "Akdes New".
 - The "About ProductName" row has no second line.
 - Manage access shows what each guest can open, "Can open: files, photos", and a tap on a guest opens "Change folders" with their folders ticked. "Save" is greyed out with nothing ticked, because "Remove" is the way to take all access away. A folder the device starts sharing later is not given to guests. The server needs a way to change a guest's folders, and the audit log records it (#197, #198).
 - The file browser gets file actions, from the Material Files app. Every row has three dots that open a bottom sheet: Open with, Save to Downloads, Share, Cut, Copy, Rename, Compress, Properties and Delete. A tap on a file opens it. Cut and Copy end in a "Paste here" bar at the bottom. The floating button is a "+" that opens "Send a file" and "New folder". The refresh icon goes; pull down refreshes. Selection actions sit in the top bar, as in Material Files, so the bottom stays free for the paste bar. Rename, move, copy and new folder are already supported by the file server on the device; compress is not (#199, #200).
+
+Changed on 2026-09-30 while designing the desktop window (Figma row 07).
+
+- The desktop window has two panes: the device list on the left, the picked device or screen on the right (section 10).
+- On the desktop, ⋮ and a right click open a menu next to the row, sheets with content become dialogs, and the file menu has no Share.
+- On the phone and the desktop, a tap or click on a row's icon selects the row. The rest of the row still opens it (#201).
