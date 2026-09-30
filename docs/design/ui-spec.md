@@ -533,7 +533,7 @@ Body states:
 | State | Look |
 |---|---|
 | Loading | Centred spinner |
-| Failed | Error text in the middle, e.g. "That device did not answer." or "That folder is not on the device any more.", and a button "Try again" |
+| Failed | A laptop icon, "Can't reach right now", "pc1 may be off or asleep." and a button "Try again". The same screen on the Wi-Fi and over the internet. Other errors ("That folder is not on the device any more.") use the same layout with their own text |
 | Empty at top | "This folder is empty." |
 | Empty below top | "Nothing in holiday/2026." |
 | Listing | One row per entry, divider between rows |
