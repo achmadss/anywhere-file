@@ -515,7 +515,8 @@ asks for a screen. Do not design it.
 
 ### 5.5 File browser `BUILT`, with additions from `PLANNED #163 #164 #165 #103 #156`
 
-Opened from a folder row on Home. Shows one shared folder of one PC.
+Opened from a folder row on the device screen. Shows one shared folder of one device.
+Figma: page "Akdes New", row "06 Phone · File browser".
 
 #### Built today
 
@@ -524,7 +525,8 @@ Top bar:
 - Back arrow. In a subfolder it goes up one folder. At the top it returns to Home.
 - Title: the shared folder's name. Under it, in small text, the current path when not at the
   top, e.g. `holiday/2026`.
-- Refresh icon.
+- Refresh icon. `NEW`: removed. Pulling the list down loads it again, as on Home. The only
+  icon is search (#164).
 
 Body states:
 
@@ -559,6 +561,39 @@ Transfers:
 Delete has no confirmation today. A confirmation dialog is a good addition and needs nothing
 new from the system.
 
+#### `NEW`: file actions
+
+Every row, folder or file, has a three-dot button. Tapping a folder opens it. Tapping a file
+opens it in its app, the same as "Open with".
+
+The three dots open a bottom sheet. On top, the same row without the dots, on a rounded
+tinted box. Then one row per action, each with a leading icon:
+
+- "Open with": the file is fetched, then Android's app chooser opens. Files only.
+- "Save to Downloads": the old tap on a row. Files only.
+- "Share": the file is fetched, then Android's share sheet opens. Files only.
+- "Cut" and "Copy": a bar sits at the bottom, "Moving 1 file" or "Copying 1 file", with × on
+  the left and a tonal "Paste here" button on the right. It stays while the person opens
+  another folder in the same shared folder. "Paste here" moves or copies it there. × or Back
+  cancels. Pasting into another shared folder is not offered.
+- "Rename": a dialog "Rename" with an outlined field "Name", the name filled in. "Rename" is
+  greyed out until the name changes. A name that is taken shows an error under the field.
+- "Compress": the same dialog, titled "Compress", the name filled in as `beach.zip`, button
+  "Compress". The zip is made on the device, in the same folder.
+- "Properties": a dialog "Properties" with read-only pairs: Name, Where (`files/holiday/2026
+  on pc1`), Type, Size, Modified. One button, "Close".
+- A thin line, then "Delete" in the error colour. It asks first: "Delete beach.jpg?", "It is
+  removed from pc1. You can't undo this.", buttons "Cancel" and "Delete".
+
+Actions that change the device (Cut, Rename, Compress, Delete) show only when the folder
+allows delete and upload. Copy and Paste need upload.
+
+The floating button is a square "+" (it was "Send a file"). Tapping it shows two labelled
+buttons above it, "Send a file" and "New folder", over a scrim, and the "+" turns into "×".
+"New folder" opens the Rename dialog titled "New folder", field "New folder", button
+"Create", greyed out while the name is empty or taken. The "+" shows only when the folder
+allows upload.
+
 #### `PLANNED #163`: breadcrumbs and file type icons
 
 - A breadcrumb strip under the top bar. It scrolls sideways and keeps the deepest folder in
@@ -585,8 +620,10 @@ new from the system.
 #### `PLANNED #165`: select several files
 
 - A long press on a row starts a selection. Then a tap adds or removes a row.
-- The top bar becomes a selection bar: "3 selected", select all, save, delete, and a close
-  button.
+- The top bar becomes a selection bar: a close button, "3 selected" and a select all icon. When every item is picked, it turns into
+  a deselect all icon. `NEW`: the
+  actions move to a bar at the bottom, as in TachiyomiSY: cut, copy, save, delete, and three
+  dots for compress and share.
 - Save and delete run one file at a time. The progress bar counts files: "3 of 12".
 - A failed file does not stop the rest. At the end, one message names what failed.
 - Leaving the folder or pressing back ends the selection.
@@ -976,7 +1013,7 @@ link on their phone's browser and approves there.
 - Sharing a folder, or adding a PC to an account, from the app
 - Changing what a PC shares from anywhere except its settings page
 - Thumbnails, image or video preview, a media player, a text viewer
-- Rename, move, copy, create folder, zip or unzip
+- Unzip, or pasting into another shared folder
 - File share links, public file links, file links that work without the app
 - Upload or download progress in percent, speed or time left (a plain bar only; "3 of 12"
   only with #165)
@@ -1164,3 +1201,4 @@ Changed on 2026-09-29 from comments on the Figma page "Akdes New".
 - The Account header shows the plan, "Premium" or "Free", as a small tonal label under the email.
 - The "About ProductName" row has no second line.
 - Manage access shows what each guest can open, "Can open: files, photos", and a tap on a guest opens "Change folders" with their folders ticked. "Save" is greyed out with nothing ticked, because "Remove" is the way to take all access away. A folder the device starts sharing later is not given to guests. The server needs a way to change a guest's folders, and the audit log records it (#197, #198).
+- The file browser gets file actions, from the Material Files app. Every row has three dots that open a bottom sheet: Open with, Save to Downloads, Share, Cut, Copy, Rename, Compress, Properties and Delete. A tap on a file opens it. Cut and Copy end in a "Paste here" bar at the bottom. The floating button is a "+" that opens "Send a file" and "New folder". The refresh icon goes; pull down refreshes. Selection actions move to a bottom bar, as in TachiyomiSY. Rename, move, copy and new folder are already supported by the file server on the device; compress is not (#199, #200).
