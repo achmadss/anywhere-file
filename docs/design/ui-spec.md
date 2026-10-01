@@ -832,6 +832,8 @@ Advanced (Android):
   Android's battery setting for the app (#156).
 - "Notifications", "Open Android's notification settings".
 - "Share logs", "Send a log file with a bug report". Saves a log file and opens the share sheet.
+- `NEW` "Send error reports", "What failed, never your files or names". A switch, on at first.
+  When something fails, the app sends what happened to the server (ADR 0007).
 - "Show the setup guide again", "The steps from the first start". Opens onboarding (5.0).
 
 On the desktop, Settings takes the whole window in two panes, as TachiyomiSY does on large
@@ -850,7 +852,8 @@ screens (Figma row 07):
   - Appearance has no "Use wallpaper colours". Transfers has only "Save files to", and its dialog
     sits in the middle of the window.
   - Advanced has "Save logs", "Save a log file to send with a bug report", which opens a save
-    dialog in place of the share sheet, and "Show the setup guide again".
+    dialog in place of the share sheet, "Send error reports" as on Android, and "Show the setup
+    guide again".
 
 ### 5.10 App lock `NEW` (#206)
 
@@ -901,6 +904,10 @@ The page:
      person approves or refuses on the website.
    - On an account: "This PC belongs to the account at {server}, as device {device id}." A
      "Sign out" button, which takes the PC off the account.
+
+6. `NEW` **Error reports**: a checkbox "Send error reports to ProductName", checked at first,
+   with the line "When something fails, this PC sends what happened. Never your files or their
+   names." (ADR 0007).
 
 Sharing works on the LAN whether or not the PC is on an account.
 
@@ -1010,7 +1017,9 @@ designs. Topics:
 Plain text pages. The owner writes the text. Design the layout only, with placeholder
 paragraphs. What the server really stores, for whoever writes the text: email, a password
 hash, sessions, the PCs on each account with their names and shared folder names, who may
-reach which PC, and an audit log of those changes. File contents pass through the server only
+reach which PC, and an audit log of those changes. `NEW`: error reports and the steps of failed
+actions from the app and the PCs, with the account id and no file names or contents, unless the
+person turns them off (ADR 0007). File contents pass through the server only
 while a remote request is in flight and are not stored.
 
 ### 7.5 Delete my account `NEW`, at `/account/delete`
@@ -1148,12 +1157,21 @@ lets you reach it from anywhere." with a text button "See plans". Buttons stay "
 "Refuse". After approving, the page says "pc2 is on your account" with "Open ProductName".
 Refusing says "pc2 was not added".
 
-### 7.12 The app without Premium `NEW` (not drawn yet)
+### 7.12 The app without Premium `NEW` (Figma row 16)
 
 - A device whose admin has no Premium can be reached only on the same Wi-Fi. Away from it, its
   card says so in plain words: "Wi-Fi only" for the admin, with "Get Premium to reach it from
   anywhere"; for a guest, "Wi-Fi only" with "{admin} needs Premium to share it from anywhere".
+- A tap on a Wi-Fi only card opens a sheet. The admin's says "pc1 works on its Wi-Fi only",
+  "Your plan is Free. With Premium, you and your guests can reach pc1 from anywhere. On the same
+  Wi-Fi as pc1, everything works as usual." and "See plans", which opens the Pricing page in the
+  browser. The guest's says "{admin}'s plan doesn't include reaching nas from anywhere. On the
+  same Wi-Fi as nas, it works as usual." with no button. On the desktop the sheet is a dialog.
 - Transfers keeps working on the files that were running or waiting when Premium ended (7.10).
+  A notice on top says "Premium ended. Files already here still finish. New downloads and
+  uploads over the internet need Premium." with "See plans".
+- A folder that was open when Premium ended shows "pc1 works on its Wi-Fi only now", "Premium
+  ended. Files already in Transfers still finish." and "Open Transfers".
 
 ## 8. Flows
 
@@ -1486,3 +1504,4 @@ Changed on 2026-10-01.
 - An app lock with Android's unlock prompt, and switches to hide app content and file names in notifications (#206).
 - The website is designed for four kinds of people, each with its own Figma row: visitor (rows 11 and 12), account holder (13 and 14), device admin (15) and invited guest (05).
 - Pricing and billing are designed: Free adds devices and invites guests, on the Wi-Fi only; Premium makes the admin's devices reachable over the internet for the admin and their guests, with no limits; Wi-Fi use is free for everyone. When Premium ends, running and waiting transfers still finish and stay manageable; nothing else works over the internet. Payment is on a payment partner's page. Built after the core works (7.8 to 7.12).
+- Errors from the app and the PCs go to the server by themselves, with a "Send error reports" switch in Settings, Advanced to turn it off. The operator uses Grafana and Appsmith, and each user action is traced from the app to the PC (ADR 0007).
