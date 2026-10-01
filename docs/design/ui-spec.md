@@ -701,7 +701,8 @@ with "Where Download puts a file." and two radio choices:
   save dialog.
 
 "Save" keeps the choice, "Cancel" or Back closes. If the chosen folder is gone or can't be
-written, Download says so and asks for a place that time.
+written, Download says so and asks for a place that time. With "Ask every time", downloading
+several picked files asks once for a folder, and all of them go there.
 
 Then a row "About ProductName", one line with no summary, that opens 5.7, then the
 "Sign out" row with the line "Devices on your Wi-Fi keep working" when signed in. Each row has
