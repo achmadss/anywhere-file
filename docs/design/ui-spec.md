@@ -244,7 +244,9 @@ The first box of onboarding (5.0):
 One list of devices. There are no "On this network" and "Away from home" sections. Each
 device appears once, and its card says how the app reaches it right now.
 
-1. Title row: the product name, then the Account icon (opens 5.8). No Refresh icon on the
+1. Title row: the product name, then `NEW` (#204) a Transfers icon with a count badge while
+   any file waits, moves or failed (opens Transfers, 5.5), then the avatar (opens More, 5.8).
+   No Refresh icon on the
    phone: pull the list down to refresh. The standard Android spinner, in a small raised circle,
    drops in under the top bar and the list moves down with it. Home asks the account and
    searches the Wi-Fi again, and the circle goes when both answer. It works in every Home state,
@@ -257,7 +259,7 @@ device appears once, and its card says how the app reaches it right now.
    and the PC shows under "Shared with you" at the next refresh.
 
 `NEW`: Home has no update notice and no sign-in notice. Updates live in About (5.7), and
-signing in lives in Account (5.8). Home stays about devices.
+signing in lives in More (5.8). Home stays about devices.
 
 `NEW`: Home has no notice card or banner at the top. Two problems can be true at once (nearby
 devices off and server down), and stacked banners push the list down and compete. Each
@@ -350,7 +352,7 @@ Empty states:
   centred), a text button "How to set up your device"
   with the help icon. It opens the Help page (7.3) at "Set up your device" in the browser. Those
   steps include getting ProductName for the device, so one button covers both. The top bar has
-  only the Account icon.
+  only the avatar.
 - `NEW` Server did not answer: no banner. The account's devices stay listed from the last
   answer, and each card says "Can't reach right now". Pull down to try again. Devices on the
   Wi-Fi still work.
@@ -564,7 +566,7 @@ Transfers:
 - When it ends, a snackbar says what happened: "Saved to /Users/ana/Downloads/a.txt", "Sent
   a.txt", "Deleted a.txt", or the error, e.g. "The device would not delete (403)."
 - Files are saved to the phone's Downloads, or the desktop's Downloads folder. A name that is
-  taken gets " (2)" added. `NEW`: the "Save files to" setting (5.8) can pick another folder, or
+  taken gets " (2)" added. `NEW`: the "Save files to" setting (5.9) can pick another folder, or
   ask each time with the system save dialog.
 
 Delete has no confirmation today. A confirmation dialog is a good addition and needs nothing
@@ -580,7 +582,7 @@ tinted box. Then one row per action, each with a leading icon:
 
 - "Open with": the file is fetched, then Android's app chooser opens. Files only.
 - "Download" (`NEW` name, was "Save to Downloads"): the old tap on a row. It saves where "Save
-  files to" says (5.8). Files only.
+  files to" says (5.9). Files only.
 - "Share": the file is fetched, then Android's share sheet opens. Files only.
 - "Cut" and "Copy": a bar sits at the bottom, "Moving 1 file" or "Copying 1 file", with × on
   the left and a tonal "Paste here" button on the right. It stays while the person opens
@@ -677,7 +679,16 @@ The server gives no more detail than that on purpose.
 #### `NEW` (#204): Transfers
 
 A screen that lists every file waiting to save or send, as TachiyomiSY's download queue does.
-It opens from the line under the top bar, or from a tap on the Android notification (#156).
+It opens from:
+
+- the Transfers icon with its count in Home's top bar (5.2), shown while the list is not empty,
+- the Transfers row on More (5.8), always there, with a line that says what moves ("Saving
+  clip.mp4 · 4 left", "Paused", "1 failed", "Nothing moving"),
+- the line under the top bar in the file browser,
+- a tap on the Android notification (#156).
+
+The screen:
+
 
 - Top bar: back arrow, title "Transfers", the count under it ("4 left", "Paused · 4 left",
   "3 left · 1 failed"), and three dots with one item, "Cancel all".
@@ -706,10 +717,10 @@ It opens from the line under the top bar, or from a tap on the Android notificat
 
 Not in the app. It is a website page (section 7, `NEW`). About (5.7) links to it.
 
-### 5.8 Account `NEW` screen, `BUILT` content
+### 5.8 More `NEW` screen (was Account), `BUILT` content
 
-Opened from the Account icon on Home. Top bar: back arrow, title "Account". It holds what the
-old account card on Home held.
+Opened from the avatar on Home. Top bar: back arrow, title "More". It holds the account and
+the app's other places, as TachiyomiSY's More tab does.
 
 | State | Text | Action |
 |---|---|---|
@@ -722,29 +733,20 @@ person signs out (4.6).
 
 Under the text, when set: the caveat line in muted colour.
 
-Under that: `NEW` a row "Save files to", signed in or out, with the place under it
-("Downloads", another folder's name, or "Ask every time"). It opens a dialog "Save files to"
-with "Where Download puts a file." and two radio choices:
+Then the rows, signed in or out, each with a leading icon in the primary colour:
 
-- "This folder", with the folder under it, "Downloads" at first. A text button "Change folder"
-  under it opens the system folder picker (Android) or folder dialog (desktop).
-- "Ask every time", with "Pick a place for each download". Each Download then opens the system
-  save dialog.
+1. `NEW` (#204) "Transfers", with what moves under it: "Saving clip.mp4 · 4 left", "Paused",
+   "1 failed" or "Nothing moving". Opens Transfers (5.5).
+2. `NEW` (#205) "Settings", with "Theme, where files go, app lock". Opens 5.9.
+3. "About ProductName", one line with no summary. Opens 5.7.
+4. "Sign out", with "Devices on your Wi-Fi keep working", when signed in. No confirm step:
+   signing in again undoes it.
 
-"Save" keeps the choice, "Cancel" or Back closes. If the chosen folder is gone or can't be
-written, Download says so and asks for a place that time. With "Ask every time", downloading
-several picked files asks once for a folder, and all of them go there.
-
-Then a row "About ProductName", one line with no summary, that opens 5.7, then the
-"Sign out" row with the line "Devices on your Wi-Fi keep working" when signed in. Each row has
-a leading icon in the primary colour, as in
-TachiyomiSY's More screen. Sign out has no confirm step: signing in again undoes it.
-
-The Account icon on Home has no badge.
+The avatar on Home has no badge. The count sits on the Transfers icon next to it.
 
 ### 5.7 About `NEW`
 
-Opened from the Account screen. Top bar: back arrow, title "About". A plain list with no
+Opened from More. Top bar: back arrow, title "About". A plain list with no
 header and no leading icons:
 
 - "Check for updates", with the version under it, e.g. "Version 1.4.0". Tapping it:
@@ -764,6 +766,78 @@ header and no leading icons:
 Nothing else. No theme, language or notification settings.
 
 ---
+
+### 5.9 Settings `NEW` (#205)
+
+Opened from the Settings row on More. Top bar: back arrow, title "Settings". A list of pages,
+each with a leading icon in the primary colour, a title and one line, as in TachiyomiSY:
+
+| Page | Line | Shows when |
+|---|---|---|
+| Appearance | Theme, dark mode, language | Always |
+| Transfers | Where files go, mobile data | Always |
+| Manage access | Who can reach your devices | Signed in and the admin of at least one device |
+| Security and privacy | App lock, hide app content | Always (5.10) |
+| Advanced | Battery, notifications, logs | Always |
+
+Pages have no row icons. Section headers are in the primary colour, and switches sit at the
+end of a row.
+
+Appearance:
+
+- "Theme": a segmented button "System", "Light", "Dark". "System" at first.
+- "Use wallpaper colours", "Android 12 and later". A switch, on at first. Hidden before
+  Android 12 and on the desktop.
+- "Pure black dark mode", "Black background when dark". A switch, off at first.
+- "Display": "App language" ("System default" at first) and "Date format" ("Default (3 Sep
+  2026)") each open a radio dialog with Cancel; a tap picks and closes.
+- "Relative dates", "\"Today\" instead of \"3 Sep 2026\"". A switch, on at first.
+
+Transfers:
+
+- "Saving": "Save files to", with the place under it ("Downloads", another folder's name, or
+  "Ask every time"). It opens a dialog "Save files to" with "Where Download puts a file." and
+  two radio choices:
+  - "This folder", with the folder under it, "Downloads" at first. A text button "Change
+    folder" under it opens the system folder picker (Android) or folder dialog (desktop).
+  - "Ask every time", with "Pick a place for each download". Each Download then opens the
+    system save dialog.
+
+  "Save" keeps the choice, "Cancel" or Back closes. If the chosen folder is gone or can't be
+  written, Download says so and asks for a place that time. With "Ask every time",
+  downloading several picked files asks once for a folder, and all of them go there.
+- "Network": "Use mobile data", "When off, files wait for Wi-Fi". A switch, on at first. When
+  off, a waiting file's line in Transfers says "Waiting for Wi-Fi". Android only.
+
+Manage access: "Devices you manage", one row per device you are the admin of, with a computer
+icon, the name, a line ("2 guests · 1 invite link not used", or "Only you") and a chevron. A tap
+opens Manage access for that device (5.4). The device sheet on Home keeps its Manage access
+item.
+
+Advanced (Android):
+
+- "Let transfers run in the background", "Turn off battery limits for ProductName". Opens
+  Android's battery setting for the app (#156).
+- "Notifications", "Open Android's notification settings".
+- "Share logs", "Send a log file with a bug report". Saves a log file and opens the share sheet.
+- "Show the setup guide again", "The steps from the first start". Opens onboarding (5.0).
+
+The desktop shows the same pages in the right pane, without the Android-only rows.
+
+### 5.10 App lock `NEW` (#206)
+
+Settings, "Security and privacy" (Android):
+
+- "App lock": "Require unlock", "Fingerprint, face or screen lock". A switch, off at first.
+  "Lock after", "1 minute away from the app", opens a radio dialog: "Right away", "1 minute",
+  "5 minutes", "30 minutes". Greyed out while Require unlock is off.
+- "Privacy": "Hide app content", "Blank in recent apps, no screenshots". "Hide file names in
+  notifications", "Shows \"Saving 1 file\" instead". Both switches, off at first.
+
+With Require unlock on, opening the app after the Lock after time shows a locked screen: a lock
+icon, "ProductName is locked", "Unlock to see your devices and files." and a tonal "Unlock"
+button. Android's own unlock prompt opens by itself; Unlock opens it again after it was
+closed. Transfers keep running while the app is locked.
 
 ## 6. PC settings page `BUILT`
 
@@ -986,12 +1060,12 @@ Each step names the surface. Every step is supported by the system as described.
 
 ### F2. Make an account in the app `NEW`
 
-1. App: onboarding step 2 or the Account screen, then "Create an account" (from Account, it
+1. App: onboarding step 2 or the More screen, then "Create an account" (from More, it
    sits under "Sign in" on the Sign in screen).
 2. Create an account: type email and password, "Create account". The account exists, not
    active yet, and an email with a code arrives.
 3. Code screen: type the code, "Confirm". The account is active, the app is signed in
-   and goes back where it came from. The Account screen shows the email. No code: "Resend
+   and goes back where it came from. The More screen shows the email. No code: "Resend
    code".
 
 ### F3. Add a PC to the account `BUILT`
@@ -1038,7 +1112,7 @@ link on their phone's browser and approves there.
 ### F7. Signed out somewhere else `BUILT`, `NEW` without a message
 
 1. The password was reset on the website, which ends every sign-in.
-2. The app's next renewal is refused, and the app is signed out. The Account screen shows
+2. The app's next renewal is refused, and the app is signed out. The More screen shows
    "Not signed in" and "Sign in". There is no dot and no "session ended" message. Devices on
    the Wi-Fi keep working.
 
@@ -1056,7 +1130,7 @@ link on their phone's browser and approves there.
 
 ### F10. Update the app `NEW`
 
-1. App, Account, About: "Check for updates". A dialog says "Version {x} is out". "Download".
+1. App, More, About: "Check for updates". A dialog says "Version {x} is out". "Download".
 2. Browser: `/download` opens. Download the new APK or desktop app.
 3. Install over the old one. Sign-in and known PCs are kept.
 
@@ -1108,7 +1182,7 @@ link on their phone's browser and approves there.
   actions as the phone, in two panes (`NEW`, Figma row 07):
   - Home's device list stays on the left, 360 wide (320 at 1024). The picked card is tinted.
   - The right pane shows what the phone opens full screen: the device's folders, the file
-    browser, Account, Sign in, About and Manage access. With nothing picked it says "Pick a
+    browser, More, Settings, Sign in, About and Manage access. With nothing picked it says "Pick a
     device" and "Its shared folders open here."
   - A window narrower than 840 shows one pane at a time, as the phone does.
   - ⋮ or a right click opens a menu next to the row or card, in place of a bottom sheet. The
@@ -1289,4 +1363,8 @@ Changed on 2026-10-01.
 
 - The desktop gets onboarding too: one centred column with only the Account box (5.0).
 - "Save to Downloads" is renamed "Download", because files can now go elsewhere.
-- A "Save files to" row on Account picks where Download puts files: a folder (Downloads at first) or ask every time. It sits on Account because it is the app's only setting, so no Settings screen is needed.
+- A "Save files to" setting picks where Download puts files: a folder (Downloads at first) or ask every time (#203). It first sat on Account and moved to Settings, Transfers the same day.
+- Transfers: a screen with the queue, drag to reorder, pause and resume, and failed files kept with Try again (#204). It opens from a Transfers icon with a count on Home, a Transfers row on More, the line in the file browser and the notification.
+- Account becomes More, with Transfers, Settings, About and Sign out (5.8).
+- A Settings screen with Appearance, Transfers, Manage access, Security and privacy, and Advanced, taken from TachiyomiSY's settings (#205).
+- An app lock with Android's unlock prompt, and switches to hide app content and file names in notifications (#206).
