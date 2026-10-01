@@ -560,11 +560,12 @@ Transfers:
 
 - One at a time. While one runs, a thin progress bar sits under the top bar. It does not show
   a percentage.
-- `NEW` (#204): under the bar, a line says what runs ("Saving clip.mp4 · 2 of 4") with a
-  chevron. A tap on it opens Transfers (below). When only failed files are left, it says
-  "1 failed".
 - When it ends, a snackbar says what happened: "Saved to /Users/ana/Downloads/a.txt", "Sent
   a.txt", "Deleted a.txt", or the error, e.g. "The device would not delete (403)."
+- `NEW` (#204): the file browser no longer shows the bar or the end snackbar for saves and
+  sends. Transfers (below) shows them. Download or a send adds the file to Transfers, and a
+  snackbar says "Downloading a.txt" or "Sending a.txt" with the action "View", which opens
+  Transfers. Delete keeps its snackbar.
 - Files are saved to the phone's Downloads, or the desktop's Downloads folder. A name that is
   taken gets " (2)" added. `NEW`: the "Save files to" setting (5.9) can pick another folder, or
   ask each time with the system save dialog.
@@ -646,8 +647,10 @@ allows upload.
   Actions the folder does not allow are left out.
 - Cut or copy ends the selection and shows the paste bar at the bottom: "Moving 3 files" or
   "Copying 3 files". The bottom stays free for that bar while selecting.
-- Save and delete run one file at a time. The progress bar counts files: "3 of 12".
-- A failed file does not stop the rest. At the end, one message names what failed.
+- Download adds every picked file to Transfers (#204), and one snackbar says "Downloading 3
+  files" with "View". A file that fails stays in Transfers with its reason.
+- Delete runs one file at a time. A failed file does not stop the rest. At the end, one
+  snackbar names what failed.
 - Leaving the folder or pressing back ends the selection.
 - Not included: drag to select a range, a selection that survives changing folder.
 
@@ -672,8 +675,7 @@ The server gives no more detail than that on purpose.
 #### `PLANNED #156`: transfers that keep going in the background (Android)
 
 - While a transfer runs and the app is not on screen, Android shows a system notification.
-- The app asks for notification permission at the first transfer, not at launch, and says in
-  one line what it is for.
+- The app asks for notification permission at the first transfer, not at launch.
 - The desktop has no equivalent.
 
 #### `NEW` (#204): Transfers
@@ -684,7 +686,7 @@ It opens from:
 - the Transfers icon with its count in Home's top bar (5.2), shown while the list is not empty,
 - the Transfers row on More (5.8), always there, with a line that says what moves ("Saving
   clip.mp4 · 4 left", "Paused", "1 failed", "Nothing moving"),
-- the line under the top bar in the file browser,
+- "View" on the snackbar that Download or a send shows in the file browser,
 - a tap on the Android notification (#156).
 
 The screen:
@@ -708,7 +710,7 @@ The screen:
 - A file that fails stays in the list. Its second line is in the error colour with the reason,
   "Not sent: can't reach laptop". The rest go on. Its three dots have "Try again" (puts it
   last in line) and "Cancel".
-- A file that finishes leaves the list, and the snackbar says so as before.
+- A file that finishes leaves the list.
 - Empty: a download icon, "No transfers", "Files you download or send show up here." The
   three dots and the floating button are hidden.
 - Not included: sorting, grouping by device.
@@ -1150,9 +1152,8 @@ link on their phone's browser and approves there.
 - Thumbnails, image or video preview, a media player, a text viewer
 - Unzip, or pasting into another shared folder
 - File share links, public file links, file links that work without the app
-- Upload or download progress in percent, speed or time left (a plain bar only; "3 of 12"
-  only with #165)
-- Pause, resume, or a transfer queue
+- Upload or download progress in percent, speed or time left (Transfers shows "21 of 48 MB"
+  on the running file only)
 - Sorting, filtering, grid view
 - Favourites, recent files, offline copies, sync, backup
 - Storage used, disk space, quotas
@@ -1364,7 +1365,7 @@ Changed on 2026-10-01.
 - The desktop gets onboarding too: one centred column with only the Account box (5.0).
 - "Save to Downloads" is renamed "Download", because files can now go elsewhere.
 - A "Save files to" setting picks where Download puts files: a folder (Downloads at first) or ask every time (#203). It first sat on Account and moved to Settings, Transfers the same day.
-- Transfers: a screen with the queue, drag to reorder, pause and resume, and failed files kept with Try again (#204). It opens from a Transfers icon with a count on Home, a Transfers row on More, the line in the file browser and the notification.
+- Transfers: a screen with the queue, drag to reorder, pause and resume, and failed files kept with Try again (#204). It opens from a Transfers icon with a count on Home, a Transfers row on More, View on the snackbar when a file starts, and the notification. The file browser has no progress bar or progress line for saves and sends.
 - Account becomes More, with Transfers, Settings, About and Sign out (5.8).
 - A Settings screen with Appearance, Transfers, Manage access, Security and privacy, and Advanced, taken from TachiyomiSY's settings (#205).
 - An app lock with Android's unlock prompt, and switches to hide app content and file names in notifications (#206).
