@@ -52,9 +52,10 @@ The client app only **consumes**. It never changes what a PC shares, and it neve
 an account. Both of those happen on the PC's own settings page. This is a fixed decision
 (ADR 0006). Do not put "share a folder" or "add this PC" in the client app.
 
-The website has **no** dashboard, no device management and no billing. Those are client app
-screens or do not exist. The one account task on the website beyond sign up and password
-reset is deleting the account (`NEW`, section 7).
+The website has **no** dashboard and no device management. Those are client app screens. The
+account tasks on the website are sign up, password reset, deleting the account, and the plan
+and payments (`NEW`, section 7). Pricing and billing are designed now and built after the core
+works (7.9, 7.10).
 
 **Server.** The owner runs one public server at productname.example (`NEW`). The app and the
 agent have its address built in. A person never has to type a server address. Typing another
@@ -911,8 +912,20 @@ this page.
 ## 7. Website
 
 Served by the same server at productname.example. All pages share one header (logo,
-Download, Help) and one footer (Privacy, Terms, Delete my account). No link to GitHub or the
-source code anywhere on the site.
+Download, Pricing, Help, and "Sign in", which reads "Account" once signed in) and one footer
+(Privacy, Terms, Delete my account). On a phone the links sit behind a menu icon. No link to
+GitHub or the source code anywhere on the site. Until billing is built, the header has no
+Pricing link and the landing page has no "See plans".
+
+Who uses the website, each with its own Figma row (rows 11 to 15 and 05):
+
+- Visitor: has no account or isn't signed in. Reads the landing page, help, pricing, privacy
+  and terms, downloads the apps, and makes an account (rows 11 and 12).
+- Account holder: signed in. Signs in, changes or resets the password, deletes the account,
+  and manages the plan and payments (rows 13 and 14).
+- Device admin: signs in on a PC's settings page and approves it on the website, which adds the
+  PC to the account (row 15).
+- Invited guest: opens an invite link and accepts it (row 05).
 
 ### 7.1 Landing page `NEW`, at `/`
 
@@ -945,7 +958,7 @@ Claims the landing page must NOT make, because they are false:
 - "End-to-end encrypted" or "we cannot see your files". Away from home, the server decrypts
   and forwards each request. At home, traffic does not touch the server.
 - "Works on iPhone" or "on iOS". There is no iOS app.
-- Anything about price, plans or a free trial. There is no pricing section.
+- A free trial, or prices other than those on the Pricing page (7.9).
 - "Sync", "backup" or "cloud storage". It does none of these.
 - "Signed" or "verified" installers. They are not signed yet (#131).
 
@@ -965,6 +978,9 @@ Two groups, each with the visitor's own system first:
 
 A line at the top helps a visitor pick: "On the PC with the files: Share this PC. On your phone
 or laptop: Reach your devices. A laptop can have both."
+
+On a phone, "Reach your devices" comes first with the Android button, and "Share this PC" only
+says to open the page on the PC with the files.
 
 Version number in the title. The package files themselves are hosted on the release page,
 which the links point at; the page does not show a "see all on GitHub" link.
@@ -1036,8 +1052,6 @@ app.
 The packages are not code signed yet (#131). The download page warns that macOS and Windows
 will ask the person to allow the installer.
 
----
-
 ### 7.7 Join page `NEW`, at `/join` (#194)
 
 An invite link opens this page in the browser. The whole join happens here, so it works on a
@@ -1068,6 +1082,68 @@ or error icon tile.
 
 A wrong password shows "The email or password is wrong." under the password field, as on the
 approve page.
+
+`NEW` (with plans): when the admin is on Free and already has 1 guest, "Accept invite" leads to
+"pc1 has no room for another guest", with "ana@example.com's Free plan has room for 1 guest.
+Ask them to get Premium, or to remove a guest. Then this link works again, until it runs out."
+The link is not used up.
+
+### 7.8 Sign in and Account `NEW`, at `/signin` and `/account`
+
+- Sign in: "Sign in", "Sign in to see your plan and payments. Your devices are in the app.",
+  Email, Password, "Sign in", text buttons "Forgot your password?" and "Create an account".
+  After it, the person lands on Account, or back on the page that sent them.
+- Account is the only signed-in page. Column of cards: Plan, then (Premium only) Payment method
+  and Receipts, then Password ("Change password" opens `/reset` with the email filled in),
+  Delete account, and a "Sign out" text button. No device list: devices are managed in the app.
+- The Free plan card: "You can reach 1 device over the internet and invite 1 guest.", the
+  counts ("Devices over the internet: 1 of 1", "Guests: 1 of 1") and "Get Premium".
+- Delete my account (7.5) adds, on Premium: "Your Premium plan stops now, with no refund for the
+  time left."
+
+### 7.9 Pricing `NEW`, at `/pricing` (design only, built later)
+
+- Title "Plans", line "On your Wi-Fi, everything is free and needs no account. A plan is about
+  reaching your devices over the internet."
+- Monthly or yearly switch ("Yearly, 2 months free").
+- Free, $0: unlimited use on your Wi-Fi, reach 1 device over the internet, invite 1 guest.
+- Premium, $4 per month or $40 per year: the same with no limits on devices or guests. The prices
+  are placeholders until the owner sets them.
+- A device counts when it was added to the account from its settings page. Devices someone
+  invited you to don't count. Guests reach the device on the admin's plan and pay nothing.
+- Signed in, the current plan's card says "Your plan". "Get Premium" signed out asks to sign in
+  or make an account first.
+- Questions underneath: what counts as a device, who pays for guests, cancelling, what happens
+  when Premium ends, who sees the card number.
+
+### 7.10 Plan and billing `NEW` (design only, built later)
+
+- Payment happens on the payment partner's own page. We never see or store card numbers.
+  Leaving that page changes nothing.
+- After paying, Account opens with "Welcome to Premium. You can now reach all your devices over
+  the internet."
+- Premium plan card: "$4 per month. Next payment on {date}.", "Switch to yearly" and "Cancel
+  Premium". Payment method card: "Visa ending in 4242" and "Change". Receipts: date, amount,
+  "Paid", and a download button for the PDF. "Change" and "Switch to yearly" open the partner's
+  page.
+- "Cancel Premium" asks first: "Premium stays until {date}. Then you can reach 1 device over the
+  internet, with 1 guest. The others work on your Wi-Fi only." Buttons "Keep Premium" and "Cancel
+  Premium". After it the card says "Premium until {date}. Then your plan changes to Free." with
+  "Keep Premium".
+- When Premium ends, the device added first and the first guest keep working over the
+  internet. The others work on the Wi-Fi only until the person gets Premium again.
+- A failed payment shows a banner on Account: "Your last payment didn't go through. Update your
+  card by {date}, or your plan changes to Free." with "Update card". The partner tries again
+  for 7 days, and an email goes out too.
+- The app has no buy button. Payments live on the website only.
+
+### 7.11 Approve with a full Free plan `NEW`
+
+On Free with 1 device already on the account, the approve page (7.6) adds a notice above the
+buttons: "Your Free plan reaches 1 device over the internet, and pc1 uses it. If you approve,
+pc2 is on your account but works on your Wi-Fi only." Buttons: "Get Premium", "Approve anyway",
+"Refuse". After approving, the page says "pc2 is on your account" with "Open ProductName".
+Refusing says "pc2 was not added".
 
 ## 8. Flows
 
@@ -1187,13 +1263,13 @@ link on their phone's browser and approves there.
 - Roles beyond one admin per PC: no second admin, no "make admin", no role picker
 - Push notifications (only Android's own transfer notification, #156)
 - Chat, comments, activity feed, audit log view
-- Billing, plans, payment, upgrade prompts
+- Payments or upgrade prompts inside the app
 - Two-factor sign in, social sign in, passkeys
 - Settings screen in the app (theme, language, and so on)
 - A web dashboard for devices or people
 - Onboarding carousels with claims the product cannot back
 - An iOS or iPhone app, or App Store and Google Play badges
-- Pricing, plans, trials, or "upgrade" anywhere
+- Free trials
 - A link to GitHub or the source code on the website
 - Automatic updates inside the app
 - A server address a person must type (it is built in, advanced only)
@@ -1398,3 +1474,5 @@ Changed on 2026-10-01.
 - Account becomes More, with Transfers, Settings, About and Sign out (5.8).
 - A Settings screen with Appearance, Transfers, Manage access, Security and privacy, and Advanced, taken from TachiyomiSY's settings (#205).
 - An app lock with Android's unlock prompt, and switches to hide app content and file names in notifications (#206).
+- The website is designed for four kinds of people, each with its own Figma row: visitor (rows 11 and 12), account holder (13 and 14), device admin (15) and invited guest (05).
+- Pricing and billing are designed: Free reaches 1 device over the internet with 1 guest; Premium has no limits; Wi-Fi use is free for everyone. Payment is on a payment partner's page. They are built after the core works (7.8 to 7.11).
