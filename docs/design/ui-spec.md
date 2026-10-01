@@ -1212,7 +1212,8 @@ link on their phone's browser and approves there.
     select.
   - One click on the rest of the row opens the file or folder, as a tap does on the phone.
   - Forms such as Sign in are at most 480 wide, in the middle of the pane.
-  - Home keeps a Refresh icon, since there is no pull down.
+  - Home keeps a Refresh icon, left of the Transfers icon, since there is no pull down. It
+    reloads the device list and the open folder. F5 does the same.
   - Onboarding fills the window as one centred column, with no panes (5.0).
   - Transfers (5.5) opens in the right pane with the same tabs, rows and menus as the phone.
     The tabs stretch across the pane. Rows are dragged by their handle with the mouse. The
