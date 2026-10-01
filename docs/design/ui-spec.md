@@ -691,28 +691,37 @@ It opens from:
 
 The screen:
 
-
-- Top bar: back arrow, title "Transfers", the count under it ("4 left", "Paused · 4 left",
-  "3 left · 1 failed"), and three dots with one item, "Cancel all".
-- One flat list in run order, since files go one at a time.
+- Top bar: back arrow, title "Transfers", and three dots with "Cancel all downloads", "Cancel
+  all uploads" and "Cancel all". No count line under the title: the tabs carry the counts.
+- Two tabs under the top bar: "Downloads" (files coming to this phone) and "Uploads" (files
+  leaving it). Each tab name has a small grey pill with the number of files that run or wait
+  there, as TachiyomiSY shows on its library tabs. Failed files are left out of the number. A
+  tab with nothing in it hides its pill. The screen opens on Downloads, or on Uploads when only
+  uploads are in the list.
+- Each tab is its own line. One download and one upload can run at the same time, since they
+  go in opposite directions. Inside a tab, one file runs at a time, top first.
+- One flat list per tab, in run order.
 - Each row: a drag handle on the left, then the file row from the browser (type square, name,
-  three dots). The second line says where it goes: "From pc1 · Waiting" saves to this phone,
-  "To laptop · Waiting" sends. The running row says "From pc1 · 21 of 48 MB" and has a
+  three dots). The second line says which device: "From pc1 · Waiting" in Downloads,
+  "To laptop · Waiting" in Uploads. The running row says "From pc1 · 21 of 48 MB" and has a
   progress bar under its text. Waiting rows have no bar.
-- Drag the handle to move a row anywhere. A row dropped above the running one starts after it
-  ends, and the running file keeps going.
+- Drag the handle to move a row anywhere in its tab. A row dropped above the running one starts
+  after it ends, and the running file keeps going.
 - Row three dots: "Move to top" (goes next), "Move to bottom", "Cancel". Cancel takes it off
   the list and deletes a half-written file.
-- Floating button at the bottom right: "Pause" while files run, "Resume" while paused. Pause
-  stops the running file and starts nothing new, and the top line says "Paused". Resume starts
-  that file again from the beginning, since a transfer can't continue from the middle.
-- "Cancel all" empties the list at once and asks nothing first. The files can be started again.
-- A file that fails stays in the list. Its second line is in the error colour with the reason,
+- Floating button at the bottom right: "Pause" while the open tab runs, "Resume" while it is
+  paused. Pause stops the open tab's running file and starts nothing new there. The other tab
+  goes on. Resume starts that file again from the beginning, since a transfer can't continue
+  from the middle.
+- The three cancel items act on what their name says, whichever tab is open. "Cancel all"
+  empties both tabs. None of them asks first. The files can be started again.
+- A file that fails stays in its tab. Its second line is in the error colour with the reason,
   "Not sent: can't reach laptop". The rest go on. Its three dots have "Try again" (puts it
   last in line) and "Cancel".
 - A file that finishes leaves the list.
-- Empty: a download icon, "No transfers", "Files you download or send show up here." The
-  three dots and the floating button are hidden.
+- Empty tab: a download icon, "No downloads", "Files you download show up here." (Uploads: an
+  upload icon, "No uploads", "Files you send show up here.") The three dots and the floating
+  button are hidden.
 - Not included: sorting, grouping by device.
 
 ### 5.6 Account deletion
@@ -1365,7 +1374,7 @@ Changed on 2026-10-01.
 - The desktop gets onboarding too: one centred column with only the Account box (5.0).
 - "Save to Downloads" is renamed "Download", because files can now go elsewhere.
 - A "Save files to" setting picks where Download puts files: a folder (Downloads at first) or ask every time (#203). It first sat on Account and moved to Settings, Transfers the same day.
-- Transfers: a screen with the queue, drag to reorder, pause and resume, and failed files kept with Try again (#204). It opens from a Transfers icon with a count on Home, a Transfers row on More, View on the snackbar when a file starts, and the notification. The file browser has no progress bar or progress line for saves and sends.
+- Transfers: a screen with two tabs, Downloads and Uploads, each with a count of the files that run or wait and its own queue. Drag to reorder, pause and resume, and failed files kept with Try again (#204). It opens from a Transfers icon with a count on Home, a Transfers row on More, View on the snackbar when a file starts, and the notification. The file browser has no progress bar or progress line for saves and sends.
 - Account becomes More, with Transfers, Settings, About and Sign out (5.8).
 - A Settings screen with Appearance, Transfers, Manage access, Security and privacy, and Advanced, taken from TachiyomiSY's settings (#205).
 - An app lock with Android's unlock prompt, and switches to hide app content and file names in notifications (#206).
