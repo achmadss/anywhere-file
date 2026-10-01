@@ -833,16 +833,23 @@ Advanced (Android):
 - "Share logs", "Send a log file with a bug report". Saves a log file and opens the share sheet.
 - "Show the setup guide again", "The steps from the first start". Opens onboarding (5.0).
 
-The desktop shows the same pages in the right pane, without the Android-only rows (Figma row
-07):
+On the desktop, Settings takes the whole window in two panes, as TachiyomiSY does on large
+screens (Figma row 07):
 
-- The list has no "Security and privacy" (5.10 is Android only). Its lines read "Where files
-  go" for Transfers and "Logs, setup guide" for Advanced. More's Settings row says "Theme, where
-  files go".
-- Appearance has no "Use wallpaper colours". Transfers has only "Save files to", and its dialog
-  sits in the middle of the window.
-- Advanced has "Save logs", "Save a log file to send with a bug report", which opens a save
-  dialog in place of the share sheet, and "Show the setup guide again".
+- The list sits on the left, 360 wide, on a paler surface. The open page sits on the right with
+  its title and no back arrow. Appearance opens first, so the right side is never empty. The
+  open page's row is tinted, with rounded ends. A click on another row swaps the right side.
+- The back arrow at the top of the list goes back to the device list.
+- A click on a device in Manage access leaves Settings and opens Manage access for that device
+  in the main window, with its card tinted.
+- The pages drop the Android-only rows:
+  - The list has no "Security and privacy" (5.10 is Android only). Its lines read "Where files
+    go" for Transfers and "Logs, setup guide" for Advanced. More's Settings row says "Theme, where
+    files go".
+  - Appearance has no "Use wallpaper colours". Transfers has only "Save files to", and its dialog
+    sits in the middle of the window.
+  - Advanced has "Save logs", "Save a log file to send with a bug report", which opens a save
+    dialog in place of the share sheet, and "Show the setup guide again".
 
 ### 5.10 App lock `NEW` (#206)
 
@@ -1201,8 +1208,8 @@ link on their phone's browser and approves there.
   actions as the phone, in two panes (`NEW`, Figma row 07):
   - Home's device list stays on the left, 360 wide (320 at 1024). The picked card is tinted.
   - The right pane shows what the phone opens full screen: the device's folders, the file
-    browser, More, Transfers, Settings, Sign in, About and Manage access. With nothing picked it says "Pick a
-    device" and "Its shared folders open here."
+    browser, More, Transfers, Sign in, About and Manage access. With nothing picked it says
+    "Pick a device" and "Its shared folders open here." Settings takes the whole window (5.9).
   - A window narrower than 840 shows one pane at a time, as the phone does.
   - ⋮ or a right click opens a menu next to the row or card, in place of a bottom sheet. The
     file menu has no Share, because Linux has no share sheet.
