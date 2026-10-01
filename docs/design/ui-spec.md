@@ -558,6 +558,9 @@ Transfers:
 
 - One at a time. While one runs, a thin progress bar sits under the top bar. It does not show
   a percentage.
+- `NEW` (#204): under the bar, a line says what runs ("Saving clip.mp4 · 2 of 4") with a
+  chevron. A tap on it opens Transfers (below). When only failed files are left, it says
+  "1 failed".
 - When it ends, a snackbar says what happened: "Saved to /Users/ana/Downloads/a.txt", "Sent
   a.txt", "Deleted a.txt", or the error, e.g. "The device would not delete (403)."
 - Files are saved to the phone's Downloads, or the desktop's Downloads folder. A name that is
@@ -670,6 +673,34 @@ The server gives no more detail than that on purpose.
 - The app asks for notification permission at the first transfer, not at launch, and says in
   one line what it is for.
 - The desktop has no equivalent.
+
+#### `NEW` (#204): Transfers
+
+A screen that lists every file waiting to save or send, as TachiyomiSY's download queue does.
+It opens from the line under the top bar, or from a tap on the Android notification (#156).
+
+- Top bar: back arrow, title "Transfers", the count under it ("4 left", "Paused · 4 left",
+  "3 left · 1 failed"), and three dots with one item, "Cancel all".
+- One flat list in run order, since files go one at a time.
+- Each row: a drag handle on the left, then the file row from the browser (type square, name,
+  three dots). The second line says where it goes: "From pc1 · Waiting" saves to this phone,
+  "To laptop · Waiting" sends. The running row says "From pc1 · 21 of 48 MB" and has a
+  progress bar under its text. Waiting rows have no bar.
+- Drag the handle to move a row anywhere. A row dropped above the running one starts after it
+  ends, and the running file keeps going.
+- Row three dots: "Move to top" (goes next), "Move to bottom", "Cancel". Cancel takes it off
+  the list and deletes a half-written file.
+- Floating button at the bottom right: "Pause" while files run, "Resume" while paused. Pause
+  stops the running file and starts nothing new, and the top line says "Paused". Resume starts
+  that file again from the beginning, since a transfer can't continue from the middle.
+- "Cancel all" empties the list at once and asks nothing first. The files can be started again.
+- A file that fails stays in the list. Its second line is in the error colour with the reason,
+  "Not sent: can't reach laptop". The rest go on. Its three dots have "Try again" (puts it
+  last in line) and "Cancel".
+- A file that finishes leaves the list, and the snackbar says so as before.
+- Empty: a download icon, "No transfers", "Files you download or send show up here." The
+  three dots and the floating button are hidden.
+- Not included: sorting, grouping by device.
 
 ### 5.6 Account deletion
 
