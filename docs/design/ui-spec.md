@@ -938,12 +938,12 @@ system as built. Sections, in order:
 2. **How it works**, three steps:
    1. Install ProductName on each PC you want to reach, and pick the folders to share.
    2. Install the app on your phone or laptop.
-   3. On the same Wi-Fi it finds your PCs by itself. Anywhere else, sign in and they are still
-      there.
+   3. On the same Wi-Fi it finds your PCs by itself. Anywhere else, sign in with Premium and
+      they are still there (once billing is built; until then, sign in is enough).
 3. **On your Wi-Fi, or over the internet.** The same two labels the app shows on each PC.
    - On your Wi-Fi: no account, no Internet needed. The app talks to the PC directly,
      encrypted.
-   - Over the internet: sign in once, add the PC to your account from the PC, and reach it
+   - Over the internet: with Premium, add the PC to your account from the PC, and reach it
      from anywhere.
      No router setup and no port forwarding.
 4. **Share a PC with someone.** Make a one-time invite link in the app and send it. They get access
@@ -1040,8 +1040,8 @@ button. After success the form is replaced by a message.
 | `/approve?code=…` signed in | "Approve this PC?" | none | "Approve" and "Refuse" | Done message |
 | `/approve?code=…` expired or used | "Nothing to approve" | none | none | "That request expired or was already answered. Ask the PC to sign in again." |
 
-Approve page intro, signed in: "{PC name} is asking to join {email}. Approving lets you reach
-it from away. Only approve it if you just asked this PC to sign in."
+Approve page intro, signed in: "{PC name} is asking to join {email}. Approving adds it to your
+account. Only approve it if you just asked this PC to sign in."
 
 `NEW`: sign up uses a code on the website too, the same way as the app (5.3.1). `/signup`
 makes the account, not active yet, and shows a code field with "Confirm" and "Resend
@@ -1083,10 +1083,8 @@ or error icon tile.
 A wrong password shows "The email or password is wrong." under the password field, as on the
 approve page.
 
-`NEW` (with plans): when the admin is on Free and already has 1 guest, "Accept invite" leads to
-"pc1 has no room for another guest", with "ana@example.com's Free plan has room for 1 guest.
-Ask them to get Premium, or to remove a guest. Then this link works again, until it runs out."
-The link is not used up.
+`NEW` (with plans): when the admin is on Free, "Invite accepted" adds "You can reach it on the
+same Wi-Fi as pc1. Reaching it from anywhere needs ana@example.com to have Premium."
 
 ### 7.8 Sign in and Account `NEW`, at `/signin` and `/account`
 
@@ -1096,8 +1094,8 @@ The link is not used up.
 - Account is the only signed-in page. Column of cards: Plan, then (Premium only) Payment method
   and Receipts, then Password ("Change password" opens `/reset` with the email filled in),
   Delete account, and a "Sign out" text button. No device list: devices are managed in the app.
-- The Free plan card: "You can reach 1 device over the internet and invite 1 guest.", the
-  counts ("Devices over the internet: 1 of 1", "Guests: 1 of 1") and "Get Premium".
+- The Free plan card: "Your devices work on your Wi-Fi. Get Premium to reach them, and let your
+  guests reach them, from anywhere." and "Get Premium".
 - Delete my account (7.5) adds, on Premium: "Your Premium plan stops now, with no refund for the
   time left."
 
@@ -1106,14 +1104,15 @@ The link is not used up.
 - Title "Plans", line "On your Wi-Fi, everything is free and needs no account. A plan is about
   reaching your devices over the internet."
 - Monthly or yearly switch ("Yearly, 2 months free").
-- Free, $0: unlimited use on your Wi-Fi, reach 1 device over the internet, invite 1 guest.
-- Premium, $4 per month or $40 per year: the same with no limits on devices or guests. The prices
-  are placeholders until the owner sets them.
-- A device counts when it was added to the account from its settings page. Devices someone
-  invited you to don't count. Guests reach the device on the admin's plan and pay nothing.
+- Free, $0: everything on your Wi-Fi, add your devices to your account, invite guests. Not over
+  the internet.
+- Premium, $4 per month or $40 per year: everything in Free, and your devices can be reached over
+  the internet, by you and by your guests. No limit on devices or guests. The prices are
+  placeholders until the owner sets them.
+- A device can be reached over the internet when its admin has Premium. Guests pay nothing.
 - Signed in, the current plan's card says "Your plan". "Get Premium" signed out asks to sign in
   or make an account first.
-- Questions underneath: what counts as a device, who pays for guests, cancelling, what happens
+- Questions underneath: Premium at home, who pays for guests, cancelling, what happens
   when Premium ends, who sees the card number.
 
 ### 7.10 Plan and billing `NEW` (design only, built later)
@@ -1126,24 +1125,35 @@ The link is not used up.
   Premium". Payment method card: "Visa ending in 4242" and "Change". Receipts: date, amount,
   "Paid", and a download button for the PDF. "Change" and "Switch to yearly" open the partner's
   page.
-- "Cancel Premium" asks first: "Premium stays until {date}. Then you can reach 1 device over the
-  internet, with 1 guest. The others work on your Wi-Fi only." Buttons "Keep Premium" and "Cancel
-  Premium". After it the card says "Premium until {date}. Then your plan changes to Free." with
-  "Keep Premium".
-- When Premium ends, the device added first and the first guest keep working over the
-  internet. The others work on the Wi-Fi only until the person gets Premium again.
+- "Cancel Premium" asks first: "Premium stays until {date}. Then your devices work on your Wi-Fi
+  only. Downloads and uploads that are running then still finish." Buttons "Keep Premium" and
+  "Cancel Premium". After it the card says "Premium until {date}. Then your devices work on your
+  Wi-Fi only." with "Keep Premium".
+- When Premium ends, the admin's devices can't be reached over the internet, by the admin or by
+  guests. Downloads and uploads in Transfers that were running or waiting at that moment still
+  finish over the internet. Pause, Resume, Try again, Cancel and reordering keep working on them.
+  Nothing new can start over the internet: no browsing, no new download or upload, no file
+  actions. On the same Wi-Fi everything keeps working.
 - A failed payment shows a banner on Account: "Your last payment didn't go through. Update your
-  card by {date}, or your plan changes to Free." with "Update card". The partner tries again
+  card by {date}, or Premium ends." with "Update card". The partner tries again
   for 7 days, and an email goes out too.
 - The app has no buy button. Payments live on the website only.
 
-### 7.11 Approve with a full Free plan `NEW`
+### 7.11 Approve on Free `NEW`
 
-On Free with 1 device already on the account, the approve page (7.6) adds a notice above the
-buttons: "Your Free plan reaches 1 device over the internet, and pc1 uses it. If you approve,
-pc2 is on your account but works on your Wi-Fi only." Buttons: "Get Premium", "Approve anyway",
+Free accounts can add devices too. The approve intro (7.6) becomes "pc2 is asking to join
+{email}. Approving adds it to your account. Only approve it if you just asked this PC to sign
+in." On Free, a notice sits above the buttons: "On Free, pc2 works on your Wi-Fi only. Premium
+lets you reach it from anywhere." with a text button "See plans". Buttons stay "Approve" and
 "Refuse". After approving, the page says "pc2 is on your account" with "Open ProductName".
 Refusing says "pc2 was not added".
+
+### 7.12 The app without Premium `NEW` (not drawn yet)
+
+- A device whose admin has no Premium can be reached only on the same Wi-Fi. Away from it, its
+  card says so in plain words: "Wi-Fi only" for the admin, with "Get Premium to reach it from
+  anywhere"; for a guest, "Wi-Fi only" with "{admin} needs Premium to share it from anywhere".
+- Transfers keeps working on the files that were running or waiting when Premium ended (7.10).
 
 ## 8. Flows
 
@@ -1475,4 +1485,4 @@ Changed on 2026-10-01.
 - A Settings screen with Appearance, Transfers, Manage access, Security and privacy, and Advanced, taken from TachiyomiSY's settings (#205).
 - An app lock with Android's unlock prompt, and switches to hide app content and file names in notifications (#206).
 - The website is designed for four kinds of people, each with its own Figma row: visitor (rows 11 and 12), account holder (13 and 14), device admin (15) and invited guest (05).
-- Pricing and billing are designed: Free reaches 1 device over the internet with 1 guest; Premium has no limits; Wi-Fi use is free for everyone. Payment is on a payment partner's page. They are built after the core works (7.8 to 7.11).
+- Pricing and billing are designed: Free adds devices and invites guests, on the Wi-Fi only; Premium makes the admin's devices reachable over the internet for the admin and their guests, with no limits; Wi-Fi use is free for everyone. When Premium ends, running and waiting transfers still finish and stay manageable; nothing else works over the internet. Payment is on a payment partner's page. Built after the core works (7.8 to 7.12).
