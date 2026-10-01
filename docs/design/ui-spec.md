@@ -215,6 +215,11 @@ Shown on the first launch only. Later launches open Home. Built like TachiyomiSY
   straight to Home, with no signed-in step.
 - No step dots and no Skip.
 
+`NEW` on the desktop: the same screen as one column 480 wide in the middle of the window, with
+the line "Set up this computer to open the files on your devices." It has only the Account box,
+since a computer has no nearby devices step. macOS asks for local network access by itself the
+first time the app looks on the Wi-Fi.
+
 Setting up the device that has the files is not in onboarding: it happens on that device.
 Its steps are on the Help page (7.3), reached from "How to set up your device" on the empty Home (5.2).
 
@@ -556,7 +561,8 @@ Transfers:
 - When it ends, a snackbar says what happened: "Saved to /Users/ana/Downloads/a.txt", "Sent
   a.txt", "Deleted a.txt", or the error, e.g. "The device would not delete (403)."
 - Files are saved to the phone's Downloads, or the desktop's Downloads folder. A name that is
-  taken gets " (2)" added.
+  taken gets " (2)" added. `NEW`: the "Save files to" setting (5.8) can pick another folder, or
+  ask each time with the system save dialog.
 
 Delete has no confirmation today. A confirmation dialog is a good addition and needs nothing
 new from the system.
@@ -570,7 +576,8 @@ The three dots open a bottom sheet. On top, the same row without the dots, on a 
 tinted box. Then one row per action, each with a leading icon:
 
 - "Open with": the file is fetched, then Android's app chooser opens. Files only.
-- "Save to Downloads": the old tap on a row. Files only.
+- "Download" (`NEW` name, was "Save to Downloads"): the old tap on a row. It saves where "Save
+  files to" says (5.8). Files only.
 - "Share": the file is fetched, then Android's share sheet opens. Files only.
 - "Cut" and "Copy": a bar sits at the bottom, "Moving 1 file" or "Copying 1 file", with × on
   the left and a tonal "Paste here" button on the right. It stays while the person opens
@@ -627,8 +634,8 @@ allows upload.
 - A tap on a row's icon, or a long press on the row, starts a selection. A tap on the rest of
   the row opens it. During a selection, a tap anywhere on a row adds or removes it.
 - `NEW` (#201): the top bar becomes a selection bar, as in Material Files: a close button, the
-  count ("3 selected"), then cut, copy, delete and three dots. The three dots open a menu: save to
-  Downloads, share, compress and select all (deselect all once every item is picked).
+  count ("3 selected"), then cut, copy, delete and three dots. The three dots open a menu:
+  download, share, compress and select all (deselect all once every item is picked).
 - Only actions that work on every picked item show. A folder in the selection removes save
   and share (files only). With one item, the menu also has open with, rename and properties.
   Actions the folder does not allow are left out.
@@ -684,7 +691,19 @@ person signs out (4.6).
 
 Under the text, when set: the caveat line in muted colour.
 
-Under that: a row "About ProductName", one line with no summary, that opens 5.7, then the
+Under that: `NEW` a row "Save files to", signed in or out, with the place under it
+("Downloads", another folder's name, or "Ask every time"). It opens a dialog "Save files to"
+with "Where Download puts a file." and two radio choices:
+
+- "This folder", with the folder under it, "Downloads" at first. A text button "Change folder"
+  under it opens the system folder picker (Android) or folder dialog (desktop).
+- "Ask every time", with "Pick a place for each download". Each Download then opens the system
+  save dialog.
+
+"Save" keeps the choice, "Cancel" or Back closes. If the chosen folder is gone or can't be
+written, Download says so and asks for a place that time.
+
+Then a row "About ProductName", one line with no summary, that opens 5.7, then the
 "Sign out" row with the line "Devices on your Wi-Fi keep working" when signed in. Each row has
 a leading icon in the primary colour, as in
 TachiyomiSY's More screen. Sign out has no confirm step: signing in again undoes it.
@@ -1069,6 +1088,7 @@ link on their phone's browser and approves there.
   - One click on the rest of the row opens the file or folder, as a tap does on the phone.
   - Forms such as Sign in are at most 480 wide, in the middle of the pane.
   - Home keeps a Refresh icon, since there is no pull down.
+  - Onboarding fills the window as one centred column, with no panes (5.0).
 - Desktop has no system back. The back arrow in the top bar is the only way back. From a
   device's top it goes back to "Pick a device".
 - Android back gesture: goes up a folder, then to Home.
@@ -1225,10 +1245,16 @@ Changed on 2026-09-29 from comments on the Figma page "Akdes New".
 - The Account header shows the plan, "Premium" or "Free", as a small tonal label under the email.
 - The "About ProductName" row has no second line.
 - Manage access shows what each guest can open, "Can open: files, photos", and a tap on a guest opens "Change folders" with their folders ticked. "Save" is greyed out with nothing ticked, because "Remove" is the way to take all access away. A folder the device starts sharing later is not given to guests. The server needs a way to change a guest's folders, and the audit log records it (#197, #198).
-- The file browser gets file actions, from the Material Files app. Every row has three dots that open a bottom sheet: Open with, Save to Downloads, Share, Cut, Copy, Rename, Compress, Properties and Delete. A tap on a file opens it. Cut and Copy end in a "Paste here" bar at the bottom. The floating button is a "+" that opens "Send a file" and "New folder". The refresh icon goes; pull down refreshes. Selection actions sit in the top bar, as in Material Files, so the bottom stays free for the paste bar. Rename, move, copy and new folder are already supported by the file server on the device; compress is not (#199, #200).
+- The file browser gets file actions, from the Material Files app. Every row has three dots that open a bottom sheet: Open with, Save to Downloads (now "Download"), Share, Cut, Copy, Rename, Compress, Properties and Delete. A tap on a file opens it. Cut and Copy end in a "Paste here" bar at the bottom. The floating button is a "+" that opens "Send a file" and "New folder". The refresh icon goes; pull down refreshes. Selection actions sit in the top bar, as in Material Files, so the bottom stays free for the paste bar. Rename, move, copy and new folder are already supported by the file server on the device; compress is not (#199, #200).
 
 Changed on 2026-09-30 while designing the desktop window (Figma row 07).
 
 - The desktop window has two panes: the device list on the left, the picked device or screen on the right (section 10).
 - On the desktop, ⋮ and a right click open a menu next to the row, sheets with content become dialogs, and the file menu has no Share.
 - On the phone and the desktop, a tap or click on a row's icon selects the row. The rest of the row still opens it (#201).
+
+Changed on 2026-10-01.
+
+- The desktop gets onboarding too: one centred column with only the Account box (5.0).
+- "Save to Downloads" is renamed "Download", because files can now go elsewhere.
+- A "Save files to" row on Account picks where Download puts files: a folder (Downloads at first) or ask every time. It sits on Account because it is the app's only setting, so no Settings screen is needed.
