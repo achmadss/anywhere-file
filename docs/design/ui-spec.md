@@ -833,7 +833,16 @@ Advanced (Android):
 - "Share logs", "Send a log file with a bug report". Saves a log file and opens the share sheet.
 - "Show the setup guide again", "The steps from the first start". Opens onboarding (5.0).
 
-The desktop shows the same pages in the right pane, without the Android-only rows.
+The desktop shows the same pages in the right pane, without the Android-only rows (Figma row
+07):
+
+- The list has no "Security and privacy" (5.10 is Android only). Its lines read "Where files
+  go" for Transfers and "Logs, setup guide" for Advanced. More's Settings row says "Theme, where
+  files go".
+- Appearance has no "Use wallpaper colours". Transfers has only "Save files to", and its dialog
+  sits in the middle of the window.
+- Advanced has "Save logs", "Save a log file to send with a bug report", which opens a save
+  dialog in place of the share sheet, and "Show the setup guide again".
 
 ### 5.10 App lock `NEW` (#206)
 
