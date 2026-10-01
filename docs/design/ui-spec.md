@@ -1192,7 +1192,7 @@ link on their phone's browser and approves there.
   actions as the phone, in two panes (`NEW`, Figma row 07):
   - Home's device list stays on the left, 360 wide (320 at 1024). The picked card is tinted.
   - The right pane shows what the phone opens full screen: the device's folders, the file
-    browser, More, Settings, Sign in, About and Manage access. With nothing picked it says "Pick a
+    browser, More, Transfers, Settings, Sign in, About and Manage access. With nothing picked it says "Pick a
     device" and "Its shared folders open here."
   - A window narrower than 840 shows one pane at a time, as the phone does.
   - ⋮ or a right click opens a menu next to the row or card, in place of a bottom sheet. The
@@ -1205,6 +1205,9 @@ link on their phone's browser and approves there.
   - Forms such as Sign in are at most 480 wide, in the middle of the pane.
   - Home keeps a Refresh icon, since there is no pull down.
   - Onboarding fills the window as one centred column, with no panes (5.0).
+  - Transfers (5.5) opens in the right pane with the same tabs, rows and menus as the phone.
+    The tabs stretch across the pane. Rows are dragged by their handle with the mouse. The
+    Transfers icon with its count sits in the devices pane's top bar.
 - Desktop has no system back. The back arrow in the top bar is the only way back. From a
   device's top it goes back to "Pick a device".
 - Android back gesture: goes up a folder, then to Home.
