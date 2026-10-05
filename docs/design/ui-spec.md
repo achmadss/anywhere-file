@@ -956,7 +956,8 @@ system as built. Sections, in order:
      encrypted.
    - Over the internet: with Premium, add the PC to your account from the PC, and reach it
      from anywhere.
-     No router setup and no port forwarding.
+     No router setup and no port forwarding. A text button "See plans" opens the Pricing page
+     (7.9), once billing is built.
 4. **Share a PC with someone.** Make a one-time invite link in the app and send it. They get access
    as a guest, and you can remove them at any time.
 5. **Your files stay on your PCs.** Nothing is uploaded to a cloud drive. Files move only
@@ -1367,7 +1368,7 @@ Decided with the product owner:
 - One hosted server at productname.example, built into the app and the agent.
 - No app store. APK and desktop apps from the website.
 - The agent and the client are separate downloads on a desktop.
-- No pricing shown anywhere. No GitHub link on the website.
+- Pricing shows on the website only once billing is built (7.9). No GitHub link on the website.
 - Placeholder name ProductName until the name is chosen.
 - Home is one device list. Each card says how the app reaches it: "On your Wi-Fi", "Over the
   internet", "Can't reach right now" or "Checking…". The account moves to its own screen
