@@ -68,6 +68,10 @@ website. So the app cannot update itself, and it tells the person when a new ver
 **Two separate downloads on a desktop.** "Share this PC" is the agent. "Reach your devices" is
 the client app. A person may need one or both. They are separate installers.
 
+**Operator pages.** The owner of the service has admin pages in Appsmith, a self-hosted tool
+that builds pages from API calls (ADR 0007). Only the owner sees them, and they are built in
+Appsmith, not drawn in Figma. Section 13 lists them.
+
 ---
 
 ## 3. Words used in the UI
@@ -1294,7 +1298,7 @@ link on their phone's browser and approves there.
 - Payments or upgrade prompts inside the app
 - Two-factor sign in, social sign in, passkeys
 - Settings screen in the app (theme, language, and so on)
-- A web dashboard for devices or people
+- A web dashboard for devices or people (the owner's operator pages in section 13 are not for users)
 - Onboarding carousels with claims the product cannot back
 - An iOS or iPhone app, or App Store and Google Play badges
 - Free trials
@@ -1505,3 +1509,55 @@ Changed on 2026-10-01.
 - The website is designed for four kinds of people, each with its own Figma row: visitor (rows 11 and 12), account holder (13 and 14), device admin (15) and invited guest (05).
 - Pricing and billing are designed: Free adds devices and invites guests, on the Wi-Fi only; Premium makes the admin's devices reachable over the internet for the admin and their guests, with no limits; Wi-Fi use is free for everyone. When Premium ends, running and waiting transfers still finish and stay manageable; nothing else works over the internet. Payment is on a payment partner's page. Built after the core works (7.8 to 7.12).
 - Errors from the app and the PCs go to the server by themselves, with a "Send error reports" switch in Settings, Advanced to turn it off. The operator uses Grafana and Appsmith, and each user action is traced from the app to the PC (ADR 0007).
+
+---
+
+## 13. Operator pages in Appsmith `PLANNED #208`
+
+Pages for the owner of the service, to help one person with a problem. Built in Appsmith from
+the control plane's operator endpoints (ADR 0007). Appsmith never reads or writes the database.
+Every action below calls an endpoint, needs the operator token, and is written to the audit
+log. Plain Appsmith widgets, no custom design. Logs and traces stay in Grafana.
+
+### 13.1 Find an account
+
+- One field "Email" and a button "Find".
+- Found: one row with the email, the account id, the status, the plan and the date it was
+  made. A click opens the account page.
+- Not found: "No account with that email."
+
+### 13.2 Account page
+
+Top: the email, the account id and the date it was made, with these lines.
+
+| Line | Values |
+|---|---|
+| Status | "Active", "Not active yet" (the sign-up code was never typed), "Suspended" |
+| Plan | "Free", "Premium, next payment on {date}", "Premium until {date}", "Premium, given by hand until {date}" |
+
+A button "Open in Grafana" opens Grafana filtered to this account id. That view lists the
+person's recent flows with failures first, and a failed flow opens its trace (ADR 0007).
+
+Below, four tables:
+
+| Table | Columns |
+|---|---|
+| Their devices (they are admin) | Device name, device id, number of guests |
+| Guests on their devices | Device name, guest email, what the guest can open |
+| Shared with them | Device name, admin email |
+| Sessions | Where (app on a phone, app on a desktop, website), signed in on {date} |
+
+### 13.3 Actions on the account page
+
+Each one opens a confirm box that names the account by its email. It shows a line on what
+happens, and a button with the action's name. After it the page reloads with the new values.
+
+| Button | Confirm line | What happens |
+|---|---|---|
+| Suspend | "Nobody can reach {email}'s devices over the internet until you restore the account. On the Wi-Fi everything keeps working." | The server refuses internet access to the devices this account is admin of, for the admin and their guests. Devices shared with this account by others are not affected. The app shows the same "Can't reach" screen as for a lapsed plan. |
+| Restore | "{email}'s devices can be reached over the internet again." | Shown in place of Suspend while the account is suspended. |
+| Give Premium | A date field "Until" | Premium until that date, with no payment. For support and testing. |
+| End Premium | "{email} goes back to Free now. Transfers that are running still finish." | Same as Premium ending (7.10). Only for Premium given by hand; paid Premium is cancelled at the payment partner. |
+| Sign out everywhere | "Every app and website session of {email} is signed out." | Same as after a password reset. |
+| Delete account | Type the email again to confirm | Same as the person deleting it themselves (7.5). Can't be undone. |
+
