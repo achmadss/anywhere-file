@@ -56,7 +56,8 @@ func compress(w http.ResponseWriter, r *http.Request, a app, log *slog.Logger) {
 	// included, so nothing below has to check a path by hand.
 	shared, err := os.OpenRoot(root)
 	if err != nil {
-		log.Error("compress: the shared folder cannot be opened", "address", a.Address, "err", pathless(err))
+		log.Error("compress: the shared folder cannot be opened", "address", a.Address, "err", pathless(err),
+			"error_code", "compress_open_failed", "step", "compress")
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -92,7 +93,8 @@ func compress(w http.ResponseWriter, r *http.Request, a app, log *slog.Logger) {
 		http.Error(w, "not found", http.StatusNotFound)
 	case err != nil:
 		// A symlink out of the folder lands here, as does a full disk.
-		log.Warn("compress failed", "address", a.Address, "err", pathless(err))
+		log.Warn("compress failed", "address", a.Address, "err", pathless(err),
+			"error_code", "compress_failed", "step", "compress")
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "these entries cannot be compressed"})
 	default:
 		writeJSON(w, http.StatusCreated, map[string]string{"name": in.Name})
