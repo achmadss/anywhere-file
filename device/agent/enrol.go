@@ -100,7 +100,7 @@ func (a *agent) setApps(apps []app) error {
 }
 
 // pushApps tells the server what this PC offers now. A failure is a log line: the next
-// change or the next start sends it again.
+// change, the next start or the next tunnel sends it again.
 func (a *agent) pushApps(ctx context.Context) {
 	st := a.snapshot()
 	if !st.enrolled() {
