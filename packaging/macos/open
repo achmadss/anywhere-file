@@ -1,8 +1,4 @@
 #!/bin/sh
-# What opening anywhere-file.app does: start sharing again if Quit in the menu bar stopped
-# it, then show the settings page. Loading a job that is already running does nothing.
-dir=$(cd "$(dirname "$0")" && pwd)
-for label in io.anywhere-file.agent io.anywhere-file.menubar; do
-	launchctl load -w "$HOME/Library/LaunchAgents/$label.plist" 2>/dev/null
-done
-exec "$dir/agent" settings
+# What opening anywhere-file in Applications runs: it starts sharing again after Quit in the
+# menu bar, and opens the settings page.
+exec "$(dirname "$0")/agent" open

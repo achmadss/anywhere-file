@@ -31,11 +31,14 @@ settings" is in the applications menu and opens the page in a browser.
 
 On macOS `agent install` also starts `agent menubar` at logon, a laptop icon in the menu bar
 with two items. Open settings opens the page. Quit stops sharing and removes the icon, and
-both stay off after a restart. Opening anywhere-file in Applications starts them again and
-opens the page. The macOS build needs Xcode's command line tools, because the icon is AppKit
-reached through cgo.
+both stay off after a restart. Opening anywhere-file in Applications runs `agent open`, which
+starts them again and opens the page. The macOS build needs Xcode's command line tools,
+because the icon is AppKit reached through cgo.
 
-Windows has nothing yet (#160); there, `agent settings` opens the page from a terminal.
+On Windows `agent install` also starts `agent menubar` at logon, the same laptop icon in the
+notification area next to the clock. A click or a right click shows Open settings and Quit,
+which do what they do on macOS. After Quit, opening anywhere-file from the Start menu starts
+both again and opens the page. Windows may hide the icon under the ^ arrow beside the clock.
 
 ## Settings in the package
 

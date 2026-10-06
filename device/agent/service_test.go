@@ -106,24 +106,25 @@ func TestTheWindowsTaskIsUTF16(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var task planFile
-	for _, f := range p.files {
-		if strings.HasSuffix(f.path, ".xml") {
-			task = f
+	tasks := 0
+	for _, task := range p.files {
+		if !strings.HasSuffix(task.path, ".xml") {
+			continue
+		}
+		tasks++
+		if !task.utf16 {
+			t.Fatalf("%s is written as plain bytes, so schtasks will refuse it", task.path)
+		}
+		encoded := toUTF16LE(task.body)
+		if !bytes.HasPrefix(encoded, []byte{0xFF, 0xFE}) {
+			t.Errorf("first bytes are % x, want a little endian byte order mark", encoded[:2])
+		}
+		if got := string(utf16.Decode(decodeUTF16LE(encoded[2:]))); got != task.body {
+			t.Errorf("the encoding does not round trip:\n%s", got)
 		}
 	}
-	if task.path == "" {
+	if tasks == 0 {
 		t.Fatal("no task definition in the plan")
-	}
-	if !task.utf16 {
-		t.Fatal("the task definition is written as plain bytes, so schtasks will refuse it")
-	}
-	encoded := toUTF16LE(task.body)
-	if !bytes.HasPrefix(encoded, []byte{0xFF, 0xFE}) {
-		t.Errorf("first bytes are % x, want a little endian byte order mark", encoded[:2])
-	}
-	if got := string(utf16.Decode(decodeUTF16LE(encoded[2:]))); got != task.body {
-		t.Errorf("the encoding does not round trip:\n%s", got)
 	}
 }
 
@@ -137,10 +138,11 @@ func TestTheWindowsTaskRunsTheAgentItself(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(p.files) != 1 {
-		t.Fatalf("files = %v, want the task definition and nothing to wrap it", p.files)
+	// The agent's task and the tray's, and nothing to wrap either.
+	if len(p.files) != 2 {
+		t.Fatalf("files = %v, want the two task definitions and nothing else", p.files)
 	}
-	body := p.files[0].body
+	body := windowsTaskBody(t, p, serviceName)
 	for _, want := range []string{
 		"<Command>" + in.exe + "</Command>",
 		"RFM_AGENT_MDNS=off",
@@ -255,5 +257,58 @@ func TestTheMacMenuBarItemStartsAtLogonAndIsNotKeptAlive(t *testing.T) {
 	}
 	if strings.Contains(menu, "KeepAlive") {
 		t.Errorf("menu bar job is kept alive, so Quit would not stick:\n%s", menu)
+	}
+}
+
+func windowsTaskBody(t *testing.T, p servicePlan, name string) string {
+	t.Helper()
+	for _, f := range p.files {
+		if strings.HasSuffix(f.path, name+".xml") {
+			return f.body
+		}
+	}
+	t.Fatalf("no %s task in the plan", name)
+	return ""
+}
+
+// The tray icon (#160) needs the desktop of whoever logged on, and must stay gone after
+// Quit, so its task is the one Windows does not restart.
+func TestTheWindowsTrayStartsAtLogonAndIsNotRestarted(t *testing.T) {
+	p, err := servicePlanFor(testPlanInput("windows"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tray := windowsTaskBody(t, p, trayName)
+	for _, want := range []string{"<Arguments>menubar ", "<LogonTrigger>"} {
+		if !strings.Contains(tray, want) {
+			t.Errorf("tray task has no %s:\n%s", want, tray)
+		}
+	}
+	if strings.Contains(tray, "RestartOnFailure") {
+		t.Errorf("tray task is restarted, so Quit would not stick:\n%s", tray)
+	}
+	if agent := windowsTaskBody(t, p, serviceName); !strings.Contains(agent, "<RestartOnFailure>") {
+		t.Errorf("the agent's own task lost its restart:\n%s", agent)
+	}
+}
+
+// Quit is undone by opening the app, so it may switch things off but never take away
+// what reopening needs.
+func TestQuitSwitchesOffAndReopenSwitchesBackOn(t *testing.T) {
+	for _, goos := range []string{"darwin", "windows"} {
+		p, err := servicePlanFor(testPlanInput(goos))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(p.quit) == 0 || len(p.reopen) == 0 {
+			t.Errorf("%s: quit %v, reopen %v, want commands for both", goos, p.quit, p.reopen)
+		}
+		for _, c := range p.quit {
+			for _, a := range c.argv {
+				if a == "/Delete" || a == "rm" || a == "remove" {
+					t.Errorf("%s quit deletes something: %v", goos, c.argv)
+				}
+			}
+		}
 	}
 }

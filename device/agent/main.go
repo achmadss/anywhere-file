@@ -7,7 +7,8 @@
 //	agent key                    print the device's public key, device id and fingerprint
 //	agent discover               list the agents this machine can see on the LAN
 //	agent settings               open the settings page in a browser
-//	agent menubar                show the menu bar item on macOS, which agent install starts
+//	agent menubar                show the tray icon on macOS and Windows, which agent install starts
+//	agent open                   start again after Quit in the tray menu, and open the settings page
 //	agent share add <dir>        share a directory, with --name to choose what it is called
 //	agent share list             list what this PC shares
 //	agent share rm <name>        stop sharing one
@@ -71,6 +72,12 @@ func run(ctx context.Context, args []string, out, logTo io.Writer) error {
 	}
 	log := slog.New(slog.NewJSONHandler(logTo, &slog.HandlerOptions{Level: cfg.logLevel}))
 	switch command {
+	case "run", "menubar", "open":
+		// Started by a scheduled task or the Start menu, these would leave a console
+		// window open on Windows for as long as they run.
+		detachConsole()
+	}
+	switch command {
 	case "run", "menubar":
 		lock, err := lockInstance(cfg.dir, command)
 		if err != nil {
@@ -89,6 +96,8 @@ func run(ctx context.Context, args []string, out, logTo io.Writer) error {
 		return settingsCommand(ctx, cfg, out)
 	case "menubar":
 		return menubarCommand(ctx, cfg, log)
+	case "open":
+		return openCommand(ctx, cfg, log, out)
 	case "share":
 		return shareCommand(ctx, cfg, out, args)
 	case "login":

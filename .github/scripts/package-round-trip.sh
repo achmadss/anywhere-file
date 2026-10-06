@@ -30,6 +30,8 @@ MINGW* | MSYS* | CYGWIN*)
 	msi=$("$root/packaging/windows/build.sh" | tail -1)
 	agent="/c/Program Files/anywhere-file/agent.exe"
 	dufs="/c/Program Files/anywhere-file/dufs.exe"
+	# #160: where a person starts sharing again after Quit in the tray menu.
+	shortcut="/c/ProgramData/Microsoft/Windows/Start Menu/Programs/anywhere-file.lnk"
 	# MSYS_NO_PATHCONV because this shell would otherwise turn msiexec's /i into a path.
 	install_it() { MSYS_NO_PATHCONV=1 msiexec.exe /i "$(cygpath -w "$msi")" /quiet /norestart; }
 	remove_it() { MSYS_NO_PATHCONV=1 msiexec.exe /x "$(cygpath -w "$msi")" /quiet /norestart; }
@@ -73,9 +75,20 @@ if declare -f firewall_rules >/dev/null; then
 	fi
 fi
 
+if [ -n "${shortcut:-}" ]; then
+	[ -f "$shortcut" ] || { echo "no Start menu shortcut at $shortcut"; exit 1; }
+	MSYS_NO_PATHCONV=1 schtasks.exe /Query /TN anywhere-file-tray >/dev/null ||
+		{ echo "no tray task after the install"; exit 1; }
+	echo "the Start menu shortcut and the tray task are there"
+fi
+
 echo "== uninstall"
 remove_it
 down
+if [ -n "${shortcut:-}" ] && [ -e "$shortcut" ]; then
+	echo "$shortcut is still there after the uninstall"
+	exit 1
+fi
 if [ -x "$agent" ]; then
 	echo "$agent is still there after the uninstall"
 	exit 1
