@@ -155,7 +155,11 @@
     <button id="signout" class="outlined">Sign out</button>
   </section>
 
-  <p class="body-small variant">Version {{.Version}}</p>
+  <section>
+    <p class="body-small variant">Version {{.Version}}</p>
+    <p id="update" class="body-medium" hidden>Version <span id="latest"></span> is out.
+      <a id="download" target="_blank" rel="noreferrer">Download it</a> and install it over this one. What this PC shares and its account stay.</p>
+  </section>
 </main>
 {{end}}
 
@@ -316,6 +320,13 @@ window.addEventListener("focus", checkNetwork);
 checkNetwork();
 api("GET", "/v1/apps").then(out => drawShares(out.apps)).catch(show);
 api("GET", "/v1/account").then(drawAccount).catch(show);
+// The agent asks the server, so a server that does not answer only means no line here.
+api("GET", "/v1/version").then(out => {
+  if (!out.latest) return;
+  document.getElementById("latest").textContent = out.latest;
+  document.getElementById("download").href = out.download;
+  document.getElementById("update").hidden = false;
+}).catch(() => {});
 go(home);
 {{end}}
 </script>

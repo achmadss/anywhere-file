@@ -166,13 +166,13 @@ jobs:
     # runner cannot be rebooted, so what is proven here is the rest of the acceptance: the
     # package starts the service, the uninstall stops it, and a reinstall is the same device.
     # The installer runs `agent install`, so this is #33's acceptance too: the OS starts the
-    # agent, with nothing typed into a window.
+    # agent, with nothing typed into a window. The arm runner installs the arm64 deb.
     needs: changes
     if: needs.changes.outputs.package == 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -183,6 +183,8 @@ jobs:
       RFM_AGENT_MDNS: "off"
       RFM_AGENT_TUNNEL: "off"
       RFM_AGENT_KEYSTORE: file
+      # #190: the script downloads the last release to upgrade from.
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-go
@@ -190,7 +192,7 @@ jobs:
       # desktop is already true.
       - if: runner.os == 'Linux'
         run: sudo loginctl enable-linger "$USER"
-      - name: install the package, uninstall it, install it again
+      - name: upgrade from the last release, uninstall, install again
         run: .github/scripts/package-round-trip.sh
 
   rules:

@@ -45,6 +45,7 @@ type release struct {
 	Version string
 	Systems []system
 	Page    string // the release on GitHub, for whatever is not listed
+	Sums    string // the release's SHA256SUMS, or "" when it has none
 }
 
 // systems is what the page says about each operating system. The order is what a visitor
@@ -128,6 +129,11 @@ func (c *releaseCache) fetch(ctx context.Context) (*release, error) {
 		return nil, err
 	}
 	rel := &release{Version: strings.TrimPrefix(out.Tag, "v"), Page: out.URL}
+	for _, a := range out.Assets {
+		if a.Name == "SHA256SUMS" {
+			rel.Sums = a.URL
+		}
+	}
 	for _, s := range systems {
 		s.Files = nil
 		for _, a := range out.Assets {
@@ -185,5 +191,17 @@ func downloadPage(w http.ResponseWriter, r *http.Request) {
 			ordered = append(ordered, s)
 		}
 	}
-	renderTemplate(w, "download", release{Version: rel.Version, Systems: ordered, Page: rel.Page})
+	renderTemplate(w, "download", release{Version: rel.Version, Systems: ordered, Page: rel.Page, Sums: rel.Sums})
+}
+
+// latestVersion answers which release is current, from the same cache as the page, so
+// the app and the agent can say when they are out of date (#177, #190). It needs no
+// session: the version is on the public download page anyway.
+func latestVersion(w http.ResponseWriter, r *http.Request) {
+	rel := latestRelease.get(r.Context())
+	if rel == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "the latest release is not known right now"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"version": rel.Version})
 }
