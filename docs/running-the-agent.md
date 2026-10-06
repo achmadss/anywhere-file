@@ -70,6 +70,23 @@ The name stays on the path, so `/files/holiday/a.txt` reaches the application wi
 or the links it writes land nowhere, and one that is told strips the prefix itself. dufs is
 told with `--path-prefix`.
 
+### Compress
+
+dufs cannot make a zip on the PC, so the gateway answers that one request itself (#199):
+
+```
+POST /files/holiday/?compress
+{"name": "beach.zip", "entries": ["beach.jpg", "2026"]}
+```
+
+The entries are names in that folder, files or folders, and the zip is written next to
+them. The answer is 201 when the zip is made, 409 when the name is taken (nothing is
+overwritten), 403 when the folder does not allow upload or an entry is a link that points
+out of the shared folder, and 400 for a name with a `/` or `..` in it. Whether upload is
+allowed is asked of dufs with the caller's credentials, so it matches what a PUT would get.
+The request is on the folder's own path, so it reaches the PC the same way as the rest of
+the folder and the server's check of who may open the folder covers it.
+
 ## Choosing what this PC shares
 
 `agent.json` can be written by hand, and nobody should have to. The agent serves a settings

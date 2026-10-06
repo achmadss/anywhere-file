@@ -105,6 +105,10 @@ func appProxy(a app, log *slog.Logger) http.Handler {
 	// prefix itself: dufs does it in `extract_path`. Stripping it here as well would take
 	// the request down to nothing.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Query().Has(compressQuery) {
+			compress(w, r, a, log)
+			return
+		}
 		if r.URL.Path == prefix {
 			r = r.Clone(r.Context())
 			r.URL.Path, r.URL.RawPath = prefix+"/", ""
