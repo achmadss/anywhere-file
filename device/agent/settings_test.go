@@ -440,3 +440,35 @@ func TestTheSettingsEndpointSaysTheKeyStoreIsLocked(t *testing.T) {
 		t.Errorf("without the token answered %d, want 401", status)
 	}
 }
+
+// #190: the page says when the server knows a newer release, and links to its download
+// page. The same release, or a build by hand, says nothing.
+func TestThePageHearsOfANewerVersionFromTheServer(t *testing.T) {
+	ag, srv, _, token := settingsFor(t)
+	latest := "1.5.0"
+	cp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/version" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(`{"version":"` + latest + `"}`))
+	}))
+	t.Cleanup(cp.Close)
+	ag.st.Server = cp.URL
+	old := version
+	t.Cleanup(func() { version = old })
+
+	for _, c := range []struct{ have, latest, want string }{
+		{"1.4.0", "1.5.0", `{"download":"` + cp.URL + `/download","latest":"1.5.0","version":"1.4.0"}`},
+		{"1.4.0", "1.10.0", `{"download":"` + cp.URL + `/download","latest":"1.10.0","version":"1.4.0"}`},
+		{"1.5.0", "1.5.0", `{"version":"1.5.0"}`},
+		{"2.0.0", "1.5.0", `{"version":"2.0.0"}`},
+		{"dev", "1.5.0", `{"version":"dev"}`},
+	} {
+		version, latest = c.have, c.latest
+		status, body := ask(t, srv, http.MethodGet, "/v1/version", token, "")
+		if status != http.StatusOK || strings.TrimSpace(body) != c.want {
+			t.Errorf("%s against %s: answered %d %s, want %s", c.have, c.latest, status, body, c.want)
+		}
+	}
+}

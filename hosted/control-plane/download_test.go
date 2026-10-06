@@ -86,3 +86,25 @@ func TestTheDownloadPageFallsBackToTheReleasesPage(t *testing.T) {
 		t.Errorf("page = %s", body)
 	}
 }
+
+// #177: the app and the agent ask which release is current, with no session, and get the
+// version the download page shows. With GitHub never reached, there is nothing to answer.
+func TestTheLatestVersionIsAnsweredWithoutASession(t *testing.T) {
+	srv := fakeGitHub(t)
+	ask := func() *httptest.ResponseRecorder {
+		mux := http.NewServeMux()
+		registerWebRoutes(mux, nil)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/version", nil))
+		return rec
+	}
+	if rec := ask(); rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"version":"0.1.0"}` {
+		t.Errorf("answered %d %s, want 200 {\"version\":\"0.1.0\"}", rec.Code, rec.Body)
+	}
+
+	srv.Close()
+	latestRelease = &releaseCache{client: srv.Client()}
+	if rec := ask(); rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("with GitHub unreachable answered %d, want 503", rec.Code)
+	}
+}
