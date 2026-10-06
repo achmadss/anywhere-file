@@ -34,6 +34,7 @@ const (
 	// launchd wants a reverse DNS label. The other two want something that reads as a
 	// filename.
 	serviceLabel = "io.anywhere-file.agent"
+	menubarLabel = "io.anywhere-file.menubar"
 	serviceName  = "anywhere-file-agent"
 	envPrefix    = "RFM_AGENT_"
 )
@@ -93,17 +94,28 @@ var darwinPlist = template.Must(template.New("plist").Funcs(template.FuncMap{"x"
 	<key>ProgramArguments</key>
 	<array>
 		<string>{{x .Exe}}</string>
-		<string>run</string>
+		<string>{{.Command}}</string>
 {{- range .Args}}
 		<string>{{x .}}</string>
 {{- end}}
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
+	<!-- Login Items in System Settings lists every job by its binary's name. This puts
+	     both under the app instead, as one entry called anywhere-file. -->
+	<key>AssociatedBundleIdentifiers</key>
+	<string>{{.Bundle}}</string>
+{{- if .Menu}}
+	<key>LimitLoadToSessionType</key>
+	<string>Aqua</string>
+	<key>ProcessType</key>
+	<string>Interactive</string>
+{{- else}}
 	<key>KeepAlive</key>
 	<true/>
 	<key>ProcessType</key>
 	<string>Background</string>
+{{- end}}
 	<key>StandardOutPath</key>
 	<string>{{x .Log}}</string>
 	<key>StandardErrorPath</key>
@@ -113,23 +125,44 @@ var darwinPlist = template.Must(template.New("plist").Funcs(template.FuncMap{"x"
 `))
 
 func darwinPlan(in planInput) servicePlan {
-	path := filepath.Join(in.home, "Library", "LaunchAgents", serviceLabel+".plist")
-	body := render(darwinPlist, map[string]any{
-		"Label": serviceLabel,
-		"Exe":   in.exe,
-		"Log":   filepath.Join(in.dir, "agent.log"),
-		"Args":  envArgs(in.env),
-	})
+	agents := filepath.Join(in.home, "Library", "LaunchAgents")
+	path := filepath.Join(agents, serviceLabel+".plist")
+	// The menu bar item (#159) is a second job, because the agent's own job runs in the
+	// background and a status item needs the login window's session. It is not kept
+	// alive: Quit in its menu has to stay quit.
+	menu := filepath.Join(agents, menubarLabel+".plist")
+	plist := func(label, command string) string {
+		return render(darwinPlist, map[string]any{
+			"Label":   label,
+			"Bundle":  serviceLabel, // the app's CFBundleIdentifier, which is the same string
+			"Command": command,
+			"Menu":    command == "menubar",
+			"Exe":     in.exe,
+			"Log":     filepath.Join(in.dir, "agent.log"),
+			"Args":    envArgs(in.env),
+		})
+	}
 	return servicePlan{
-		files: []planFile{{path: path, body: body}},
+		files: []planFile{
+			{path: path, body: plist(serviceLabel, "run")},
+			{path: menu, body: plist(menubarLabel, "menubar")},
+		},
 		// ponytail: `load -w` rather than `bootstrap gui/$UID`, because it works the same
 		// from a login window session and from a headless one. Move to bootstrap if we
 		// ever need to name the domain, for example to install for another user.
 		install: []planCmd{
 			{argv: []string{"launchctl", "unload", "-w", path}, optional: true},
 			{argv: []string{"launchctl", "load", "-w", path}},
+			// A Mac reached over ssh has no login window session, so the menu waits for
+			// the next logon there.
+			{argv: []string{"launchctl", "unload", "-w", menu}, optional: true},
+			{argv: []string{"launchctl", "load", "-w", menu}, optional: true},
 		},
-		uninstall: []planCmd{{argv: []string{"launchctl", "unload", "-w", path}, optional: true}},
+		// The menu goes last, because when it is the one asking it stops here.
+		uninstall: []planCmd{
+			{argv: []string{"launchctl", "unload", "-w", path}, optional: true},
+			{argv: []string{"launchctl", "unload", "-w", menu}, optional: true},
+		},
 	}
 }
 

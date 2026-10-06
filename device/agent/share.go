@@ -25,6 +25,9 @@ import (
 // connection to this machine, so anything longer than this is not a slow network.
 const settingsDial = 500 * time.Millisecond
 
+// settingsWait is how long `agent settings` gives an agent that is still starting.
+const settingsWait = 10 * time.Second
+
 func shareCommand(ctx context.Context, cfg config, out io.Writer, args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("share needs one of: add, list, rm")
@@ -94,8 +97,18 @@ func flagsFirst(args []string) []string {
 
 // settingsCommand opens the page. It is what the menu bar, the tray and the applications
 // menu run, so the token never has to be copied anywhere by hand.
+//
+// It waits a little for the agent, because it also runs right after the agent was started:
+// at the end of an install, and when the app is opened again after Quit.
 func settingsCommand(ctx context.Context, cfg config, out io.Writer) error {
-	c, err := dialSettings(ctx, cfg)
+	var c *settingsClient
+	var err error
+	for deadline := time.Now().Add(settingsWait); ; {
+		if c, err = dialSettings(ctx, cfg); err != nil || c != nil || cfg.settings == "" || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(settingsDial)
+	}
 	if err != nil {
 		return err
 	}

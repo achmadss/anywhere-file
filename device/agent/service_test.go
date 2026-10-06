@@ -231,3 +231,29 @@ func decodeUTF16LE(b []byte) []uint16 {
 	}
 	return out
 }
+
+// The menu bar item (#159) needs the login window's session, and must stay gone after
+// Quit, so its job is the one launchd does not keep alive.
+func TestTheMacMenuBarItemStartsAtLogonAndIsNotKeptAlive(t *testing.T) {
+	p, err := servicePlanFor(testPlanInput("darwin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var menu string
+	for _, f := range p.files {
+		if strings.HasSuffix(f.path, menubarLabel+".plist") {
+			menu = f.body
+		}
+		if !strings.Contains(f.body, "<key>AssociatedBundleIdentifiers</key>\n\t<string>io.anywhere-file.agent</string>") {
+			t.Errorf("%s is not tied to the app, so Login Items lists it by the binary's name", f.path)
+		}
+	}
+	for _, want := range []string{"<string>menubar</string>", "<string>Aqua</string>", "<key>RunAtLoad</key>"} {
+		if !strings.Contains(menu, want) {
+			t.Errorf("menu bar job has no %s:\n%s", want, menu)
+		}
+	}
+	if strings.Contains(menu, "KeepAlive") {
+		t.Errorf("menu bar job is kept alive, so Quit would not stick:\n%s", menu)
+	}
+}

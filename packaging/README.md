@@ -23,8 +23,15 @@ whatever the latest release carries. Nothing else publishes anything: the packag
 ## Opening the settings page
 
 The Linux packages leave a `.desktop` entry behind, written by `agent install`, so "anywhere-file
-settings" is in the applications menu and opens the page in a browser. macOS and Windows have
-nothing yet (#142); on those, `agent settings` opens it from a terminal.
+settings" is in the applications menu and opens the page in a browser.
+
+On macOS `agent install` also starts `agent menubar` at logon, a laptop icon in the menu bar
+with two items. Open settings opens the page. Quit stops sharing and removes the icon, and
+both stay off after a restart. Opening anywhere-file in Applications starts them again and
+opens the page. The macOS build needs Xcode's command line tools, because the icon is AppKit
+reached through cgo.
+
+Windows has nothing yet (#160); there, `agent settings` opens the page from a terminal.
 
 ## Settings in the package
 

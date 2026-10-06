@@ -20,9 +20,13 @@ mkdir -p "$app/Contents/MacOS" "$out"
 sed "s/@VERSION@/$version/g" "$here/Info.plist" >"$app/Contents/Info.plist"
 
 # Universal binaries, because a package is downloaded once and both kinds of Mac are still
-# in use. Go cross-compiles either way, so this costs a second build and no toolchain.
-for arch in amd64 arm64; do
-	GOOS=darwin GOARCH=$arch go build -C "$root" -o "$work/agent-$arch" ./device/agent
+# in use. The menu bar item is AppKit through cgo (#159), so each half is compiled by
+# clang for its own architecture. The deployment target matches LSMinimumSystemVersion:
+# without it clang targets the macOS doing the build, and older Macs refuse the binary.
+export CGO_CFLAGS="-mmacosx-version-min=12.0" CGO_LDFLAGS="-mmacosx-version-min=12.0"
+for pair in amd64:x86_64 arm64:arm64; do
+	GOOS=darwin GOARCH=${pair%%:*} CGO_ENABLED=1 CC="clang -arch ${pair#*:}" \
+		go build -C "$root" -o "$work/agent-${pair%%:*}" ./device/agent
 done
 lipo -create -output "$app/Contents/MacOS/agent" "$work/agent-amd64" "$work/agent-arm64"
 
@@ -35,7 +39,7 @@ for pair in amd64:x86_64 arm64:aarch64; do
 done
 lipo -create -output "$app/Contents/MacOS/dufs" "$work/dufs-amd64" "$work/dufs-arm64"
 
-cp "$here/uninstall" "$app/Contents/MacOS/uninstall"
+cp "$here/uninstall" "$here/open" "$app/Contents/MacOS/"
 chmod 755 "$app/Contents/MacOS/"*
 
 # Settings baked in at build time, for a package that will be installed by double-clicking

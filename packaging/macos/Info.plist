@@ -8,8 +8,10 @@
 	<string>anywhere-file</string>
 	<key>CFBundleIdentifier</key>
 	<string>io.anywhere-file.agent</string>
+	<!-- Opening the app runs this script, which starts sharing again and shows the settings
+	     page. The agent itself is started by launchd. -->
 	<key>CFBundleExecutable</key>
-	<string>agent</string>
+	<string>open</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleVersion</key>
@@ -18,8 +20,8 @@
 	<string>@VERSION@</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>12.0</string>
-	<!-- The agent has no window. Without this it would take a place in the Dock and a menu
-	     bar, for a program nobody looks at. -->
+	<!-- The agent has no window, and its only visible part is the menu bar item. Without
+	     this it would take a place in the Dock and an application menu as well. -->
 	<key>LSUIElement</key>
 	<true/>
 	<!-- macOS asks the person at the machine before a program may use the local network,
