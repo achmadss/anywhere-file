@@ -14,6 +14,9 @@ rpm=$(ARCHES=amd64 "$root/packaging/linux/build.sh" | grep '\.rpm$')
 docker build -q -t fedora-systemd - <<'DOCKERFILE' >/dev/null
 FROM fedora:latest
 RUN dnf install -y systemd && dnf clean all && useradd -m pc
+# On the runner, PAM cannot read the new user's account inside the container, so the user's
+# systemd manager fails to start. Nothing in the package goes through PAM.
+RUN printf 'account required pam_permit.so\nsession optional pam_systemd.so\n' >/etc/pam.d/systemd-user
 CMD ["/sbin/init"]
 DOCKERFILE
 docker run -d --name fedora --privileged --cgroupns=private \
