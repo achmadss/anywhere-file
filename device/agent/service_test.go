@@ -2,8 +2,11 @@ package main
 
 import (
 	"bytes"
+	"html"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"unicode/utf16"
@@ -311,4 +314,73 @@ func TestQuitSwitchesOffAndReopenSwitchesBackOn(t *testing.T) {
 			}
 		}
 	}
+}
+
+// #223: an app dragged to the Trash leaves the jobs behind. Each job runs its own
+// ProgramArguments here, with launchctl swapped for a stub, to check that a missing binary
+// deletes the plist and the job, and that a present one is what runs.
+func TestAMacJobWhoseBinaryIsGoneRemovesItself(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs /bin/sh")
+	}
+	dir := t.TempDir()
+	stub := filepath.Join(dir, "launchctl")
+	if err := os.WriteFile(stub, []byte("#!/bin/sh\necho \"$@\" >>\"$0.log\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+":/usr/bin:/bin")
+
+	in := testPlanInput("darwin")
+	in.home = dir
+	in.exe = filepath.Join(dir, "agent")
+	p, err := servicePlanFor(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "Library", "LaunchAgents"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range p.files {
+		if err := os.WriteFile(f.path, []byte(f.body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		args := programArguments(t, f.body)
+		if err := exec.Command(args[0], args[1:]...).Run(); err != nil {
+			t.Fatalf("%s: %v", f.path, err)
+		}
+		if _, err := os.Stat(f.path); !os.IsNotExist(err) {
+			t.Errorf("%s is still there with no binary, so the next login loads it again", f.path)
+		}
+	}
+	log, _ := os.ReadFile(stub + ".log")
+	for _, label := range []string{serviceLabel, menubarLabel} {
+		if !strings.Contains(string(log), "remove "+label+"\n") {
+			t.Errorf("launchctl was not asked to remove %s, it got:\n%s", label, log)
+		}
+	}
+
+	// With the binary there, the job is the binary.
+	if err := os.WriteFile(in.exe, []byte("#!/bin/sh\necho \"$@\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	args := programArguments(t, p.files[0].body)
+	out, err := exec.Command(args[0], args[1:]...).Output()
+	if err != nil || !strings.HasPrefix(string(out), "run ") {
+		t.Errorf("the job ran %q (%v), want the agent's run command", out, err)
+	}
+}
+
+func programArguments(t *testing.T, plist string) []string {
+	t.Helper()
+	_, array, _ := strings.Cut(plist, "<key>ProgramArguments</key>")
+	array, _, _ = strings.Cut(array, "</array>")
+	var args []string
+	for _, s := range strings.Split(array, "<string>")[1:] {
+		s, _, _ = strings.Cut(s, "</string>")
+		args = append(args, html.UnescapeString(s))
+	}
+	if len(args) == 0 {
+		t.Fatalf("no ProgramArguments in:\n%s", plist)
+	}
+	return args
 }
