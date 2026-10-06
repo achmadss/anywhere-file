@@ -436,11 +436,8 @@ func shareName(dir string, taken []app) string {
 }
 
 // freePort asks the OS for a port nobody is using and gives it straight back, because the
-// program that will hold it takes a number rather than an open socket.
-//
-// ponytail: something else can take the port in between. It would be caught as an
-// application that will not start, in the log, and the answer is to remove the share and
-// add it again. Hand the listener over if that ever happens to anybody.
+// program that will hold it takes a number rather than an open socket. Something else can
+// take it later, and the supervisor then moves the share to a new one (withFreePort).
 func freePort() (string, error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
