@@ -148,9 +148,10 @@ func servePage(ag *agent, token string) http.HandlerFunc {
 		// Another site cannot read it and cannot set that header, which is what keeps a
 		// page in the same browser from re-sharing this PC's disk.
 		err := settingsPage.Execute(w, map[string]any{
-			"Token":  token,
-			"Device": ag.snapshot().Name,
-			"Home":   home,
+			"Token":   token,
+			"Device":  ag.snapshot().Name,
+			"Home":    home,
+			"Version": version,
 		})
 		if err != nil {
 			ag.log.Error("the settings page did not render", "err", err)

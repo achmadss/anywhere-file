@@ -24,7 +24,7 @@ trap 'rm -rf "$work"' EXIT
 stage="$work/stage"
 mkdir -p "$stage" "$out"
 
-GOOS=windows GOARCH=amd64 go build -C "$root" -o "$stage/agent.exe" ./device/agent
+GOOS=windows GOARCH=amd64 go build -C "$root" -ldflags "-X main.version=$version" -o "$stage/agent.exe" ./device/agent
 curl -fsSLo "$work/dufs.zip" \
 	"https://github.com/sigoden/dufs/releases/download/v${dufs_version}/dufs-v${dufs_version}-x86_64-pc-windows-msvc.zip"
 # No unzip in Git Bash, and PowerShell is always there.

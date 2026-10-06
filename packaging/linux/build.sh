@@ -27,7 +27,7 @@ for arch in $arches; do
 	name="anywhere-file-$version-linux-$arch"
 	dir="$work/$name"
 	mkdir -p "$dir"
-	GOOS=linux GOARCH=$arch go build -C "$root" -o "$dir/agent" ./device/agent
+	GOOS=linux GOARCH=$arch go build -C "$root" -ldflags "-X main.version=$version" -o "$dir/agent" ./device/agent
 	curl -sSLo "$work/dufs.tar.gz" \
 		"https://github.com/sigoden/dufs/releases/download/v${dufs_version}/dufs-v${dufs_version}-${triple}.tar.gz"
 	tar xzf "$work/dufs.tar.gz" -C "$dir" dufs

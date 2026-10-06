@@ -26,7 +26,7 @@ sed "s/@VERSION@/$version/g" "$here/Info.plist" >"$app/Contents/Info.plist"
 export CGO_CFLAGS="-mmacosx-version-min=12.0" CGO_LDFLAGS="-mmacosx-version-min=12.0"
 for pair in amd64:x86_64 arm64:arm64; do
 	GOOS=darwin GOARCH=${pair%%:*} CGO_ENABLED=1 CC="clang -arch ${pair#*:}" \
-		go build -C "$root" -o "$work/agent-${pair%%:*}" ./device/agent
+		go build -C "$root" -ldflags "-X main.version=$version" -o "$work/agent-${pair%%:*}" ./device/agent
 done
 lipo -create -output "$app/Contents/MacOS/agent" "$work/agent-amd64" "$work/agent-arm64"
 

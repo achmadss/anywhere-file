@@ -343,3 +343,18 @@ func TestTheNameCanComeAfterTheDirectory(t *testing.T) {
 		t.Errorf("shared %v, want files", names)
 	}
 }
+
+// The page says which release this PC runs (#190), so whoever reads it can tell whether it
+// is out of date.
+func TestThePageShowsTheVersionAndTheDevice(t *testing.T) {
+	_, srv, _, token := settingsFor(t)
+	status, page := ask(t, srv, http.MethodGet, "/", token, "")
+	if status != http.StatusOK {
+		t.Fatalf("answered %d", status)
+	}
+	for _, want := range []string{"<h1>pc1</h1>", "Version " + version} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the page has no %q", want)
+		}
+	}
+}
