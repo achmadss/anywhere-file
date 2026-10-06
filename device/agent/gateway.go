@@ -94,8 +94,8 @@ func appProxy(a app, log *slog.Logger) http.Handler {
 			pr.SetXForwarded()
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-			log.Warn("application unreachable", "app", a.Name, "address", a.Address,
-				"path", r.URL.Path, "err", err)
+			// No name and no path: both name folders and files (ADR 0007).
+			log.Warn("application unreachable", "address", a.Address, "err", err)
 			http.Error(w, "application unavailable", http.StatusBadGateway)
 		},
 		ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelWarn),
@@ -127,7 +127,7 @@ func gatewayGuard(mux *http.ServeMux, log *slog.Logger) http.Handler {
 		// The Host header is not refused, because it decides nothing here: the tunnel
 		// sets it to the device id and the gateway ignores it either way.
 		if r.URL.IsAbs() || r.URL.Host != "" || r.Method == http.MethodConnect {
-			log.Warn("refused an absolute request", "method", r.Method, "url", r.URL.String())
+			log.Warn("refused an absolute request", "method", r.Method, "host", r.URL.Host)
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
