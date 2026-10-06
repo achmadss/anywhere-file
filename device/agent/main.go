@@ -106,7 +106,7 @@ func run(ctx context.Context, args []string, out, logTo io.Writer) error {
 	case "install":
 		return installService(cfg, log, out)
 	case "uninstall":
-		return uninstallService(ctx, cfg, log, out)
+		return uninstallService(cfg, log, out)
 	default:
 		return fmt.Errorf("unknown command %q", command)
 	}

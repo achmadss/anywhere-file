@@ -1,9 +1,10 @@
 #!/bin/sh
-# Takes the agent away again. Run it as yourself, not with sudo: the service belongs to
+# Takes the agent away again, and signs the Mac out of its account first. Run it as yourself, not with sudo: the service belongs to
 # your login session, and only removing the files needs an administrator.
 set -eu
 
 dir=$(cd "$(dirname "$0")" && pwd)
+"$dir/agent" logout || echo "could not sign this PC out of its account, so remove it in the app"
 "$dir/agent" uninstall || true
 
 echo "removing /Applications/anywhere-file.app, which asks for your password"
