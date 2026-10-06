@@ -127,6 +127,14 @@ func (c *lanCert) get(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return c.cert, nil
 }
 
+// renew drops the certificate, so the next handshake gets one naming this PC's addresses
+// as they are now.
+func (c *lanCert) renew() {
+	c.mu.Lock()
+	c.cert = nil
+	c.mu.Unlock()
+}
+
 // lanTLS is what the gateway's listener is wrapped in.
 func lanTLS(c *lanCert) *tls.Config {
 	return &tls.Config{
@@ -186,7 +194,7 @@ func proofMessage(spki []byte) []byte {
 // client on the PC itself.
 func localAddresses() []net.IP {
 	ips := []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback}
-	addrs, err := net.InterfaceAddrs()
+	addrs, err := interfaceAddrs(nil)
 	if err != nil {
 		return ips
 	}

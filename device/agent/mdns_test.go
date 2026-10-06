@@ -1,12 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/mdns"
 )
 
 // A name one byte over the DNS-SD limit is dropped in silence by every responder measured
@@ -209,4 +214,80 @@ func TestOnlyTheAnsweringInterfacesAddressesAreAdvertised(t *testing.T) {
 	if got := localAddrs(nil); len(got) != 1 || !got[0].IsLoopback() {
 		t.Errorf("with no interface localAddrs = %v, want loopback", got)
 	}
+}
+
+// A laptop that joins another Wi-Fi has another address, and the record and the certificate
+// both have to name it without a restart (#217). So does a change of shares, for the record.
+// The addresses are faked, so this needs no real network change.
+func TestANewAddressOrShareIsAdvertisedAgain(t *testing.T) {
+	iface := multicastInterface()
+	if iface == nil {
+		t.Skip("no interface here can carry multicast")
+	}
+	var addr atomic.Value
+	addr.Store(net.ParseIP("192.0.2.10"))
+	machine := interfaceAddrs
+	// Only the answering interface moves. Another one gaining an address would change
+	// which interface answers, and it may be one that cannot join the group.
+	interfaceAddrs = func(i *net.Interface) ([]net.Addr, error) {
+		if i != nil && i.Name != iface.Name {
+			return machine(i)
+		}
+		return []net.Addr{&net.IPNet{IP: addr.Load().(net.IP), Mask: net.CIDRMask(24, 32)}}, nil
+	}
+	t.Cleanup(func() { interfaceAddrs = machine })
+
+	ag, _ := enrolAgent(t)
+	ad := newAdvertiser(7433, discard)
+	t.Cleanup(ad.close)
+	cert := &lanCert{key: ag.key}
+	first, err := cert.get(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() { keepAdvertised(ctx, ad, cert, ag, 10*time.Millisecond); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+
+	advertised := func(want func(*mdns.MDNSService) bool) {
+		t.Helper()
+		for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+			ad.mu.Lock()
+			srv := ad.srv
+			ad.mu.Unlock()
+			if srv != nil && want(srv.zone.(*mdns.MDNSService)) {
+				return
+			}
+		}
+		ad.mu.Lock()
+		defer ad.mu.Unlock()
+		if ad.srv == nil {
+			t.Fatal("nothing was advertised")
+		}
+		s := ad.srv.zone.(*mdns.MDNSService)
+		t.Fatalf("the record was not advertised again, it still carries %v %v", s.IPs, s.TXT)
+	}
+	names := func(ip string) func(*mdns.MDNSService) bool {
+		return func(s *mdns.MDNSService) bool { return len(s.IPs) == 1 && s.IPs[0].String() == ip }
+	}
+	advertised(names("192.0.2.10"))
+
+	addr.Store(net.ParseIP("192.0.2.20"))
+	advertised(names("192.0.2.20"))
+	renewed, err := cert.get(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if renewed == first {
+		t.Fatal("the gateway still serves the certificate for the old address")
+	}
+	if !slices.ContainsFunc(renewed.Leaf.IPAddresses, net.ParseIP("192.0.2.20").Equal) {
+		t.Errorf("the new certificate names %v, not the new address", renewed.Leaf.IPAddresses)
+	}
+
+	if err := ag.setApps(append(ag.snapshot().Apps, app{Name: "jellyfin", Type: "http", Address: "127.0.0.1:8096"})); err != nil {
+		t.Fatal(err)
+	}
+	advertised(func(s *mdns.MDNSService) bool { return slices.Contains(s.TXT, "apps=dufs,jellyfin") })
 }
