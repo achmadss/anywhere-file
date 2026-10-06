@@ -99,6 +99,20 @@ func (a *agent) setApps(apps []app) error {
 	return nil
 }
 
+// moveApp saves the new address of an application the supervisor had to move to a new
+// port, and leaves the rest of the list as it is.
+func (a *agent) moveApp(moved app) {
+	list := a.snapshot().Apps
+	for i := range list {
+		if list[i].Name == moved.Name {
+			list[i] = moved
+		}
+	}
+	if err := a.setApps(list); err != nil {
+		a.log.Error("the new port of an application was not saved", "address", moved.Address, "err", err)
+	}
+}
+
 // pushApps tells the server what this PC offers now. A failure is a log line: the next
 // change, the next start or the next tunnel sends it again.
 func (a *agent) pushApps(ctx context.Context) {
