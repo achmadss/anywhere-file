@@ -1,4 +1,4 @@
-//go:build !(darwin && cgo)
+//go:build !(darwin && cgo) && !windows
 
 package main
 
@@ -9,5 +9,5 @@ import (
 )
 
 func menubarCommand(context.Context, config, *slog.Logger) error {
-	return errors.New("the menu bar item is macOS only, and needs an agent built with cgo")
+	return errors.New("the tray icon is for macOS and Windows, and on macOS needs an agent built with cgo")
 }

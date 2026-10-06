@@ -74,6 +74,17 @@ func (a *agent) tunnelOnce(ctx context.Context, h http.Handler) (bool, error) {
 	defer context.AfterFunc(ctx, func() { _ = conn.Close() })()
 
 	rest, err := a.handshake(conn, st.Server)
+	var refused serverError
+	if errors.As(err, &refused) && refused.status == http.StatusGone {
+		// The admin removed this PC from the app while it was away, or while this tunnel
+		// was up, which is why it closed. The settings page should not go on claiming an
+		// account the PC no longer has.
+		if _, ferr := a.forgetAccount(st.Server); ferr != nil {
+			return false, ferr
+		}
+		a.log.Info("removed from its account by an admin, so signed out", "server", st.Server, "device", st.DeviceID)
+		return false, err
+	}
 	if err != nil {
 		return false, err
 	}

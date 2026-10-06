@@ -111,9 +111,11 @@ jobs:
         run: "grep -q -- '--- PASS: TestApprovingInTheBrowserEnrolsThePC' approve.log"
       # Same reason: prove the mDNS resolution test ran rather than skipped.
       - if: runner.os == 'Linux'
-        run: go test -run TestTheAdvertisedRecordIsFound -v ./device/agent/ | tee mdns.log
+        run: go test -run 'TestTheAdvertisedRecordIsFound|TestAQuerierOn5353BesideTheSystemResponderHearsTheAnswer' -v ./device/agent/ | tee mdns.log
       - if: runner.os == 'Linux'
-        run: "grep -q -- '--- PASS: TestTheAdvertisedRecordIsFound' mdns.log"
+        run: |
+          grep -q -- '--- PASS: TestTheAdvertisedRecordIsFound' mdns.log
+          grep -q -- '--- PASS: TestAQuerierOn5353BesideTheSystemResponderHearsTheAnswer' mdns.log
       # The last acceptance case of #93: two hosts that can reach each other and nothing
       # else find each other. Containers on a Docker internal network are that.
       - name: discovery between two containers on a network with no route off it
@@ -314,6 +316,7 @@ jobs:
           grep -q "signed in as" common/build/test-results/desktopTest/TEST-*ServerAccountTest.xml
           grep -q "noticed a session the server ended" common/build/test-results/desktopTest/TEST-*ServerAccountTest.xml
           grep -q "removed the guest" common/build/test-results/desktopTest/TEST-*ServerSharingTest.xml
+          grep -q "removed the PC" common/build/test-results/desktopTest/TEST-*ServerSharingTest.xml
       - if: failure()
         run: |
           cat "$RUNNER_TEMP/agent.log"

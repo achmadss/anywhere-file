@@ -52,13 +52,30 @@
       </Component>
     </ComponentGroup>
 
+    <!-- #160: Quit in the tray menu stops sharing until the app is opened again, and this
+         is where a person opens it. A per machine shortcut needs a registry key as its key
+         path, and HKMU is the machine's own hive in a per machine install. -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="OpenShortcut" Name="anywhere-file" Description="Start sharing again and open the settings page"
+                  Target="[INSTALLFOLDER]agent.exe" Arguments="open" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKMU" Key="Software\anywhere-file" Name="StartMenuShortcut"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
     <Feature Id="Main" Title="anywhere-file">
       <ComponentGroupRef Id="Files" />
+      <ComponentRef Id="StartMenuShortcut" />
     </Feature>
 
     <!-- Impersonated, so the scheduled task and the device key belong to the person who
          installed rather than to the account the installer service happens to run as. -->
     <CustomAction Id="InstallAgentService" FileRef="agent.exe" ExeCommand="install [AGENTENV]"
+                  Execute="deferred" Impersonate="yes" Return="ignore" />
+    <!-- #189: a removal signs the PC out first, so it leaves its account. An upgrade removes
+         the old product too, and keeps the account (#190), hence UPGRADINGPRODUCTCODE. -->
+    <CustomAction Id="SignOutAgent" FileRef="agent.exe" ExeCommand="logout"
                   Execute="deferred" Impersonate="yes" Return="ignore" />
     <CustomAction Id="UninstallAgentService" FileRef="agent.exe" ExeCommand="uninstall"
                   Execute="deferred" Impersonate="yes" Return="ignore" />
@@ -71,6 +88,7 @@
     <InstallExecuteSequence>
       <Custom Action="InstallAgentService" After="InstallFiles" Condition="NOT REMOVE" />
       <!-- Before the files go, because the thing being run is one of them. -->
+      <Custom Action="SignOutAgent" Before="UninstallAgentService" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
       <Custom Action="UninstallAgentService" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot;" />
       <Custom Action="OpenSettings" After="InstallFinalize" Condition="NOT REMOVE AND UILevel &gt; 3" />
     </InstallExecuteSequence>

@@ -1,12 +1,21 @@
 #!/bin/sh
 # Stops the service before the files go. Uninstalling something that was never installed,
-# or that belongs to a user who is not here, is not a failure.
+# or that belongs to a user who is not here, is not a failure. A removal signs the PC out
+# first (#189). An upgrade runs this too, with "upgrade", and keeps the account (#190).
 set -e
 
+action=${1:-}
 user=${SUDO_USER:-}
 if [ -n "$user" ] && [ "$user" != root ]; then
 	uid=$(id -u "$user" 2>/dev/null || echo)
-	[ -n "$uid" ] && runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$uid" \
-		/usr/lib/anywhere-file/agent uninstall || true
+	if [ -n "$uid" ]; then
+		as_user() {
+			runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$uid" /usr/lib/anywhere-file/agent "$@"
+		}
+		if [ "$action" = remove ]; then
+			as_user logout || echo "could not sign this PC out of its account, so remove it in the app"
+		fi
+		as_user uninstall || true
+	fi
 fi
 exit 0

@@ -51,6 +51,10 @@ interface Account {
     suspend fun revoke(device: String, user: String)
     suspend fun invite(device: String, role: String, expiresIn: String): Invitation
 
+    // remove takes the PC off the account for everyone on it (#189), for a PC that will not
+    // sign itself out because it was sold, broke or lost its agent.
+    suspend fun remove(device: String)
+
     // redeem turns a code somebody shared into access to their PC.
     suspend fun redeem(code: String)
 }

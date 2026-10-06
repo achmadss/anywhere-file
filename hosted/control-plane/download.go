@@ -64,7 +64,7 @@ var systems = []system{
 		Warning: "The installer is not signed yet, so SmartScreen warns about an unknown " +
 			"publisher. Press More info, then Run anyway.",
 		Then: "The agent starts on its own and its settings page opens in your browser. " +
-			"Later, open it again with \"C:\\Program Files\\anywhere-file\\agent.exe\" settings.",
+			"Later, open it again from the laptop icon next to the clock.",
 	},
 	{
 		Name:    "Linux",

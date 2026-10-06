@@ -18,6 +18,7 @@ const (
 	ActionDeviceDisabled   = "device.disabled"
 	ActionDeviceUnenrolled = "device.unenrolled"
 	ActionBindingRevoked   = "binding.revoked"
+	ActionDeviceRemoved    = "device.removed"
 
 	ActionDeviceAppsSynced = "device.apps_synced"
 	ActionInviteCreated    = "invite.created"
@@ -38,6 +39,7 @@ var validActions = map[string]bool{
 	ActionDeviceDisabled:   true,
 	ActionDeviceUnenrolled: true,
 	ActionBindingRevoked:   true,
+	ActionDeviceRemoved:    true,
 
 	ActionDeviceAppsSynced: true,
 	ActionInviteCreated:    true,

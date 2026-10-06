@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -170,6 +171,7 @@ fun ManageDevice(session: Account, device: RemoteDevice, onLeave: () -> Unit) {
     var trouble by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var removing by remember { mutableStateOf<DeviceUser?>(null) }
+    var removingDevice by remember { mutableStateOf(false) }
     var role by remember { mutableStateOf("guest") }
     var expiry by remember { mutableStateOf("24h") }
     var made by remember { mutableStateOf<Invitation?>(null) }
@@ -208,6 +210,36 @@ fun ManageDevice(session: Account, device: RemoteDevice, onLeave: () -> Unit) {
                 }) { Text("Remove") }
             },
             dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancel") } },
+        )
+    }
+
+    if (removingDevice) {
+        val removeColours = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+        AlertDialog(
+            onDismissRequest = { removingDevice = false },
+            title = { Text("Remove ${device.name} for everyone?") },
+            text = { Text(removeForEveryone(device.name, users.orEmpty().count { it.role == "guest" })) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        removingDevice = false
+                        if (busy) return@TextButton
+                        busy = true
+                        trouble = null
+                        scope.launch {
+                            try {
+                                withContext(Dispatchers.Default) { session.remove(device.id) }
+                                onLeave()
+                            } catch (e: Exception) {
+                                trouble = e.message ?: "That did not work."
+                            }
+                            busy = false
+                        }
+                    },
+                    colors = removeColours,
+                ) { Text("Remove for everyone") }
+            },
+            dismissButton = { TextButton(onClick = { removingDevice = false }) { Text("Cancel") } },
         )
     }
 
@@ -270,6 +302,14 @@ fun ManageDevice(session: Account, device: RemoteDevice, onLeave: () -> Unit) {
                 enabled = !busy,
             ) { Text("Make a code") }
 
+            // On every admin's screen, whether or not the PC can be reached: one that is
+            // switched off may be gone for good, and the app cannot tell (#189).
+            TextButton(
+                onClick = { removingDevice = true },
+                enabled = !busy && users != null,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            ) { Text("Remove") }
+
             made?.let { invitation ->
                 Card(
                     Modifier.fillMaxWidth(),
@@ -300,3 +340,15 @@ private fun message(server: String, device: String, invitation: Invitation) =
     "You're invited to reach $device with anywhere-file. Sign in at $server in the app, " +
         "then enter this code under \"Got a code from someone?\": ${invitation.code}\n" +
         "It works once, until ${invitation.until}."
+
+// The words of the dialog that removes a PC for everyone (#189, docs/design/ui-spec.md). The
+// guest count is the admin's, so they know who else loses it.
+fun removeForEveryone(device: String, guests: Int): String {
+    val who = when (guests) {
+        0 -> ""
+        1 -> ", including your guest"
+        else -> ", including your $guests guests"
+    }
+    return "Everyone who can reach $device loses access$who. If $device comes back online, it signs out. " +
+        "To add it again, sign in on its settings page."
+}
