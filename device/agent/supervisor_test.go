@@ -145,7 +145,7 @@ func TestAnApplicationWithNoCommandIsLeftAlone(t *testing.T) {
 // supervising starts the applications and returns what waits for them, which is the shape
 // the agent's own startup uses.
 func supervising(ctx context.Context, log *slog.Logger, apps ...app) func() {
-	s := newSupervisor(ctx, log)
+	s := newSupervisor(ctx, log, nil)
 	s.set(apps)
 	return s.wait
 }

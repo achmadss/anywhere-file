@@ -193,3 +193,15 @@ func downloadPage(w http.ResponseWriter, r *http.Request) {
 	}
 	renderTemplate(w, "download", release{Version: rel.Version, Systems: ordered, Page: rel.Page, Sums: rel.Sums})
 }
+
+// latestVersion answers which release is current, from the same cache as the page, so
+// the app and the agent can say when they are out of date (#177, #190). It needs no
+// session: the version is on the public download page anyway.
+func latestVersion(w http.ResponseWriter, r *http.Request) {
+	rel := latestRelease.get(r.Context())
+	if rel == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "the latest release is not known right now"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"version": rel.Version})
+}

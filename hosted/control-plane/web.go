@@ -84,6 +84,7 @@ func registerWebRoutes(mux *http.ServeMux, db *pgxpool.Pool) {
 	// worth guessing here, so it is rate limited the way the endpoints are.
 	mux.Handle("GET /approve", newRateLimiter(approvePageLimit, rateWindow).middleware(approvePage(db)))
 	mux.HandleFunc("GET /download", downloadPage)
+	mux.HandleFunc("GET /v1/version", latestVersion)
 }
 
 // approvePage is the only page that reads the database before it renders. It has to name

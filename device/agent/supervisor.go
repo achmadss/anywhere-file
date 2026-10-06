@@ -47,6 +47,9 @@ const (
 type supervisor struct {
 	ctx context.Context
 	log *slog.Logger
+	// moved is told about an application that had to move to a new port, so the registry
+	// keeps the port it now has. Nil when nothing keeps the registry.
+	moved func(app)
 
 	// One lock for the whole of set, which waits for a stopped child. Changes come from a
 	// person pressing a button, so nothing here is on a hot path.
@@ -63,8 +66,8 @@ type child struct {
 	done   chan struct{}
 }
 
-func newSupervisor(ctx context.Context, log *slog.Logger) *supervisor {
-	return &supervisor{ctx: ctx, log: log, running: map[string]*child{}}
+func newSupervisor(ctx context.Context, log *slog.Logger, moved func(app)) *supervisor {
+	return &supervisor{ctx: ctx, log: log, moved: moved, running: map[string]*child{}}
 }
 
 // set brings what is running into line with apps. An entry with no command is started by
@@ -106,7 +109,7 @@ func (s *supervisor) set(apps []app) {
 		go func() {
 			defer s.wg.Done()
 			defer close(c.done)
-			superviseApp(ctx, a, s.log)
+			superviseApp(ctx, a, s.log, s.moved)
 		}()
 	}
 }
@@ -118,12 +121,22 @@ func (s *supervisor) wait() { s.wg.Wait() }
 // superviseApp runs one application for as long as ctx lives. An application that exits is
 // an application that comes back: the agent has no way to tell a crash from a restart and
 // no reason to treat them differently.
-func superviseApp(ctx context.Context, a app, log *slog.Logger) {
+func superviseApp(ctx context.Context, a app, log *slog.Logger, moved func(app)) {
 	// The address tells applications apart. A share's name is a folder name, and those stay
 	// out of the log (ADR 0007).
 	log = log.With("address", a.Address)
 	wait := appBackoffMin
 	for {
+		// A share's port is picked once, when the folder is shared, and another program can
+		// have it by now (#221). Told from here in a goroutine, because the registry change
+		// comes back through set, which waits for this loop to end.
+		if next, ok := withFreePort(a); ok {
+			log.Warn("another program has the application's port, so it moves", "new_address", next.Address)
+			a = next
+			if moved != nil {
+				go moved(a)
+			}
+		}
 		started := time.Now()
 		err := runApp(ctx, a, log)
 		if ctx.Err() != nil {

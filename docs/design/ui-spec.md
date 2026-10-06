@@ -911,19 +911,43 @@ The page:
      lowercase with hyphens. Names: lowercase letters, digits, hyphens, 32 characters at
      most, unique on this PC.
    - Button "Share this folder". Shares the folder currently open in the walker.
-6. **Account**
+6. **This device**: the PC's fingerprint, the same text `agent key` prints (#176). Under it:
+   "The app shows this code under "Show code". If the two are not the same, the app is not
+   talking to this PC."
+7. **Account**
    - Not on an account: "This PC belongs to no account. Folders above are shared on the LAN
      either way." A "Sign in" button. The "Server" field is shown today; `NEW`: it is
      hidden behind "Use a different server", because the hosted server is built in.
    - Waiting for approval: "Approve this PC at {link}, where the code is {CODE}." The page
      also opens that link in a new tab. It checks every 2 seconds and changes when the
      person approves or refuses on the website.
-   - On an account: "This PC belongs to the account at {server}, as device {device id}." A
-     "Sign out" button, which takes the PC off the account.
+   - On an account: "This PC belongs to the account at {server}." A "Sign out" button, which
+     takes the PC off the account. The device id is left out so the page has one code to
+     compare.
 
-7. `NEW` **Error reports**: a checkbox "Send error reports to ProductName", checked at first,
+8. `NEW` **Error reports**: a checkbox "Send error reports to ProductName", checked at first,
    with the line "When something fails, this PC sends what happened. Never your files or their
    names." (ADR 0007).
+8. At the bottom, small: "Version {version}". When the server this PC knows has a newer
+   release (#190), under it: "Version {latest} is out. Download it and install it over this
+   one. What this PC shares and its account stay." "Download it" links to the server's
+   `/download` in a new tab. A PC that knows no server, or a server that does not answer,
+   shows only the version.
+
+While the PC's key store is locked (#225), the page shows only the heading, a notice and the
+version. The notice looks like the network warning: "This PC's key is in {store}, which is
+locked. Nothing is shared until it is unlocked.", then what unlocks it, then "This page
+carries on by itself once it is unlocked." The page checks every 2 seconds and loads the
+full page once the key is readable, with no restart.
+
+- macOS: "the macOS login keychain". "Unlock the login keychain in Keychain Access, or log
+  out and in again."
+- Linux desktop: "the Secret Service keyring". "Unlock the login keyring in your desktop's
+  passwords app, or log out and in again."
+- Windows: "Windows Credential Manager". "Sign in to Windows as the person this agent runs
+  for."
+- The seed file: "the file {path}". "Check that the agent's own account can read it, with
+  mode 0600 in a folder with mode 0700."
 
 Sharing works on the LAN whether or not the PC is on an account.
 

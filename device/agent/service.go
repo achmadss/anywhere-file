@@ -96,8 +96,15 @@ var darwinPlist = template.Must(template.New("plist").Funcs(template.FuncMap{"x"
 <dict>
 	<key>Label</key>
 	<string>{{.Label}}</string>
+	<!-- #223: an app dragged to the Trash takes the binary and leaves this file. The job
+	     then deletes this file and itself, so launchd stops starting a missing program and
+	     the next login loads nothing. exec keeps the agent as the process launchd watches. -->
 	<key>ProgramArguments</key>
 	<array>
+		<string>/bin/sh</string>
+		<string>-c</string>
+		<string>[ -x "$1" ] || { rm -f "$0"; exec launchctl remove {{.Label}}; }; exec "$@"</string>
+		<string>{{x .Path}}</string>
 		<string>{{x .Exe}}</string>
 		<string>{{.Command}}</string>
 {{- range .Args}}
@@ -119,7 +126,7 @@ var darwinPlist = template.Must(template.New("plist").Funcs(template.FuncMap{"x"
 	<key>KeepAlive</key>
 	<true/>
 	<key>ProcessType</key>
-	<string>Background</string>
+	<string>Standard</string>
 {{- end}}
 	<!-- The agent writes and rotates its own log. What reaches stderr is what comes before
 	     the log is open, and a crash. -->
@@ -139,6 +146,7 @@ func darwinPlan(in planInput) servicePlan {
 	plist := func(label, command string) string {
 		return render(darwinPlist, map[string]any{
 			"Label":   label,
+			"Path":    filepath.Join(agents, label+".plist"),
 			"Bundle":  serviceLabel, // the app's CFBundleIdentifier, which is the same string
 			"Command": command,
 			"Menu":    command == "menubar",

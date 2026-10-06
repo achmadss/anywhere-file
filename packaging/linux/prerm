@@ -6,6 +6,10 @@ set -e
 
 action=${1:-}
 user=${SUDO_USER:-}
+# A software centre removes the package through pkexec, which sets PKEXEC_UID (#223).
+if [ -z "$user" ] && [ -n "${PKEXEC_UID:-}" ]; then
+	user=$(id -un "$PKEXEC_UID" 2>/dev/null || true)
+fi
 if [ -n "$user" ] && [ "$user" != root ]; then
 	uid=$(id -u "$user" 2>/dev/null || echo)
 	if [ -n "$uid" ]; then
