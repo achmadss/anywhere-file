@@ -148,6 +148,7 @@ func runApp(ctx context.Context, a app, log *slog.Logger) error {
 	cmd := exec.CommandContext(ctx, program(a.Command[0]), a.Command[1:]...)
 	cmd.Stdout = &appLog{log: log}
 	cmd.Stderr = &appLog{log: log}
+	hideWindow(cmd)
 	// Ask before killing. Windows has no signal to ask with, so there it is the kill.
 	cmd.Cancel = func() error {
 		if runtime.GOOS == "windows" {

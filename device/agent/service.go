@@ -36,6 +36,7 @@ const (
 	serviceLabel = "io.anywhere-file.agent"
 	menubarLabel = "io.anywhere-file.menubar"
 	serviceName  = "anywhere-file-agent"
+	trayName     = "anywhere-file-tray"
 	envPrefix    = "RFM_AGENT_"
 )
 
@@ -45,6 +46,10 @@ type servicePlan struct {
 	files     []planFile
 	install   []planCmd
 	uninstall []planCmd
+	// quit is the tray menu's Quit (#159, #160): sharing and the icon stop, and stay
+	// stopped after a restart. reopen undoes it, which is what opening the app again does.
+	quit   []planCmd
+	reopen []planCmd
 }
 
 type planFile struct {
@@ -163,6 +168,16 @@ func darwinPlan(in planInput) servicePlan {
 			{argv: []string{"launchctl", "unload", "-w", path}, optional: true},
 			{argv: []string{"launchctl", "unload", "-w", menu}, optional: true},
 		},
+		// -w writes the off switch down, so neither job comes back at the next logon.
+		quit: []planCmd{
+			{argv: []string{"launchctl", "unload", "-w", path}, optional: true},
+			{argv: []string{"launchctl", "unload", "-w", menu}, optional: true},
+		},
+		// Optional, because launchctl calls loading a job that already runs a failure.
+		reopen: []planCmd{
+			{argv: []string{"launchctl", "load", "-w", path}, optional: true},
+			{argv: []string{"launchctl", "load", "-w", menu}, optional: true},
+		},
 	}
 }
 
@@ -250,10 +265,12 @@ var windowsTask = template.Must(template.New("task").Funcs(template.FuncMap{"x":
     <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
     <Hidden>true</Hidden>
     <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+{{- if .Restart}}
     <RestartOnFailure>
       <Interval>PT1M</Interval>
       <Count>999</Count>
     </RestartOnFailure>
+{{- end}}
   </Settings>
   <Actions Context="Author">
     <Exec>
@@ -273,23 +290,49 @@ func windowsPlan(in planInput) servicePlan {
 		env = append(env, [2]string{"RFM_AGENT_LOG_FILE", filepath.Join(in.dir, "agent.log")})
 		sort.Slice(env, func(i, j int) bool { return env[i][0] < env[j][0] })
 	}
-	args := append([]string{"run"}, quoted(envArgs(env))...)
+	// The tray icon (#160) is a second task, because it needs the desktop of whoever
+	// logged on. It is not restarted: Quit in its menu has to stay quit.
+	tray := filepath.Join(in.dir, "service", trayName+".xml")
+	file := func(path, command string) planFile {
+		return planFile{path: path, utf16: true, body: render(windowsTask, map[string]any{
+			"User":      in.user,
+			"Exe":       in.exe,
+			"Arguments": strings.Join(append([]string{command}, quoted(envArgs(env))...), " "),
+			"Restart":   command == "run",
+		})}
+	}
+	schtasks := func(optional bool, args ...string) planCmd {
+		return planCmd{argv: append([]string{"schtasks"}, args...), optional: optional}
+	}
 	return servicePlan{
-		files: []planFile{
-			{path: task, utf16: true, body: render(windowsTask, map[string]any{
-				"User":      in.user,
-				"Exe":       in.exe,
-				"Arguments": strings.Join(args, " "),
-			})},
-		},
+		files: []planFile{file(task, "run"), file(tray, "menubar")},
 		install: []planCmd{
-			{argv: []string{"schtasks", "/Create", "/TN", serviceName, "/XML", task, "/F"}},
+			schtasks(false, "/Create", "/TN", serviceName, "/XML", task, "/F"),
+			schtasks(false, "/Create", "/TN", trayName, "/XML", tray, "/F"),
 			// The trigger is a logon that has already happened, so the first start is ours.
-			{argv: []string{"schtasks", "/Run", "/TN", serviceName}},
+			schtasks(false, "/Run", "/TN", serviceName),
+			// A PC reached over ssh has no desktop, so the icon waits for the next logon.
+			schtasks(true, "/Run", "/TN", trayName),
 		},
+		// The tray goes last, because when it is the one asking it stops here.
 		uninstall: []planCmd{
-			{argv: []string{"schtasks", "/End", "/TN", serviceName}, optional: true},
-			{argv: []string{"schtasks", "/Delete", "/TN", serviceName, "/F"}, optional: true},
+			schtasks(true, "/End", "/TN", serviceName),
+			schtasks(true, "/Delete", "/TN", serviceName, "/F"),
+			schtasks(true, "/End", "/TN", trayName),
+			schtasks(true, "/Delete", "/TN", trayName, "/F"),
+		},
+		// The tray's own task is only switched off, since the tray is the one asking and
+		// exits by itself.
+		quit: []planCmd{
+			schtasks(true, "/End", "/TN", serviceName),
+			schtasks(true, "/Change", "/TN", serviceName, "/DISABLE"),
+			schtasks(true, "/Change", "/TN", trayName, "/DISABLE"),
+		},
+		reopen: []planCmd{
+			schtasks(false, "/Change", "/TN", serviceName, "/ENABLE"),
+			schtasks(true, "/Change", "/TN", trayName, "/ENABLE"),
+			schtasks(false, "/Run", "/TN", serviceName),
+			schtasks(true, "/Run", "/TN", trayName),
 		},
 	}
 }
@@ -448,7 +491,9 @@ func runPlan(cmds []planCmd, log *slog.Logger, out io.Writer) error {
 		if argv[0] == "loginctl" && len(argv) == 2 {
 			argv = append(argv, currentUser())
 		}
-		output, err := exec.Command(argv[0], argv[1:]...).CombinedOutput()
+		cmd := exec.Command(argv[0], argv[1:]...)
+		hideWindow(cmd)
+		output, err := cmd.CombinedOutput()
 		trimmed := strings.TrimSpace(string(output))
 		if err != nil {
 			if !c.optional {

@@ -52,8 +52,21 @@
       </Component>
     </ComponentGroup>
 
+    <!-- #160: Quit in the tray menu stops sharing until the app is opened again, and this
+         is where a person opens it. A per machine shortcut needs a registry key as its key
+         path, and HKMU is the machine's own hive in a per machine install. -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="OpenShortcut" Name="anywhere-file" Description="Start sharing again and open the settings page"
+                  Target="[INSTALLFOLDER]agent.exe" Arguments="open" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKMU" Key="Software\anywhere-file" Name="StartMenuShortcut"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
     <Feature Id="Main" Title="anywhere-file">
       <ComponentGroupRef Id="Files" />
+      <ComponentRef Id="StartMenuShortcut" />
     </Feature>
 
     <!-- Impersonated, so the scheduled task and the device key belong to the person who
