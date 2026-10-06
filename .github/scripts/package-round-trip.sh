@@ -25,6 +25,8 @@ Linux)
 	dufs=/usr/lib/anywhere-file/dufs
 	install_it() { sudo dpkg -i "$deb"; }
 	remove_it() { sudo dpkg -r anywhere-file; }
+	# #223: a software centre removes it through pkexec, which sets PKEXEC_UID and no SUDO_USER.
+	remove_last() { sudo env -u SUDO_USER PKEXEC_UID="$(id -u)" dpkg -r anywhere-file; }
 	;;
 MINGW* | MSYS* | CYGWIN*)
 	msi=$("$root/packaging/windows/build.sh" | tail -1)
@@ -112,6 +114,6 @@ if [ "$first" != "$again" ]; then
 fi
 echo "same device after a reinstall: $again"
 
-remove_it
+if declare -f remove_last >/dev/null; then remove_last; else remove_it; fi
 down
 echo "the package installs, uninstalls and reinstalls without the PC changing identity"
