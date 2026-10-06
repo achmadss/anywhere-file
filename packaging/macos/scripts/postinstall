@@ -31,3 +31,10 @@ uid=$(id -u "$user")
 # fallback: the manifest is written either way and launchd picks it up at the next logon.
 launchctl asuser "$uid" sudo -u "$user" "$agent" install "$@" ||
 	sudo -u "$user" "$agent" install "$@"
+
+# #185: the page opens by itself, so nobody needs a terminal to reach it. Installer.app
+# leaves COMMAND_LINE_INSTALL unset, and `installer` in a script sets it, which is the
+# silent install that should open nothing.
+if [ -z "${COMMAND_LINE_INSTALL:-}" ]; then
+	launchctl asuser "$uid" sudo -u "$user" "$agent" settings >/dev/null 2>&1 || true
+fi

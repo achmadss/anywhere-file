@@ -62,11 +62,17 @@
                   Execute="deferred" Impersonate="yes" Return="ignore" />
     <CustomAction Id="UninstallAgentService" FileRef="agent.exe" ExeCommand="uninstall"
                   Execute="deferred" Impersonate="yes" Return="ignore" />
+    <!-- #185: the settings page opens when the install ends. Immediate, so it runs as the
+         person at the screen with no elevation, and not waited on. UILevel is 5 for a full
+         install and 2 for msiexec /qn, so a silent install opens nothing. -->
+    <CustomAction Id="OpenSettings" FileRef="agent.exe" ExeCommand="settings"
+                  Execute="immediate" Return="asyncNoWait" />
 
     <InstallExecuteSequence>
       <Custom Action="InstallAgentService" After="InstallFiles" Condition="NOT REMOVE" />
       <!-- Before the files go, because the thing being run is one of them. -->
       <Custom Action="UninstallAgentService" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot;" />
+      <Custom Action="OpenSettings" After="InstallFinalize" Condition="NOT REMOVE AND UILevel &gt; 3" />
     </InstallExecuteSequence>
   </Package>
 </Wix>
