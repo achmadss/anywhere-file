@@ -4,14 +4,17 @@ on:
   push:
     branches: [main]
   pull_request:
+  # release.yml runs the whole of this before it publishes.
+  workflow_call:
 
 # One workflow rather than several, because branch protection needs a single check that is
 # always reported. Path-filtered workflows cannot do that: a PR touching only docs never
 # reports the Go check, so a required Go check would block it forever. Here the `changes`
-# job always runs, the language jobs skip, and `ci-ok` is always reported.
+# job always runs, the language jobs skip, and `ci-ok` is always reported. A new push to a
+# pull request cancels its older run. On main every commit gets its own run to the end.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:
@@ -45,15 +48,14 @@ jobs:
           # changed. The agent's three jobs are narrower than the Go module they share, so a
           # control plane change does not install a package on three runners or start dufs.
           # Every line names the workflow, because a change to it changes how each job runs.
-          m go '^(go\.(mod|sum)$|\.gitattributes$|hosted/control-plane/|device/agent/|internal/|qa/|\.github/(scripts/|workflows/ci\.yml$))'
-          m dufs '^(go\.(mod|sum)$|device/agent/|internal/|packaging/dufs\.version$|\.github/(scripts/|workflows/ci\.yml$))'
-          m e2e '^(go\.(mod|sum)$|device/agent/|hosted/control-plane/|internal/|qa/|packaging/dufs\.version$|\.github/(scripts/|workflows/ci\.yml$))'
-          m package '^(go\.(mod|sum)$|device/agent/|internal/|packaging/|\.github/(scripts/|workflows/ci\.yml$))'
+          m go '^(go\.(mod|sum)$|\.gitattributes$|hosted/control-plane/|device/agent/|internal/|qa/|\.github/(actions/|scripts/|workflows/ci\.yml$))'
+          m dufs '^(go\.(mod|sum)$|device/agent/|internal/|packaging/dufs\.version$|\.github/(actions/|scripts/|workflows/ci\.yml$))'
+          m e2e '^(go\.(mod|sum)$|device/agent/|hosted/control-plane/|internal/|qa/|packaging/dufs\.version$|\.github/(actions/|scripts/|workflows/ci\.yml$))'
+          m package '^(go\.(mod|sum)$|device/agent/|internal/|packaging/|\.github/(actions/|scripts/|workflows/ci\.yml$))'
           m rules '^(hosted/control-plane/rules\.yml$|\.github/workflows/ci\.yml$)'
-          # client/ alone, so nothing on the agent or the server side runs this job. It
-          # builds an agent and downloads dufs to test against, so a change there is caught
-          # by the next client change and not by this one.
-          m client '^(client/|\.github/workflows/ci\.yml$)'
+          # The client's tests run against a real agent and control plane, so a change to
+          # either runs them too.
+          m client '^(client/|go\.(mod|sum)$|device/agent/|hosted/control-plane/|internal/|\.github/(actions/|scripts/|workflows/ci\.yml$))'
 
   go:
     needs: changes
@@ -71,10 +73,7 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: go.sum
+      - uses: ./.github/actions/setup-go
       # The control plane's tests are about PostgreSQL constraints and about what PostgreSQL
       # does when two transactions race for one. Without a database they skip, and skipping
       # is indistinguishable from passing in a green tick, so ubuntu runs a real one.
@@ -92,30 +91,21 @@ jobs:
       - run: go build ./...
       - run: go vet ./...
       - run: go tool staticcheck ./...
-      - run: go test ./...
-      # A skipped test reports as a pass. Fail the job if the database tests did not run.
-      - if: runner.os == 'Linux'
-        run: go test -run TestConcurrentInviteRedeemsConsumeOnce -v ./hosted/control-plane/ | tee race.log
-      - if: runner.os == 'Linux'
-        run: "grep -q -- '--- PASS: TestConcurrentInviteRedeemsConsumeOnce' race.log"
-      # #137's acceptance: sign up, then follow the link out of the message. It needs the
-      # database, so prove it ran rather than skipped.
-      - if: runner.os == 'Linux'
-        run: go test -run TestSignupSendsALinkThatConfirmsTheAddress -v ./hosted/control-plane/ | tee signup.log
-      - if: runner.os == 'Linux'
-        run: "grep -q -- '--- PASS: TestSignupSendsALinkThatConfirmsTheAddress' signup.log"
-      # #139's acceptance: a PC asks, a browser approves, the PC enrols. Same reason.
-      - if: runner.os == 'Linux'
-        run: go test -run TestApprovingInTheBrowserEnrolsThePC -v ./hosted/control-plane/ | tee approve.log
-      - if: runner.os == 'Linux'
-        run: "grep -q -- '--- PASS: TestApprovingInTheBrowserEnrolsThePC' approve.log"
-      # Same reason: prove the mDNS resolution test ran rather than skipped.
-      - if: runner.os == 'Linux'
-        run: go test -run 'TestTheAdvertisedRecordIsFound|TestAQuerierOn5353BesideTheSystemResponderHearsTheAnswer' -v ./device/agent/ | tee mdns.log
+      # -v so the log names every test that passed, for the step below. pipefail keeps a
+      # failing test failing the step when its output goes through tee.
+      - run: |
+          set -o pipefail
+          go test -v ./... | tee test.log
+      # A skipped test reports as a pass, so prove these ran: the invite race, #137's sign up
+      # and follow the link out of the message, and #139's a PC asks, a browser approves, the
+      # PC enrols, which all need the database, then the mDNS resolution tests.
       - if: runner.os == 'Linux'
         run: |
-          grep -q -- '--- PASS: TestTheAdvertisedRecordIsFound' mdns.log
-          grep -q -- '--- PASS: TestAQuerierOn5353BesideTheSystemResponderHearsTheAnswer' mdns.log
+          grep -q -- '--- PASS: TestConcurrentInviteRedeemsConsumeOnce' test.log
+          grep -q -- '--- PASS: TestSignupSendsALinkThatConfirmsTheAddress' test.log
+          grep -q -- '--- PASS: TestApprovingInTheBrowserEnrolsThePC' test.log
+          grep -q -- '--- PASS: TestTheAdvertisedRecordIsFound' test.log
+          grep -q -- '--- PASS: TestAQuerierOn5353BesideTheSystemResponderHearsTheAnswer' test.log
       # The last acceptance case of #93: two hosts that can reach each other and nothing
       # else find each other. Containers on a Docker internal network are that.
       - name: discovery between two containers on a network with no route off it
@@ -138,18 +128,10 @@ jobs:
       RFM_AGENT_KEYSTORE: file
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: go.sum
+      - uses: ./.github/actions/setup-go
       # Downloaded here, shipped with the agent on a customer's PC (#124).
       - name: dufs
-        run: |
-          DUFS_VERSION=$(cat packaging/dufs.version)
-          name="dufs-v${DUFS_VERSION}-x86_64-unknown-linux-musl.tar.gz"
-          curl -sSLo dufs.tar.gz "https://github.com/sigoden/dufs/releases/download/v${DUFS_VERSION}/${name}"
-          tar xzf dufs.tar.gz dufs
-          echo "$PWD" >> "$GITHUB_PATH"
+        run: .github/scripts/dufs.sh
       - name: build
         run: |
           go build -o "$RUNNER_TEMP/agent" ./device/agent
@@ -168,22 +150,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: go.sum
+      - uses: ./.github/actions/setup-go
       - name: postgres
         run: |
           docker run -d --name pg -p 5432:5432 -e POSTGRES_USER=rfm -e POSTGRES_PASSWORD=rfm -e POSTGRES_DB=rfm postgres:18-alpine
           for i in $(seq 30); do docker exec pg pg_isready -U rfm -d rfm && break; sleep 2; done
           echo "RFM_E2E_DATABASE_URL=postgres://rfm:rfm@localhost:5432/rfm?sslmode=disable" >> "$GITHUB_ENV"
       - name: dufs
-        run: |
-          DUFS_VERSION=$(cat packaging/dufs.version)
-          name="dufs-v${DUFS_VERSION}-x86_64-unknown-linux-musl.tar.gz"
-          curl -sSLo dufs.tar.gz "https://github.com/sigoden/dufs/releases/download/v${DUFS_VERSION}/${name}"
-          tar xzf dufs.tar.gz dufs
-          echo "$PWD" >> "$GITHUB_PATH"
+        run: .github/scripts/dufs.sh
       - name: the failure table
         run: .github/scripts/failure-suite.sh
 
@@ -211,10 +185,7 @@ jobs:
       RFM_AGENT_KEYSTORE: file
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: go.sum
+      - uses: ./.github/actions/setup-go
       # A systemd user manager exists on the runner only once the user lingers, which on a
       # desktop is already true.
       - if: runner.os == 'Linux'
@@ -244,8 +215,10 @@ jobs:
     # same JVM code on every OS and the Android APK is built by the JDK, not by the OS. The
     # runner ships the Android SDK. `build` assembles both apps and runs lint and the tests
     # with the toolchain's defaults.
+    # Every push to main runs it as well, because the Gradle cache is saved only on main and
+    # pull requests can only read an entry that a main run left behind.
     needs: changes
-    if: needs.changes.outputs.client == 'true'
+    if: needs.changes.outputs.client == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -256,22 +229,14 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v6
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: go.sum
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: ./.github/actions/setup-go
       # The folder the agent shares is served by dufs, the same build it ships with (#124).
       # The client asks dufs for the listing and sends a file to it, so it has to be running
       # here and not only advertised.
       - name: dufs
         working-directory: .
-        run: |
-          DUFS_VERSION=$(cat packaging/dufs.version)
-          name="dufs-v${DUFS_VERSION}-x86_64-unknown-linux-musl.tar.gz"
-          curl -sSLo dufs.tar.gz "https://github.com/sigoden/dufs/releases/download/v${DUFS_VERSION}/${name}"
-          tar xzf dufs.tar.gz dufs
-          echo "$PWD" >> "$GITHUB_PATH"
+        run: .github/scripts/dufs.sh
       # #98's acceptance on the desktop: a real agent on the runner is found by the client's
       # browse, with the record intact, and its discovery document is read. Same multicast
       # caveat as the go job, so ubuntu is the runner that can do it, which is the only one
@@ -330,14 +295,23 @@ jobs:
   prose:
     # AGENTS.md bans em and en dashes in anything a person reads. A rule with no check is a
     # rule that comes back one PR at a time, so this is the check. -I skips binaries.
+    # git grep exits 1 when nothing matched and above 1 when it could not search at all
+    # (for one, -P in a locale that is not UTF-8), so only 1 is a pass.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: no em or en dashes
+        env:
+          LC_ALL: C.UTF-8
         run: |
-          if git grep -nPI '[\x{2013}\x{2014}]' -- . ; then
+          status=0
+          git grep -nPI '[\x{2013}\x{2014}]' -- . || status=$?
+          if [ "$status" -eq 0 ]; then
             echo
             echo "Em and en dashes are banned (AGENTS.md). Use a period, comma, colon or parentheses."
+            exit 1
+          elif [ "$status" -gt 1 ]; then
+            echo "git grep could not search (exit $status)"
             exit 1
           fi
 
