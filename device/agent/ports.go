@@ -6,15 +6,20 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
 	"slices"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -26,15 +31,31 @@ var portRetry = 30 * time.Second
 // tellPerson puts a message on the screen. A variable so a test does not.
 var tellPerson = notify
 
+// otherUser is what a second account on this PC is told (#222). One agent serves a PC.
+// Signing out leaves it serving the LAN, so the port is free only once it stops as well.
+const otherUser = "anywhere-file already runs for another user on this PC. Sign out of the account there first, then quit anywhere-file there or remove it."
+
+// toldOtherUser keeps the gateway and the settings page, which both wait, from saying it
+// twice.
+var toldOtherUser atomic.Bool
+
 // listenWhenFree listens on addr, and waits for it while another program has it. Exiting
 // would have the service manager start the agent again every few seconds, and the person
-// would see only a settings page that does not open, with the reason in the log.
-func listenWhenFree(ctx context.Context, addr string, log *slog.Logger) (net.Listener, error) {
+// would see only a settings page that does not open, with the reason in the log. gateway
+// is where to ask whether the program is another user's agent.
+func listenWhenFree(ctx context.Context, addr, gateway string, log *slog.Logger) (net.Listener, error) {
 	told := false
 	for {
 		ln, err := net.Listen("tcp", addr)
 		if err == nil || !addrInUse(err) {
 			return ln, err
+		}
+		if !told && agentAnswers(gateway) {
+			log.Error("another user's agent has the port, so this one waits for it", "addr", addr, "retry_every", portRetry.String())
+			if !toldOtherUser.Swap(true) {
+				tellPerson(otherUser)
+			}
+			told = true
 		}
 		if !told {
 			_, port, _ := net.SplitHostPort(addr)
@@ -55,6 +76,32 @@ func listenWhenFree(ctx context.Context, addr string, log *slog.Logger) (net.Lis
 // addrInUse is true for a port another socket has. Windows reports its own code for it.
 func addrInUse(err error) bool {
 	return errors.Is(err, syscall.EADDRINUSE) || errors.Is(err, syscall.Errno(10048))
+}
+
+// agentAnswers is true when an anywhere-file gateway answers on addr. Its discovery
+// document is open to anybody, so this finds another user's agent, a process lsof and ss
+// do not show us. Nothing secret is sent, so the certificate is not checked.
+func agentAnswers(addr string) bool {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return false
+	}
+	if ip := net.ParseIP(host); host == "" || ip != nil && ip.IsUnspecified() {
+		host = "127.0.0.1"
+	}
+	c := &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}}
+	resp, err := c.Get("https://" + net.JoinHostPort(host, port) + discoveryPath)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	var doc struct {
+		DeviceID string `json:"device_id"`
+	}
+	err = json.NewDecoder(io.LimitReader(resp.Body, 1<<16)).Decode(&doc)
+	return resp.StatusCode == http.StatusOK && err == nil && doc.DeviceID != ""
 }
 
 // portHolder names the program listening on port, where the OS makes that cheap to ask.

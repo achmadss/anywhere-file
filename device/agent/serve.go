@@ -52,7 +52,7 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	}()
 
 	// The listener comes first, because the port it lands on is what the LAN is told.
-	ln, err := listenWhenFree(ctx, cfg.addr, log)
+	ln, err := listenWhenFree(ctx, cfg.addr, cfg.addr, log)
 	if err != nil {
 		if ctx.Err() != nil {
 			return nil // stopped while waiting for the port
@@ -144,7 +144,7 @@ func serveSettings(ctx context.Context, cfg config, store seedStore, log *slog.L
 	go func() {
 		// Another program has the port. Waited for here, so the gateway serves meanwhile.
 		if ln == nil {
-			if ln, err = listenWhenFree(ctx, cfg.settings, log); err != nil {
+			if ln, err = listenWhenFree(ctx, cfg.settings, cfg.addr, log); err != nil {
 				return
 			}
 		}

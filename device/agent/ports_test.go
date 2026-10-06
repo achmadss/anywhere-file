@@ -28,7 +28,7 @@ func TestATakenPortIsWaitedFor(t *testing.T) {
 
 	got := make(chan net.Listener, 1)
 	go func() {
-		ln, err := listenWhenFree(t.Context(), addr, discard)
+		ln, err := listenWhenFree(t.Context(), addr, addr, discard)
 		if err != nil {
 			t.Error(err)
 		}
@@ -104,4 +104,36 @@ func TestAShareWhosePortIsTakenMovesToANewOne(t *testing.T) {
 		t.Errorf("command %q does not run on the new port %s", moved.Command, newPort)
 	}
 	waitFor(t, 30*time.Second, func() bool { return size(t, appDir, "alive") > 0 }, "the share did not start on its new port")
+}
+
+// One agent per PC (#222). A second user's agent finds the first one's on its port, and
+// the person is told that, rather than which program it is, which another user's process
+// hides from lsof and ss.
+func TestAnotherUsersAgentOnThePortIsNamed(t *testing.T) {
+	other := lanServer(t, testKey(t))
+	addr := other.Listener.Addr().String()
+	plain, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer plain.Close()
+	if agentAnswers(plain.Addr().String()) {
+		t.Error("a program that is not an agent was taken for one")
+	}
+
+	wasTell := tellPerson
+	t.Cleanup(func() { tellPerson = wasTell; toldOtherUser.Store(false) })
+	told := make(chan string, 1)
+	tellPerson = func(msg string) { told <- msg }
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	go func() { _, _ = listenWhenFree(ctx, addr, addr, discard) }()
+	select {
+	case msg := <-told:
+		if msg != otherUser {
+			t.Errorf("told %q, want %q", msg, otherUser)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the person was told nothing")
+	}
 }
