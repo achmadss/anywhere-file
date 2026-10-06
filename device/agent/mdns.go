@@ -51,7 +51,7 @@ type advertiser struct {
 	log  *slog.Logger
 
 	mu  sync.Mutex
-	srv *mdns.Server
+	srv *responder
 }
 
 func newAdvertiser(port int, log *slog.Logger) *advertiser {
@@ -74,14 +74,7 @@ func (a *advertiser) advertise(s *state, key deviceKey) error {
 	if err != nil {
 		return fmt.Errorf("mdns: %w", err)
 	}
-	// hashicorp/mdns binds 5353 with net.ListenMulticastUDP, which sets SO_REUSEADDR on
-	// every platform and SO_REUSEPORT on the BSDs. That is what lets the agent listen
-	// beside Bonjour, Avahi and the Windows resolver instead of losing the port to them.
-	srv, err := mdns.NewServer(&mdns.Config{
-		Zone:   service,
-		Iface:  iface,
-		Logger: stdLogger(a.log),
-	})
+	srv, err := newResponder(service, iface, a.log)
 	if err != nil {
 		return fmt.Errorf("mdns: %w", err)
 	}
@@ -91,7 +84,7 @@ func (a *advertiser) advertise(s *state, key deviceKey) error {
 	a.srv = srv
 	a.mu.Unlock()
 	if old != nil {
-		_ = old.Shutdown()
+		old.close()
 	}
 	a.log.Info("advertising on the LAN",
 		"instance", instance, "service", mdnsService, "port", a.port, "txt", text)
@@ -104,7 +97,7 @@ func (a *advertiser) close() {
 	a.srv = nil
 	a.mu.Unlock()
 	if srv != nil {
-		_ = srv.Shutdown()
+		srv.close()
 	}
 }
 
