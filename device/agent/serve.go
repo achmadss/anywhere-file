@@ -69,15 +69,12 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		"addr", "https://"+ln.Addr().String(), "device", key.deviceID(), "name", st.Name,
 		"apps", len(st.Apps), "enrolled", st.enrolled())
 
+	var ad *advertiser
 	if cfg.mdns {
-		ad := newAdvertiser(port, log)
+		ad = newAdvertiser(port, log)
 		defer ad.close()
-		// Announcing is retried rather than required (#124). macOS asks the person at the
-		// machine whether this program may use the local network, and until they say yes
-		// multicast fails. A PC that cannot announce itself is still reachable at its
-		// address, so the agent keeps serving and says in the log what is missing.
-		go advertiseUntil(ctx, ad, st, key, log)
 	}
+	go keepAdvertised(ctx, ad, cert, ag, networkPoll)
 
 	// The tunnel serves the same handler as the LAN. It runs whether or not this PC is
 	// enrolled yet, because enrolment can happen while the agent is running, and an
@@ -138,22 +135,4 @@ func serveSettings(ctx context.Context, cfg config, ag *agent) error {
 	}()
 	ag.log.Info("settings listening", "addr", "http://"+ln.Addr().String())
 	return nil
-}
-
-// advertiseUntil keeps trying to announce this PC. The usual reason for a failure is a
-// permission that has not been granted yet, and those are granted while the agent runs.
-func advertiseUntil(ctx context.Context, ad *advertiser, st *state, key deviceKey, log *slog.Logger) {
-	for wait := time.Second; ; wait = min(wait*2, time.Minute) {
-		err := ad.advertise(st, key)
-		if err == nil {
-			return
-		}
-		log.Error("this PC is not announcing itself on the LAN, so clients have to be given its address",
-			"err", err, "retry_in", wait.String())
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(jittered(wait)):
-		}
-	}
 }

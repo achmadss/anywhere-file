@@ -82,6 +82,7 @@ func newSettings(ag *agent, token string) http.Handler {
 	mux.HandleFunc("POST /v1/apps", addShare(ag))
 	mux.HandleFunc("DELETE /v1/apps/{name}", removeShare(ag))
 	mux.HandleFunc("GET /v1/browse", browse)
+	mux.HandleFunc("GET /v1/network", networkStatus)
 	mux.HandleFunc("GET /v1/account", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, ag.account())
 	})
