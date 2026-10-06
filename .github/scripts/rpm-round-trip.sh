@@ -16,20 +16,21 @@ FROM fedora:latest
 RUN dnf install -y systemd && dnf clean all && useradd -m pc
 CMD ["/sbin/init"]
 DOCKERFILE
-docker run -d --name fedora --privileged --cgroupns=host -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
+docker run -d --name fedora --privileged --cgroupns=private \
 	-v "$root:/src:ro" -v "$(dirname "$rpm"):/dist:ro" fedora-systemd >/dev/null
 trap 'docker rm -f fedora >/dev/null' EXIT
-for _ in $(seq 30); do
-	docker exec fedora systemctl is-system-running 2>/dev/null | grep -qE 'running|degraded' && break
-	sleep 1
-done
 # As on the runner, the user's systemd manager exists only once the user lingers.
-docker exec fedora loginctl enable-linger pc
 uid=$(docker exec fedora id -u pc)
 for _ in $(seq 30); do
-	docker exec fedora systemctl is-active -q "user@$uid" && break
+	docker exec fedora loginctl enable-linger pc 2>/dev/null &&
+		docker exec fedora systemctl is-active -q "user@$uid" && break
 	sleep 1
 done
+if ! docker exec fedora systemctl is-active -q "user@$uid"; then
+	docker exec fedora systemctl status "user@$uid" || true
+	echo "the user's systemd manager did not start in the container"
+	exit 1
+fi
 
 # dnf as root with SUDO_USER set is what `sudo dnf` hands the scripts.
 as_root() { docker exec -e SUDO_USER=pc fedora "$@"; }
