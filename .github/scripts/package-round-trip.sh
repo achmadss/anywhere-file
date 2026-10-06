@@ -79,7 +79,7 @@ fi
 
 if [ -n "${shortcut:-}" ]; then
 	[ -f "$shortcut" ] || { echo "no Start menu shortcut at $shortcut"; exit 1; }
-	MSYS_NO_PATHCONV=1 schtasks.exe /Query /TN anywhere-file-tray >/dev/null ||
+	MSYS_NO_PATHCONV=1 schtasks.exe /Query /TN "anywhere-file-tray-$USERNAME" >/dev/null ||
 		{ echo "no tray task after the install"; exit 1; }
 	echo "the Start menu shortcut and the tray task are there"
 fi
