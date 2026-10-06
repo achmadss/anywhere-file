@@ -154,7 +154,9 @@ Ed25519 certificate is refused outright by Schannel on Windows, by LibreSSL on m
 by browser engines. The agent replaces the certificate a month before it runs out.
 
 It names the device `<device_id>.anywhere-file` and covers this machine's addresses, so a
-client that checks the name against the address it dialled finds it there. By hand,
+client that checks the name against the address it dialled finds it there. The agent looks
+at its addresses every five seconds and makes a new certificate when they change, so a
+laptop that joins another Wi-Fi needs no restart. By hand,
 `curl -k https://localhost:7433/.well-known/anywhere-file` is the whole document.
 
 Applications stay on plain HTTP on loopback behind the gateway. What crosses the network is
@@ -164,7 +166,9 @@ the gateway's connection.
 
 `agent run` advertises `_anywhere-file._tcp` on the LAN, with the gateway port in the SRV
 record and the device id, the display name, the application names and the protocol version
-in TXT. A client browses for it and needs no account and no Internet to do so.
+in TXT. A client browses for it and needs no account and no Internet to do so. The agent
+advertises again, within five seconds, when this machine's addresses or its shared folders
+change.
 
 The display name is capped at 54 bytes, because it goes in a DNS-SD instance name with a
 piece of the device id after it and the whole thing has to fit in 63. Responders drop a
