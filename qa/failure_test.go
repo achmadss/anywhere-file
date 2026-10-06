@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -138,11 +139,13 @@ func TestASecondTunnelReplacesTheFirst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The same directory, so the same device key: to the server this is the same PC
-	// dialling twice. Its own gateway is on another port and its own dufs cannot have the
-	// one that is taken, which is why the file below still comes from the first one.
+	// A copy of the directory, so the same device key and the same account: to the server
+	// this is the same PC dialling twice. A copy because one directory runs one agent.
+	// Its own gateway is on another port and its own dufs cannot have the one that is
+	// taken, which is why the file below still comes from the first one.
+	dir := copyAgentDir(t, h.dir)
 	cmd := h.agentCmd("run")
-	cmd.Env = append(cmd.Env, "RFM_AGENT_ADDR=127.0.0.1:"+strconv.Itoa(port))
+	cmd.Env = append(cmd.Env, "RFM_AGENT_ADDR=127.0.0.1:"+strconv.Itoa(port), "RFM_AGENT_DIR="+dir)
 	second, err := start(cmd)
 	if err != nil {
 		t.Fatal(err)
@@ -346,4 +349,31 @@ func put(t *testing.T, url string, body io.Reader) {
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		t.Fatalf("PUT %s: status %d", url, resp.StatusCode)
 	}
+}
+
+// copyAgentDir is what restoring a machine image does to the agent's directory. The lock
+// is left behind, because it belongs to the process that holds it.
+func copyAgentDir(t *testing.T, from string) string {
+	t.Helper()
+	to := t.TempDir()
+	if err := os.Chmod(to, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(from)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if !e.Type().IsRegular() || filepath.Ext(e.Name()) == ".lock" {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(from, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(to, e.Name()), b, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return to
 }

@@ -7,6 +7,7 @@
 //	agent key                    print the device's public key, device id and fingerprint
 //	agent discover               list the agents this machine can see on the LAN
 //	agent settings               open the settings page in a browser
+//	agent menubar                show the menu bar item on macOS, which agent install starts
 //	agent share add <dir>        share a directory, with --name to choose what it is called
 //	agent share list             list what this PC shares
 //	agent share rm <name>        stop sharing one
@@ -66,6 +67,14 @@ func run(ctx context.Context, args []string, out, logTo io.Writer) error {
 	}
 	log := slog.New(slog.NewJSONHandler(logTo, &slog.HandlerOptions{Level: cfg.logLevel}))
 	switch command {
+	case "run", "menubar":
+		lock, err := lockInstance(cfg.dir, command)
+		if err != nil {
+			return err
+		}
+		defer lock.Close()
+	}
+	switch command {
 	case "run":
 		return serve(ctx, cfg, log)
 	case "key":
@@ -74,6 +83,8 @@ func run(ctx context.Context, args []string, out, logTo io.Writer) error {
 		return printDiscovered(ctx, log, out)
 	case "settings":
 		return settingsCommand(ctx, cfg, out)
+	case "menubar":
+		return menubarCommand(ctx, cfg, log)
 	case "share":
 		return shareCommand(ctx, cfg, out, args)
 	case "login":
