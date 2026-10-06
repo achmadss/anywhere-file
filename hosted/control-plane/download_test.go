@@ -17,7 +17,8 @@ func fakeGitHub(t *testing.T) *httptest.Server {
 			{"name":"anywhere-file-0.1.0-linux-amd64.tar.gz","browser_download_url":"https://example.test/linux-amd64.tar.gz"},
 			{"name":"anywhere-file_0.1.0_amd64.deb","browser_download_url":"https://example.test/amd64.deb"},
 			{"name":"anywhere-file-0.1.0.pkg","browser_download_url":"https://example.test/mac.pkg"},
-			{"name":"anywhere-file-0.1.0.msi","browser_download_url":"https://example.test/win.msi"}]}`))
+			{"name":"anywhere-file-0.1.0.msi","browser_download_url":"https://example.test/win.msi"},
+			{"name":"SHA256SUMS","browser_download_url":"https://example.test/SHA256SUMS"}]}`))
 	}))
 	t.Cleanup(srv.Close)
 	old := releasesAPI
@@ -74,6 +75,18 @@ func TestTheDownloadPageKeepsTheLastAnswer(t *testing.T) {
 	srv.Close()
 	if body := downloadAs(t, "curl/8.0"); !strings.Contains(body, "https://example.test/mac.pkg") {
 		t.Error("the page forgot the release once GitHub went away")
+	}
+}
+
+// #228: the page links the release's checksums and says how to check a download on each
+// system.
+func TestTheDownloadPageSaysHowToCheckADownload(t *testing.T) {
+	fakeGitHub(t)
+	body := downloadAs(t, "curl/8.0")
+	for _, text := range []string{"https://example.test/SHA256SUMS", "shasum -a 256", "Get-FileHash", "certutil -hashfile", "sha256sum -c SHA256SUMS"} {
+		if !strings.Contains(body, text) {
+			t.Errorf("page lacks %q", text)
+		}
 	}
 }
 
