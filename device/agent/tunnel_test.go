@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -40,6 +41,12 @@ func newTunnelServer(t *testing.T) (*tunnelServer, *httptest.Server) {
 }
 
 func (ts *tunnelServer) open(w http.ResponseWriter, r *http.Request) {
+	// The agent pushes its share list once the tunnel is up (#218). That push is not a
+	// tunnel, and taking it over as one would hand the test a second connection.
+	if r.URL.Path != tunnelPath {
+		writeJSON(w, http.StatusOK, map[string]any{})
+		return
+	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "bad body", http.StatusBadRequest)
@@ -173,6 +180,49 @@ func TestTheTunnelComesBackAfterTheServerDropsIt(t *testing.T) {
 	}
 	if got.DeviceID != ag.key.deviceID() {
 		t.Errorf("device id = %s, want %s", got.DeviceID, ag.key.deviceID())
+	}
+}
+
+// A PC that starts before its network is up fails the push at start (#218). The list
+// reaches the server once the tunnel connects, with no restart and no share changed.
+func TestTheShareListGoesUpWhenTheTunnelConnects(t *testing.T) {
+	ts, _ := newTunnelServer(t)
+	var offline atomic.Bool
+	offline.Store(true)
+	apps := make(chan []byte, 4)
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /v1/devices/apps", func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		apps <- body
+		writeJSON(w, http.StatusOK, map[string]any{"apps": []string{}})
+	})
+	mux.HandleFunc("POST "+tunnelPath, ts.open)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if offline.Load() {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "offline"})
+			return
+		}
+		mux.ServeHTTP(w, r)
+	}))
+	t.Cleanup(srv.Close)
+
+	ag := tunnelAgent(t, srv, app{Name: "dufs", Type: "http", Address: "127.0.0.1:1"})
+	ag.pushApps(t.Context())
+	select {
+	case body := <-apps:
+		t.Fatalf("the server took %s while it was offline", body)
+	default:
+	}
+
+	offline.Store(false)
+	waitForTunnel(t, ts)
+	select {
+	case body := <-apps:
+		if !strings.Contains(string(body), `"dufs"`) {
+			t.Errorf("apps pushed = %s, want dufs in it", body)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the share list never reached the server after the tunnel came up")
 	}
 }
 

@@ -89,6 +89,10 @@ func (a *agent) tunnelOnce(ctx context.Context, h http.Handler) (bool, error) {
 		return false, err
 	}
 	a.log.Info("tunnel up", "server", st.Server, "device", st.DeviceID)
+	// The push at start fails on a PC that came up before its network did, and one made
+	// while the server was away never arrived (#218). The server is reachable now, so
+	// this is when the list it routes by can be brought up to date.
+	go a.pushApps(ctx)
 	(&http2.Server{}).ServeConn(&tunnelConn{Conn: conn, r: rest, idle: tunnelIdle}, &http2.ServeConnOpts{
 		Context: ctx,
 		Handler: h,
