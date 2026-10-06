@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"unicode/utf16"
@@ -401,4 +402,18 @@ func programArguments(t *testing.T, plist string) []string {
 		t.Fatalf("no ProgramArguments in:\n%s", plist)
 	}
 	return args
+}
+
+// Task names are one list for the whole PC, so a second user's would replace the first
+// user's, or be refused, without the user's name in them (#222).
+func TestEachWindowsUserHasTheirOwnTasks(t *testing.T) {
+	p, err := servicePlanFor(testPlanInput("windows"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range append(p.install, p.reopen...) {
+		if i := slices.Index(c.argv, "/TN"); i >= 0 && !strings.HasSuffix(c.argv[i+1], "-ana") {
+			t.Errorf("%q names a task every user shares", c.argv)
+		}
+	}
 }
