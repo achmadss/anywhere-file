@@ -213,6 +213,36 @@ jobs:
       - name: install the rpm, upgrade it, remove it
         run: .github/scripts/rpm-round-trip.sh
 
+  reboot:
+    # #241: the reboot the package job cannot do, in an Ubuntu VM on the runner. Linux only,
+    # because only the Linux runner has KVM. Every push to main runs it, as the client job,
+    # so the image cache main saves stays fresh.
+    needs: changes
+    if: needs.changes.outputs.package == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_URL: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+      IMAGE: ${{ github.workspace }}/ubuntu.img
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-go
+      # GitHub's documented rule that lets the runner's user open /dev/kvm.
+      - run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -w /dev/kvm
+      - run: sudo apt-get update -q && sudo apt-get install -yq --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
+      - id: image
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.IMAGE }}
+          key: image-${{ env.IMAGE_URL }}
+      - if: steps.image.outputs.cache-hit != 'true'
+        run: curl -sSfLo "$IMAGE" "$IMAGE_URL"
+      - name: install the package, reboot, and the same device answers
+        run: .github/scripts/reboot.sh
+
   rules:
     # promtool is Prometheus's own rule checker: it parses every expression, which the Go
     # test cannot do. It runs only when the rules change, because it costs a release
@@ -355,7 +385,7 @@ jobs:
   ci-ok:
     # The one check branch protection requires. Green when every job that ran passed, and
     # when a job was skipped because nothing in its language changed.
-    needs: [changes, go, dufs, e2e, package, rpm, rules, client, blockers, prose]
+    needs: [changes, go, dufs, e2e, package, rpm, reboot, rules, client, blockers, prose]
     if: always()
     runs-on: ubuntu-latest
     steps:
