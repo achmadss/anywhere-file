@@ -56,7 +56,7 @@ func compress(w http.ResponseWriter, r *http.Request, a app, log *slog.Logger) {
 	// included, so nothing below has to check a path by hand.
 	shared, err := os.OpenRoot(root)
 	if err != nil {
-		log.Error("compress: the shared folder cannot be opened", "app", a.Name, "err", err)
+		log.Error("compress: the shared folder cannot be opened", "address", a.Address, "err", pathless(err))
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -92,7 +92,7 @@ func compress(w http.ResponseWriter, r *http.Request, a app, log *slog.Logger) {
 		http.Error(w, "not found", http.StatusNotFound)
 	case err != nil:
 		// A symlink out of the folder lands here, as does a full disk.
-		log.Warn("compress failed", "app", a.Name, "dir", dir, "err", err)
+		log.Warn("compress failed", "address", a.Address, "err", pathless(err))
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "these entries cannot be compressed"})
 	default:
 		writeJSON(w, http.StatusCreated, map[string]string{"name": in.Name})
@@ -206,6 +206,20 @@ func place(d *os.Root, tmp, name string) error {
 	// ponytail: a file made under this name between the look and the rename is replaced.
 	// It needs two writers racing for one name on a disk without hard links.
 	return d.Rename(tmp, name)
+}
+
+// pathless keeps what went wrong and drops the path an os error carries, which names a
+// file or folder in the share (ADR 0007).
+func pathless(err error) string {
+	var pe *fs.PathError
+	if errors.As(err, &pe) {
+		return pe.Op + ": " + pe.Err.Error()
+	}
+	var le *os.LinkError
+	if errors.As(err, &le) {
+		return le.Op + ": " + le.Err.Error()
+	}
+	return err.Error()
 }
 
 func plainName(s string) bool {

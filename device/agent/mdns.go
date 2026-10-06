@@ -86,8 +86,8 @@ func (a *advertiser) advertise(s *state, key deviceKey) error {
 	if old != nil {
 		old.close()
 	}
-	a.log.Info("advertising on the LAN",
-		"instance", instance, "service", mdnsService, "port", a.port, "txt", text)
+	// Not the TXT record: it lists the shares by name, which are folder names (ADR 0007).
+	a.log.Info("advertising on the LAN", "instance", instance, "service", mdnsService, "port", a.port)
 	return nil
 }
 

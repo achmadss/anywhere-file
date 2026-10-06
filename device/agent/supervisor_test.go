@@ -65,7 +65,7 @@ func appendTo(t *testing.T, dir, name string) {
 }
 
 // An application that exits comes back, and what it wrote is in the agent's log under its
-// own name. A service has no window, so that log is the only place to read it.
+// address. A service has no window, so that log is the only place to read it.
 func TestAnApplicationThatExitsIsStartedAgain(t *testing.T) {
 	dir := t.TempDir()
 	a := helperApp(t, dir, "exit")
@@ -92,7 +92,7 @@ func TestAnApplicationThatExitsIsStartedAgain(t *testing.T) {
 	if !strings.Contains(logged, "the application wrote a line") {
 		t.Errorf("what the application wrote is not in the agent's log:\n%s", logged)
 	}
-	if !strings.Contains(logged, `"app":"files"`) {
+	if !strings.Contains(logged, `"address":"127.0.0.1:5000"`) {
 		t.Errorf("the log does not say which application wrote it:\n%s", logged)
 	}
 }

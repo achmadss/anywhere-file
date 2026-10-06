@@ -51,7 +51,8 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	ag.onApps = func(list []app) {
 		apps.set(list)
 		handler.rebuild()
-		log.Info("the registry changed", "apps", appNames(list))
+		// A count, because the names are folder names (ADR 0007).
+		log.Info("the registry changed", "apps", len(list))
 	}
 	if err := serveSettings(ctx, cfg, ag); err != nil {
 		_ = ln.Close()
@@ -66,7 +67,7 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	}
 	log.Info("gateway listening",
 		"addr", "https://"+ln.Addr().String(), "device", key.deviceID(), "name", st.Name,
-		"apps", st.appNames(), "enrolled", st.enrolled())
+		"apps", len(st.Apps), "enrolled", st.enrolled())
 
 	if cfg.mdns {
 		ad := newAdvertiser(port, log)

@@ -60,10 +60,8 @@ func run(ctx context.Context, args []string, out, logTo io.Writer) error {
 	if err != nil {
 		return err
 	}
-	// ponytail: no rotation. The agent logs events, not requests, so the file grows slowly.
-	// Rotate when a PC turns up with one worth rotating.
 	if cfg.logFile != "" {
-		f, err := os.OpenFile(cfg.logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+		f, err := openLogFile(cfg.logFile, logFileMax, logFileKeep)
 		if err != nil {
 			return fmt.Errorf("RFM_AGENT_LOG_FILE: %w", err)
 		}
