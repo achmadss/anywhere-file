@@ -49,6 +49,8 @@ type reportQueue struct {
 	mu   sync.Mutex
 	// on says whether a report should be kept at all. It is nil until the agent is open.
 	on func() bool
+	// tooLarge counts reports dropped for not fitting in one upload, until flush logs it.
+	tooLarge int
 }
 
 func newReportQueue(dir string) *reportQueue {
@@ -69,6 +71,11 @@ func (q *reportQueue) add(rec otlplog.LogRecord) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if q.on == nil || !q.on() {
+		return
+	}
+	// A report that cannot fit in one upload would stay at the head of the queue for good.
+	if len(line) >= maxReportBatch {
+		q.tooLarge++
 		return
 	}
 	f, err := os.OpenFile(q.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
@@ -111,6 +118,13 @@ func (a *agent) reporting() bool {
 // flush sends what is waiting, a batch at a time, until the file is empty or the server
 // refuses. A PC that is off its account, or whose checkbox is off, throws its queue away.
 func (q *reportQueue) flush(ctx context.Context, ag *agent) error {
+	q.mu.Lock()
+	tooLarge := q.tooLarge
+	q.tooLarge = 0
+	q.mu.Unlock()
+	if tooLarge > 0 {
+		ag.log.Info("error reports too large to send were dropped", "count", tooLarge)
+	}
 	st := ag.snapshot()
 	if !ag.reporting() {
 		q.mu.Lock()

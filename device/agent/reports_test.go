@@ -173,3 +173,20 @@ func TestTheReportQueueKeepsUnderItsCapAndSendsWhenTheServerIsBack(t *testing.T)
 		}
 	}
 }
+
+func TestAReportTooLargeToSendIsDropped(t *testing.T) {
+	rs := &reportServer{}
+	ag, q := reportingAgent(t, rs.start(t).URL, nil)
+	ag.log.Error(strings.Repeat("x", maxReportBatch))
+	ag.log.Error("the settings endpoint stopped")
+	if err := q.flush(t.Context(), ag); err != nil {
+		t.Fatal(err)
+	}
+	got := rs.received()
+	if len(got) != 1 || strings.Contains(got[0], "xxxx") || !strings.Contains(got[0], "the settings endpoint stopped") {
+		t.Fatalf("uploads = %d, want one with only the report that fits", len(got))
+	}
+	if raw, _ := os.ReadFile(q.path); len(raw) != 0 {
+		t.Errorf("%d bytes still queued", len(raw))
+	}
+}
