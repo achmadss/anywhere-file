@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"html"
 	"io"
 	"net/http"
@@ -392,5 +393,50 @@ func TestThePageShowsTheFingerprintAgentKeyPrints(t *testing.T) {
 	page = html.UnescapeString(page)
 	if want := `<p id="fingerprint">` + printed + `</p>`; !strings.Contains(page, want) {
 		t.Errorf("the page has no %q", want)
+	}
+}
+
+// A locked key store is a normal state on a PC that just booted, and the page has to say
+// so rather than not load (#225). Once the key arrives the same endpoint is the full one.
+func TestTheSettingsEndpointSaysTheKeyStoreIsLocked(t *testing.T) {
+	dir := t.TempDir()
+	token, err := settingsToken(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &fakeStore{loadErr: errors.New("keychain is locked"), unlockAfter: 1 << 30}
+	h, ready := settingsSwitch(store, token, discard)
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
+
+	if _, err := loadOrCreateKey(store, discard); !errors.Is(err, errStoreLocked) {
+		t.Fatalf("the store answered %v, want locked", err)
+	}
+	status, body := ask(t, srv, http.MethodGet, "/v1/keystore", token, "")
+	if status != http.StatusOK || !strings.Contains(body, `"locked":true`) || !strings.Contains(body, `"unlock":`) {
+		t.Errorf("while locked, /v1/keystore answered %d %s", status, body)
+	}
+	if status, body := ask(t, srv, http.MethodGet, "/v1/apps", token, ""); status != http.StatusServiceUnavailable {
+		t.Errorf("while locked, /v1/apps answered %d %s, want 503", status, body)
+	}
+	if _, page := ask(t, srv, http.MethodGet, "/", token, ""); !strings.Contains(page, "which is locked") {
+		t.Errorf("while locked, the page does not say so:\n%s", page)
+	}
+	if store.saves != 0 {
+		t.Fatal("a key was written while the store was locked")
+	}
+
+	ready(newAgent(dir, testKey(t), &state{Name: "pc1", Apps: []app{}}, discard))
+	if status, body := ask(t, srv, http.MethodGet, "/v1/keystore", token, ""); status != http.StatusOK || !strings.Contains(body, `"locked":false`) {
+		t.Errorf("after the key loaded, /v1/keystore answered %d %s", status, body)
+	}
+	if status, body := ask(t, srv, http.MethodGet, "/v1/apps", token, ""); status != http.StatusOK {
+		t.Errorf("after the key loaded, /v1/apps answered %d %s, want 200", status, body)
+	}
+	if _, page := ask(t, srv, http.MethodGet, "/", token, ""); strings.Contains(page, "which is locked") || !strings.Contains(page, "Shared now") {
+		t.Errorf("after the key loaded, the page is not the full one:\n%s", page)
+	}
+	if status, _ := ask(t, srv, http.MethodGet, "/v1/keystore", "", ""); status != http.StatusUnauthorized {
+		t.Errorf("without the token answered %d, want 401", status)
 	}
 }

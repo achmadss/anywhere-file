@@ -14,10 +14,21 @@ import (
 // serve runs the gateway. The agent is a service with no window, so everything it has to
 // say goes to the log.
 func serve(ctx context.Context, cfg config, log *slog.Logger) error {
-	ag, err := openAgent(ctx, cfg, log)
+	store, err := openSeedStore(cfg)
 	if err != nil {
 		return err
 	}
+	// The settings page comes up before the key, so a locked key store is said there and
+	// not only in the log (#225). The gateway still waits for the key.
+	settingsReady, err := serveSettings(ctx, cfg, store, log)
+	if err != nil {
+		return err
+	}
+	ag, err := loadAgent(ctx, cfg, store, log)
+	if err != nil {
+		return err
+	}
+	settingsReady(ag)
 	key, st := ag.key, ag.snapshot()
 
 	// The applications the registry gives a command for are started here and stopped
@@ -53,10 +64,6 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		handler.rebuild()
 		// A count, because the names are folder names (ADR 0007).
 		log.Info("the registry changed", "apps", len(list))
-	}
-	if err := serveSettings(ctx, cfg, ag); err != nil {
-		_ = ln.Close()
-		return err
 	}
 	srv := &http.Server{
 		Handler: handler,
@@ -103,24 +110,26 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 
 // serveSettings starts the loopback endpoint that `agent share` and the settings page both
 // use (#136). It is a second listener because the gateway is on the LAN, where access is
-// open by design, and choosing what the whole PC shares must not be.
-func serveSettings(ctx context.Context, cfg config, ag *agent) error {
+// open by design, and choosing what the whole PC shares must not be. The function it
+// returns hands the endpoint the agent once the device key has loaded.
+func serveSettings(ctx context.Context, cfg config, store seedStore, log *slog.Logger) (func(*agent), error) {
 	if cfg.settings == "" {
-		return nil
+		return func(*agent) {}, nil
 	}
 	token, err := settingsToken(cfg.dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ln, err := net.Listen("tcp", cfg.settings)
 	if err != nil {
 		// Refused rather than carried on without. `agent share` writes the registry
 		// itself when nothing answers here, and doing that while this agent is serving
 		// would leave the two disagreeing until the next restart.
-		return fmt.Errorf("%w. Another agent may be running. Set RFM_AGENT_SETTINGS_ADDR to another loopback port, or to off", err)
+		return nil, fmt.Errorf("%w. Another agent may be running. Set RFM_AGENT_SETTINGS_ADDR to another loopback port, or to off", err)
 	}
+	handler, ready := settingsSwitch(store, token, log)
 	srv := &http.Server{
-		Handler:           newSettings(ag, token),
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
@@ -130,9 +139,9 @@ func serveSettings(ctx context.Context, cfg config, ag *agent) error {
 	}()
 	go func() {
 		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			ag.log.Error("the settings endpoint stopped", "err", err)
+			log.Error("the settings endpoint stopped", "err", err)
 		}
 	}()
-	ag.log.Info("settings listening", "addr", "http://"+ln.Addr().String())
-	return nil
+	log.Info("settings listening", "addr", "http://"+ln.Addr().String())
+	return ready, nil
 }
