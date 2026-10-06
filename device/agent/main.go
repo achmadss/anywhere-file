@@ -31,6 +31,10 @@ import (
 	"syscall"
 )
 
+// version is the release this agent came from. The packages set it when they build, with
+// -ldflags "-X main.version=1.4.0", and a build by hand says dev.
+var version = "dev"
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

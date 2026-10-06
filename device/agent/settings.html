@@ -3,48 +3,134 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <title>{{.Device}} settings</title>
+<!-- The look is Figma page "Akdes New", row 17, in Material 3's baseline colours. Roboto is
+     used when the PC has it. Nothing is fetched from the internet, so the page works with
+     the PC offline. -->
 <style>
-  :root { color-scheme: light dark; }
-  body { font: 16px/1.5 system-ui, sans-serif; margin: 0 auto; max-width: 42rem; padding: 2rem 1rem; }
-  h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
-  h2 { font-size: 1.05rem; margin: 2rem 0 .5rem; }
-  p.sub { color: GrayText; margin: 0 0 1rem; }
-  ul { list-style: none; margin: 0; padding: 0; }
-  li { align-items: center; border-bottom: 1px solid ButtonBorder; display: flex; gap: .75rem; padding: .5rem 0; }
-  li .grow { flex: 1; min-width: 0; }
-  li .path { color: GrayText; font-size: .85rem; overflow-wrap: anywhere; }
-  button { border: 1px solid ButtonBorder; border-radius: .35rem; background: ButtonFace; color: ButtonText;
-           cursor: pointer; font: inherit; padding: .3rem .7rem; }
-  button.link { background: none; border: 0; padding: .3rem 0; text-align: left; }
-  #here { font-size: .9rem; overflow-wrap: anywhere; }
-  #error { color: #b00; min-height: 1.5rem; }
-  input { border: 1px solid ButtonBorder; border-radius: .35rem; font: inherit; padding: .3rem .5rem; }
+  :root {
+    color-scheme: light dark;
+    --surface: #FEF7FF; --on-surface: #1D1B20; --on-surface-variant: #49454F;
+    --primary: #6750A4; --on-primary: #FFFFFF;
+    --primary-container: #EADDFF; --on-primary-container: #4F378A;
+    --outline: #79747E; --outline-variant: #CAC4D0;
+    --error: #B3261E; --surface-container-high: #ECE6F0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface: #141218; --on-surface: #E6E0E9; --on-surface-variant: #CAC4D0;
+      --primary: #D0BCFF; --on-primary: #381E72;
+      --primary-container: #4F378B; --on-primary-container: #EADDFF;
+      --outline: #938F99; --outline-variant: #49454F;
+      --error: #F2B8B5; --surface-container-high: #2B2930;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--surface); color: var(--on-surface); font-family: Roboto, system-ui, sans-serif; margin: 0; }
+  main { display: flex; flex-direction: column; gap: 40px; margin: 0 auto; max-width: 704px; padding: 48px 16px 64px; }
+  section { display: flex; flex-direction: column; gap: 8px; }
+  h1, h2, p { margin: 0; }
+  h1 { font-size: 28px; font-weight: 400; line-height: 36px; }
+  h2 { font-size: 22px; font-weight: 400; line-height: 28px; }
+  .body-large { font-size: 16px; letter-spacing: .5px; line-height: 24px; }
+  .body-medium { font-size: 14px; letter-spacing: .25px; line-height: 20px; }
+  .body-small { font-size: 12px; letter-spacing: .4px; line-height: 16px; }
+  .variant { color: var(--on-surface-variant); }
+  svg { fill: currentColor; flex: none; height: 24px; width: 24px; }
+  [hidden] { display: none !important; }
+
+  #error { align-items: center; display: flex; gap: 8px; }
+  #error span { color: var(--error); overflow-wrap: anywhere; }
+
+  ul { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
+  .share { align-items: center; display: flex; gap: 16px; padding: 8px 0; }
+  .tile { align-items: center; background: var(--primary-container); border-radius: 12px; color: var(--on-primary-container);
+          display: flex; flex: none; height: 40px; justify-content: center; width: 40px; }
+  .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+  .card { border: 1px solid var(--outline-variant); border-radius: 16px; display: flex; flex-direction: column; gap: 4px; padding: 16px; }
+  #here { font-size: 16px; font-weight: 500; letter-spacing: .15px; line-height: 24px; overflow-wrap: anywhere; }
+  #dirs { gap: 0; }
+  .walk { align-items: center; background: none; border: 0; border-radius: 8px; color: var(--on-surface); cursor: pointer;
+          display: flex; font: inherit; gap: 16px; padding: 12px 16px; text-align: left; width: 100%; }
+  .walk:hover { background: color-mix(in srgb, var(--on-surface) 8%, transparent); }
+
+  /* An outlined text field. The label sits in the box until there is text or focus, then
+     moves onto the border, which is what the placeholder trick below is for. */
+  .field { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; }
+  .box { position: relative; }
+  .box input { background: none; border: 1px solid var(--outline); border-radius: 4px; color: var(--on-surface); font: inherit;
+               font-size: 16px; height: 56px; letter-spacing: .5px; padding: 0 16px; width: 100%; }
+  .box input:focus { border: 2px solid var(--primary); outline: none; padding: 0 15px; }
+  .box label { background: var(--surface); color: var(--on-surface-variant); font-size: 16px; left: 12px; letter-spacing: .5px;
+               line-height: 24px; padding: 0 4px; pointer-events: none; position: absolute; top: 16px; transition: all .15s; }
+  .box input:focus + label, .box input:not(:placeholder-shown) + label { font-size: 12px; line-height: 16px; top: -8px; }
+  .box input:focus + label { color: var(--primary); }
+  .field .body-small { padding: 0 16px; }
+
+  .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  button.filled, button.text, button.outlined { border-radius: 100px; cursor: pointer; font: inherit; font-size: 14px; font-weight: 500;
+    height: 40px; letter-spacing: .1px; margin: 4px 0; padding: 0 16px; }
+  button.filled { background: var(--primary); border: 0; color: var(--on-primary); }
+  button.text { background: none; border: 0; color: var(--primary); }
+  button.outlined { background: none; border: 1px solid var(--outline-variant); color: var(--on-surface-variant); }
+  button.filled:hover { box-shadow: 0 1px 2px rgb(0 0 0 / .3), 0 1px 3px 1px rgb(0 0 0 / .15); }
+  button.text:hover, button.outlined:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+  .card > button.filled, #account-section button { align-self: flex-start; }
+  #account-section { gap: 12px; }
 </style>
 
-<h1>{{.Device}}</h1>
-<p class="sub">Folders on this PC that you can reach from anywhere.</p>
-<p id="error"></p>
+<svg hidden xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M4 20C3.45 20 2.97917 19.8042 2.5875 19.4125C2.19583 19.0208 2 18.55 2 18V6C2 5.45 2.19583 4.97917 2.5875 4.5875C2.97917 4.19583 3.45 4 4 4H10L12 6H20C20.55 6 21.0208 6.19583 21.4125 6.5875C21.8042 6.97917 22 7.45 22 8V18C22 18.55 21.8042 19.0208 21.4125 19.4125C21.0208 19.8042 20.55 20 20 20H4ZM4 18H20V8H11.175L9.175 6H4V18Z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M7.825 13L13.425 18.6L12 20L4 12L12 4L13.425 5.4L7.825 11H20V13H7.825Z"/></symbol>
+  <symbol id="i-error" viewBox="0 0 24 24"><path d="M12 17C12.2833 17 12.5208 16.9042 12.7125 16.7125C12.9042 16.5208 13 16.2833 13 16C13 15.7167 12.9042 15.4792 12.7125 15.2875C12.5208 15.0958 12.2833 15 12 15C11.7167 15 11.4792 15.0958 11.2875 15.2875C11.0958 15.4792 11 15.7167 11 16C11 16.2833 11.0958 16.5208 11.2875 16.7125C11.4792 16.9042 11.7167 17 12 17ZM11 13H13V7H11V13ZM12 22C10.6167 22 9.31667 21.7375 8.1 21.2125C6.88333 20.6875 5.825 19.975 4.925 19.075C4.025 18.175 3.3125 17.1167 2.7875 15.9C2.2625 14.6833 2 13.3833 2 12C2 10.6167 2.2625 9.31667 2.7875 8.1C3.3125 6.88333 4.025 5.825 4.925 4.925C5.825 4.025 6.88333 3.3125 8.1 2.7875C9.31667 2.2625 10.6167 2 12 2C13.3833 2 14.6833 2.2625 15.9 2.7875C17.1167 3.3125 18.175 4.025 19.075 4.925C19.975 5.825 20.6875 6.88333 21.2125 8.1C21.7375 9.31667 22 10.6167 22 12C22 13.3833 21.7375 14.6833 21.2125 15.9C20.6875 17.1167 19.975 18.175 19.075 19.075C18.175 19.975 17.1167 20.6875 15.9 21.2125C14.6833 21.7375 13.3833 22 12 22Z"/></symbol>
+</svg>
 
-<h2>Shared now</h2>
-<ul id="shares"></ul>
+<main>
+  <section>
+    <h1>{{.Device}}</h1>
+    <p class="body-large variant">Folders on this PC that you can reach from anywhere.</p>
+    <p id="error" class="body-medium" hidden><svg><use href="#i-error"/></svg><span></span></p>
+  </section>
 
-<h2>Add a folder</h2>
-<p id="here"></p>
-<ul id="dirs"></ul>
-<p>
-  <label>Call it <input id="name" placeholder="optional" size="14"></label>
-  <button id="share">Share this folder</button>
-</p>
+  <section>
+    <h2>Shared now</h2>
+    <p id="none" class="body-medium variant" hidden>Nothing yet. Pick a folder below.</p>
+    <ul id="shares"></ul>
+  </section>
 
-<h2>Account</h2>
-<p id="account"></p>
-<p id="approve" hidden>Approve this PC at <a id="approve-url" target="_blank" rel="noreferrer"></a>,
-  where the code is <b id="approve-code"></b>.</p>
-<p>
-  <label id="server-box">Server <input id="server" placeholder="https://" size="22"></label>
-  <button id="signin">Sign in</button>
-  <button id="signout">Sign out</button>
-</p>
+  <section>
+    <h2>Add a folder</h2>
+    <div class="card">
+      <p id="here"></p>
+      <ul id="dirs"></ul>
+      <div class="field">
+        <div class="box"><input id="name" placeholder=" " autocomplete="off"><label for="name">Call it</label></div>
+        <p class="body-small variant">Optional. Without a name, the folder's own name is used.</p>
+      </div>
+      <button id="share" class="filled">Share this folder</button>
+    </div>
+  </section>
+
+  <section id="account-section">
+    <h2>Account</h2>
+    <p id="account" class="body-medium"></p>
+    <div id="approve" hidden>
+      <p class="body-medium">Approve this PC at <a id="approve-url" target="_blank" rel="noreferrer"></a>,
+        where the code is <b id="approve-code"></b>.</p>
+      <p class="body-small variant" style="margin-top: 12px">The approve page opened in a new tab. This page changes when you answer there.</p>
+    </div>
+    <div id="server-box" class="field" hidden>
+      <div class="box"><input id="server" placeholder=" " autocomplete="url"><label for="server">Server</label></div>
+    </div>
+    <div class="buttons">
+      <button id="signin" class="filled">Sign in</button>
+      <button id="other-server" class="text">Use a different server</button>
+    </div>
+    <button id="signout" class="outlined">Sign out</button>
+  </section>
+
+  <p class="body-small variant">Version {{.Version}}</p>
+</main>
 
 <script>
 const token = "{{.Token}}";
@@ -62,49 +148,55 @@ async function api(method, path, body) {
   return out;
 }
 
-function show(err) { document.getElementById("error").textContent = err ? String(err.message || err) : ""; }
-
-function row(children) {
-  const li = document.createElement("li");
-  for (const c of children) li.append(c);
-  return li;
+function show(err) {
+  const line = document.getElementById("error");
+  line.hidden = !err;
+  line.querySelector("span").textContent = err ? String(err.message || err) : "";
 }
 
-function text(cls, s) {
-  const d = document.createElement("div");
-  d.className = cls;
-  d.textContent = s;
-  return d;
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function icon(name) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  use.setAttribute("href", "#i-" + name);
+  svg.append(use);
+  return svg;
 }
 
 function drawShares(apps) {
   const ul = document.getElementById("shares");
   ul.replaceChildren();
-  if (apps.length === 0) {
-    ul.append(row([text("grow", "Nothing yet. Pick a folder below.")]));
-    return;
-  }
+  document.getElementById("none").hidden = apps.length > 0;
   for (const a of apps) {
-    const grow = document.createElement("div");
-    grow.className = "grow";
-    grow.append(text("", a.name), text("path", a.path || a.address));
-    const remove = document.createElement("button");
-    remove.textContent = "Stop sharing";
+    const tile = el("div", "tile");
+    tile.append(icon("folder"));
+    const grow = el("div", "grow");
+    grow.append(el("div", "body-large", a.name), el("div", "body-medium variant", a.path || a.address));
+    const remove = el("button", "text", "Stop sharing");
     remove.onclick = async () => {
       show(null);
       try { drawShares((await api("DELETE", "/v1/apps/" + encodeURIComponent(a.name))).apps); }
       catch (e) { show(e); }
     };
-    ul.append(row([grow, remove]));
+    const li = el("li", "share");
+    li.append(tile, grow, remove);
+    ul.append(li);
   }
 }
 
-function link(label, onclick) {
-  const b = document.createElement("button");
-  b.className = "link grow";
-  b.textContent = label;
+function walkRow(iconName, label, onclick) {
+  const b = el("button", "walk body-large");
+  b.append(icon(iconName), el("span", "grow", label));
   b.onclick = onclick;
-  return b;
+  const li = el("li");
+  li.append(b);
+  return li;
 }
 
 async function go(path) {
@@ -115,8 +207,8 @@ async function go(path) {
     document.getElementById("here").textContent = out.path;
     const ul = document.getElementById("dirs");
     ul.replaceChildren();
-    if (out.parent) ul.append(row([link("↑ " + out.parent, () => go(out.parent))]));
-    for (const d of out.dirs) ul.append(row([link(d, () => go(out.path + "/" + d))]));
+    if (out.parent) ul.append(walkRow("back", "Up to " + out.parent, () => go(out.parent)));
+    for (const d of out.dirs) ul.append(walkRow("folder", d, () => go(out.path + "/" + d)));
   } catch (e) { show(e); }
 }
 
@@ -130,11 +222,17 @@ document.getElementById("share").onclick = async () => {
   } catch (e) { show(e); }
 };
 
+// The server field stays out of the way once the PC knows a server. Until then there is
+// nothing to sign in to without it, so it is open.
+let otherServer = false;
+
 function drawAccount(acc) {
   const waiting = acc.login.waiting;
+  const out = !acc.enrolled && !waiting;
   document.getElementById("account").textContent = acc.enrolled
     ? "This PC belongs to the account at " + acc.server + ", as device " + acc.device_id + "."
     : "This PC belongs to no account. Folders above are shared on the LAN either way.";
+  document.getElementById("account").hidden = waiting;
   const approve = document.getElementById("approve");
   approve.hidden = !waiting;
   if (waiting) {
@@ -144,12 +242,21 @@ function drawAccount(acc) {
     document.getElementById("approve-code").textContent = acc.login.code;
   }
   if (acc.login.error) show(acc.login.error);
-  document.getElementById("server-box").hidden = acc.enrolled || waiting;
-  document.getElementById("signin").hidden = acc.enrolled || waiting;
+  const server = document.getElementById("server");
+  if (!server.value && acc.server) server.value = acc.server;
+  document.getElementById("server-box").hidden = !out || (acc.server && !otherServer);
+  document.getElementById("signin").hidden = !out;
+  document.getElementById("other-server").hidden = !out || !acc.server || otherServer;
   document.getElementById("signout").hidden = !acc.enrolled;
   // Approving happens somewhere else, so the page asks how it went until it knows.
   if (waiting) setTimeout(() => api("GET", "/v1/account").then(drawAccount).catch(show), 2000);
 }
+
+document.getElementById("other-server").onclick = async () => {
+  otherServer = true;
+  try { drawAccount(await api("GET", "/v1/account")); } catch (e) { show(e); }
+  document.getElementById("server").focus();
+};
 
 document.getElementById("signin").onclick = async () => {
   show(null);
