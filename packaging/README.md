@@ -76,3 +76,16 @@ clients have to be given its address rather than finding it.
 On Windows SmartScreen warns about an unknown publisher. Press More info, then Run anyway.
 
 On Linux nothing checks a signature, so nothing warns.
+
+## Checking a download
+
+Each release carries a `SHA256SUMS` file with one line per file on the release: the
+checksum, then the file's name. The release job writes it and checks it before uploading.
+To check a download, work out its checksum and compare it with the line for that file:
+
+- macOS: `shasum -a 256 anywhere-file-0.1.0.pkg`
+- Windows, in PowerShell: `Get-FileHash anywhere-file-0.1.0.msi`. It prints capitals,
+  which make no difference. In a command prompt: `certutil -hashfile anywhere-file-0.1.0.msi SHA256`
+- Linux, in the folder holding the download and `SHA256SUMS`: `sha256sum -c SHA256SUMS --ignore-missing`
+
+If the checksums differ, delete the file and download it again.
