@@ -14,6 +14,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/xml"
 	"fmt"
@@ -410,10 +411,18 @@ func installService(cfg config, log *slog.Logger, out io.Writer) error {
 	return nil
 }
 
-func uninstallService(cfg config, log *slog.Logger, out io.Writer) error {
+func uninstallService(ctx context.Context, cfg config, log *slog.Logger, out io.Writer) error {
 	p, err := currentPlan(cfg)
 	if err != nil {
 		return err
+	}
+	// Sign out first, while the agent is still running to do it, so the PC leaves the
+	// account rather than staying on every guest's list. A server that cannot be reached
+	// does not stop the uninstall: the admin can remove the PC from the app (#189).
+	ctx, cancel := context.WithTimeout(ctx, enrolTimeout)
+	defer cancel()
+	if err := logoutCommand(ctx, cfg, log, out); err != nil {
+		fmt.Fprintln(out, "could not sign this PC out of its account, so remove it in the app:", err)
 	}
 	if err := runPlan(p.uninstall, log, out); err != nil {
 		return err
