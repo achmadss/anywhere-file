@@ -166,13 +166,13 @@ jobs:
     # runner cannot be rebooted, so what is proven here is the rest of the acceptance: the
     # package starts the service, the uninstall stops it, and a reinstall is the same device.
     # The installer runs `agent install`, so this is #33's acceptance too: the OS starts the
-    # agent, with nothing typed into a window.
+    # agent, with nothing typed into a window. The arm runner installs the arm64 deb.
     needs: changes
     if: needs.changes.outputs.package == 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     defaults:
       run:

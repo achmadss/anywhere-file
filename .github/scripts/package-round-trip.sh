@@ -38,7 +38,10 @@ Darwin)
 	remove_it() { /Applications/anywhere-file.app/Contents/MacOS/uninstall; }
 	;;
 Linux)
-	deb=$(ARCHES=amd64 "$root/packaging/linux/build.sh" | grep '\.deb$')
+	# The runner's own architecture, so the arm64 runner installs the arm64 deb (#229).
+	built=$(ARCHES=$(dpkg --print-architecture) "$root/packaging/linux/build.sh")
+	deb=$(echo "$built" | grep '\.deb$')
+	tarball=$(echo "$built" | grep '\.tar\.gz$')
 	agent=/usr/lib/anywhere-file/agent
 	dufs=/usr/lib/anywhere-file/dufs
 	asset='*_amd64.deb'
@@ -117,11 +120,8 @@ if [ -n "$old" ]; then
 	echo "the upgrade kept the device key and the shares"
 fi
 echo "device id: $first"
-# #96: the certificate on the LAN is the one the device key signed. Linux only, as it
-# always was.
-if [ "$(uname -s)" = Linux ]; then
-	AGENT="$agent" "$root/.github/scripts/lan-tls.sh"
-fi
+# #96: the certificate on the LAN is the one the device key signed.
+AGENT="$agent" "$root/.github/scripts/lan-tls.sh"
 # The package puts dufs where the agent can find it without a PATH, which is what a
 # registry entry saying `dufs` depends on.
 "$dufs" --version
@@ -175,4 +175,27 @@ echo "same device after a reinstall: $again"
 
 if declare -f remove_last >/dev/null; then remove_last; else remove_it; fi
 down
+
+# The tarball installs under the home with its own scripts, and is the same device too.
+if [ -n "${tarball:-}" ]; then
+	echo "== the tarball's install.sh and uninstall.sh"
+	export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+	agent=$HOME/.local/lib/anywhere-file/agent
+	unpacked=$(mktemp -d)
+	tar xzf "$tarball" -C "$unpacked"
+	"$unpacked"/*/install.sh
+	up
+	from_tarball=$(device_id)
+	if [ "$first" != "$from_tarball" ]; then
+		echo "the tarball's install is device $from_tarball, the deb's was $first"
+		exit 1
+	fi
+	"$unpacked"/*/uninstall.sh
+	down
+	if [ -e "$agent" ]; then
+		echo "$agent is still there after uninstall.sh"
+		exit 1
+	fi
+	echo "the tarball installs and uninstalls as the same device"
+fi
 echo "the package installs, uninstalls and reinstalls without the PC changing identity"
