@@ -27,9 +27,9 @@ cat >"$dir/agent.json" <<JSON
 }
 JSON
 
-"$AGENT" run &
+"$AGENT" run 2>"$dir/agent.log" &
 agent=$!
-trap 'kill "$agent" 2>/dev/null || true' EXIT
+trap 'status=$?; kill "$agent" 2>/dev/null || true; [ "$status" -eq 0 ] || cat "$dir/agent.log"' EXIT
 
 serving() { curl -fsSk --max-time 2 "$gateway/files/" >/dev/null; }
 wait_until() {
@@ -89,3 +89,11 @@ fi
 curl -fsSk --max-time 30 -o "$dir/again" "$gateway/files/holiday.bin"
 cmp "$dir/sent" "$dir/again"
 echo "killed dufs at $before, the agent started $after and the file is still served"
+
+# #220: dufs's lines reach the agent's log, and no file or folder name does.
+grep -q 'Listening on' "$dir/agent.log"
+if grep -e holiday -e "$root" "$dir/agent.log"; then
+	echo "the agent's log names a file or folder"
+	exit 1
+fi
+echo "the agent's log has dufs's banner and no file or folder name"

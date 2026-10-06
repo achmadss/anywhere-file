@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 )
@@ -118,7 +119,9 @@ func (s *supervisor) wait() { s.wg.Wait() }
 // an application that comes back: the agent has no way to tell a crash from a restart and
 // no reason to treat them differently.
 func superviseApp(ctx context.Context, a app, log *slog.Logger) {
-	log = log.With("app", a.Name)
+	// The address tells applications apart. A share's name is a folder name, and those stay
+	// out of the log (ADR 0007).
+	log = log.With("address", a.Address)
 	wait := appBackoffMin
 	for {
 		started := time.Now()
@@ -142,12 +145,22 @@ func superviseApp(ctx context.Context, a app, log *slog.Logger) {
 }
 
 // runApp starts the child and returns when it has exited. Whatever it writes goes to the
-// agent's log under the application's name, because a service has no window to write to
-// and the agent's log is the one place an operator is told to look.
+// agent's log under the application's address, because a service has no window to write
+// to and the agent's log is the one place an operator is told to look.
 func runApp(ctx context.Context, a app, log *slog.Logger) error {
 	cmd := exec.CommandContext(ctx, program(a.Command[0]), a.Command[1:]...)
-	cmd.Stdout = &appLog{log: log}
-	cmd.Stderr = &appLog{log: log}
+	// An empty format turns off dufs's line per request, which carries the path asked for.
+	// It is set here and not in the registry, so a folder shared before this is covered.
+	// dufs's startup and error lines still come through.
+	cmd.Env = append(os.Environ(), "DUFS_LOG_FORMAT=")
+	// Those can still name the folder: its banner ends in the share's name, and its error
+	// for a folder that has gone holds the path.
+	var hide *strings.Replacer
+	if root := sharedPath(a); root != "" {
+		hide = strings.NewReplacer(root, "<shared folder>", "/"+a.Name, "/<share>")
+	}
+	cmd.Stdout = &appLog{log: log, hide: hide}
+	cmd.Stderr = &appLog{log: log, hide: hide}
 	hideWindow(cmd)
 	// Ask before killing. Windows has no signal to ask with, so there it is the kill.
 	cmd.Cancel = func() error {
@@ -160,7 +173,7 @@ func runApp(ctx context.Context, a app, log *slog.Logger) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	log.Info("application started", "pid", cmd.Process.Pid, "address", a.Address)
+	log.Info("application started", "pid", cmd.Process.Pid)
 	return cmd.Wait()
 }
 
@@ -168,6 +181,7 @@ func runApp(ctx context.Context, a app, log *slog.Logger) error {
 // goroutines the child's pipes are copied by never touch the same buffer.
 type appLog struct {
 	log  *slog.Logger
+	hide *strings.Replacer // nil for an application that serves no folder
 	rest []byte
 }
 
@@ -189,7 +203,11 @@ func (w *appLog) Write(p []byte) (int, error) {
 }
 
 func (w *appLog) line(b []byte) {
-	if line := string(bytes.TrimRight(b, "\r")); line != "" {
+	line := string(bytes.TrimRight(b, "\r"))
+	if w.hide != nil {
+		line = w.hide.Replace(line)
+	}
+	if line != "" {
 		w.log.Info(line)
 	}
 }

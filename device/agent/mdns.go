@@ -42,6 +42,8 @@ const (
 	// answers at either roughly 20ms or roughly 1s, because the first retry is at 1s, so
 	// two seconds covers one lost query.
 	discoverTimeout = 2 * time.Second
+	// networkPoll is how often the agent looks at its addresses for a change (#217).
+	networkPoll = 5 * time.Second
 )
 
 // advertiser owns the mDNS registration. Re-advertising replaces it, which is how a
@@ -86,8 +88,8 @@ func (a *advertiser) advertise(s *state, key deviceKey) error {
 	if old != nil {
 		old.close()
 	}
-	a.log.Info("advertising on the LAN",
-		"instance", instance, "service", mdnsService, "port", a.port, "txt", text)
+	// Not the TXT record: it lists the shares by name, which are folder names (ADR 0007).
+	a.log.Info("advertising on the LAN", "instance", instance, "service", mdnsService, "port", a.port)
 	return nil
 }
 
@@ -216,7 +218,7 @@ func multicastInterface() *net.Interface {
 		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagMulticast == 0 {
 			continue
 		}
-		addrs, err := iface.Addrs()
+		addrs, err := interfaceAddrs(&iface)
 		if err != nil {
 			continue
 		}
@@ -237,7 +239,7 @@ func multicastInterface() *net.Interface {
 func localAddrs(iface *net.Interface) []net.IP {
 	var ips []net.IP
 	if iface != nil {
-		addrs, _ := iface.Addrs()
+		addrs, _ := interfaceAddrs(iface)
 		for _, addr := range addrs {
 			// A link-local address needs the interface it was learned on, and a DNS
 			// record does not carry that.
@@ -250,6 +252,69 @@ func localAddrs(iface *net.Interface) []net.IP {
 		return []net.IP{net.IPv4(127, 0, 0, 1)}
 	}
 	return ips
+}
+
+// interfaceAddrs is the addresses on iface, or on every interface when iface is nil. It is
+// a variable so a test can move the PC to another network.
+var interfaceAddrs = func(iface *net.Interface) ([]net.Addr, error) {
+	if iface == nil {
+		return net.InterfaceAddrs()
+	}
+	return iface.Addrs()
+}
+
+// networkState is everything the record and the certificate are made from on this network.
+// Two calls that agree mean neither needs making again.
+func networkState() string {
+	iface := multicastInterface()
+	name := ""
+	if iface != nil {
+		name = iface.Name
+	}
+	return fmt.Sprint(name, localAddrs(iface), localAddresses())
+}
+
+// keepAdvertised announces this PC and keeps what it announces current (#217). A laptop
+// that joins another Wi-Fi gets a new address, and the record and the certificate both
+// have to name it, or a client either cannot find the PC or refuses the one it finds. A
+// change of shares changes the record too. ad is nil when mDNS is off, and the certificate
+// is still kept current.
+//
+// ponytail: polls every networkPoll rather than listening for the OS's change events, so a
+// change takes up to that long to reach the LAN. Events would need code for each OS.
+func keepAdvertised(ctx context.Context, ad *advertiser, cert *lanCert, ag *agent, every time.Duration) {
+	network := networkState()
+	var advertised string
+	var wait time.Duration
+	var retryAt time.Time
+	for {
+		if now := networkState(); now != network {
+			network = now
+			cert.renew()
+			ag.log.Info("the network changed, so the certificate and the record are made again", "addrs", now)
+		}
+		st := ag.snapshot()
+		want := network + strings.Join(txtRecords(st, ag.key), ";")
+		if ad != nil && want != advertised && !time.Now().Before(retryAt) {
+			// Retried rather than required (#124). macOS asks the person at the machine
+			// whether this program may use the local network, and until they say yes
+			// multicast fails. A PC that cannot announce itself is still reachable at its
+			// address, so the agent keeps serving and says in the log what is missing.
+			if err := ad.advertise(st, ag.key); err != nil {
+				wait = min(max(2*wait, time.Second), time.Minute)
+				retryAt = time.Now().Add(jittered(wait))
+				ag.log.Error("this PC is not announcing itself on the LAN, so clients have to be given its address",
+					"err", err, "retry_in", wait.String())
+			} else {
+				advertised, wait = want, 0
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(every):
+		}
+	}
 }
 
 // stdLogger sends what the mdns package writes with the standard logger into ours, so an

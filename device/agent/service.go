@@ -121,10 +121,10 @@ var darwinPlist = template.Must(template.New("plist").Funcs(template.FuncMap{"x"
 	<key>ProcessType</key>
 	<string>Background</string>
 {{- end}}
-	<key>StandardOutPath</key>
-	<string>{{x .Log}}</string>
+	<!-- The agent writes and rotates its own log. What reaches stderr is what comes before
+	     the log is open, and a crash. -->
 	<key>StandardErrorPath</key>
-	<string>{{x .Log}}</string>
+	<string>{{x .Stderr}}</string>
 </dict>
 </plist>
 `))
@@ -143,8 +143,8 @@ func darwinPlan(in planInput) servicePlan {
 			"Command": command,
 			"Menu":    command == "menubar",
 			"Exe":     in.exe,
-			"Log":     filepath.Join(in.dir, "agent.log"),
-			"Args":    envArgs(in.env),
+			"Stderr":  filepath.Join(in.dir, "stderr.log"),
+			"Args":    envArgs(withLogFile(in.env, in.dir, command)),
 		})
 	}
 	return servicePlan{
@@ -283,13 +283,6 @@ var windowsTask = template.Must(template.New("task").Funcs(template.FuncMap{"x":
 
 func windowsPlan(in planInput) servicePlan {
 	task := filepath.Join(in.dir, "service", serviceName+".xml")
-	// The scheduler captures nothing a program writes, so on Windows the agent is told
-	// where to keep its log. launchd redirects it and systemd has the journal.
-	env := slices.Clone(in.env)
-	if !hasKey(env, "RFM_AGENT_LOG_FILE") {
-		env = append(env, [2]string{"RFM_AGENT_LOG_FILE", filepath.Join(in.dir, "agent.log")})
-		sort.Slice(env, func(i, j int) bool { return env[i][0] < env[j][0] })
-	}
 	// The tray icon (#160) is a second task, because it needs the desktop of whoever
 	// logged on. It is not restarted: Quit in its menu has to stay quit.
 	tray := filepath.Join(in.dir, "service", trayName+".xml")
@@ -297,7 +290,7 @@ func windowsPlan(in planInput) servicePlan {
 		return planFile{path: path, utf16: true, body: render(windowsTask, map[string]any{
 			"User":      in.user,
 			"Exe":       in.exe,
-			"Arguments": strings.Join(append([]string{command}, quoted(envArgs(env))...), " "),
+			"Arguments": strings.Join(append([]string{command}, quoted(envArgs(withLogFile(in.env, in.dir, command)))...), " "),
 			"Restart":   command == "run",
 		})}
 	}
@@ -357,6 +350,24 @@ func quoted(args []string) []string {
 		out = append(out, a)
 	}
 	return out
+}
+
+// withLogFile tells a job where to keep its log, unless one was chosen at install. The
+// agent writes the file itself on macOS and Windows so it can rotate it (#220): the
+// scheduler captures nothing, and launchd would keep the file open under its old name.
+// Each job gets its own file, because Windows will not rename a file another process has
+// open. Linux has the journal.
+func withLogFile(env [][2]string, dir, command string) [][2]string {
+	if hasKey(env, "RFM_AGENT_LOG_FILE") {
+		return env
+	}
+	name := "agent.log"
+	if command == "menubar" {
+		name = "menubar.log"
+	}
+	env = append(slices.Clone(env), [2]string{"RFM_AGENT_LOG_FILE", filepath.Join(dir, name)})
+	sort.Slice(env, func(i, j int) bool { return env[i][0] < env[j][0] })
+	return env
 }
 
 func hasKey(env [][2]string, key string) bool {

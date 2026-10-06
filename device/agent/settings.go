@@ -82,6 +82,7 @@ func newSettings(ag *agent, token string) http.Handler {
 	mux.HandleFunc("POST /v1/apps", addShare(ag))
 	mux.HandleFunc("DELETE /v1/apps/{name}", removeShare(ag))
 	mux.HandleFunc("GET /v1/browse", browse)
+	mux.HandleFunc("GET /v1/network", networkStatus)
 	mux.HandleFunc("GET /v1/account", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, ag.account())
 	})
@@ -204,7 +205,8 @@ func addShare(ag *agent) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
-		ag.log.Info("sharing a directory", "app", a.Name, "path", sharedPath(a))
+		// The address and not the name or the path, which are folder names (ADR 0007).
+		ag.log.Info("sharing a directory", "address", a.Address)
 		writeJSON(w, http.StatusOK, share{Name: a.Name, Address: a.Address, Path: sharedPath(a)})
 	}
 }
@@ -213,16 +215,17 @@ func removeShare(ag *agent) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		name := r.PathValue("name")
 		apps := ag.snapshot().Apps
-		kept := slices.DeleteFunc(slices.Clone(apps), func(a app) bool { return a.Name == name })
-		if len(kept) == len(apps) {
+		i := slices.IndexFunc(apps, func(a app) bool { return a.Name == name })
+		if i < 0 {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "this PC does not share " + name})
 			return
 		}
+		kept := slices.Delete(slices.Clone(apps), i, i+1)
 		if err := ag.setApps(kept); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
-		ag.log.Info("stopped sharing", "app", name)
+		ag.log.Info("stopped sharing", "address", apps[i].Address)
 		writeJSON(w, http.StatusOK, map[string]any{"apps": shares(kept)})
 	}
 }

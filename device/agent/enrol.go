@@ -167,7 +167,7 @@ func (a *agent) enrol(ctx context.Context, server, token string) (*state, error)
 	if err := saveState(a.dir, saved); err != nil {
 		return nil, err
 	}
-	a.log.Info("enrolled", "server", server, "device", saved.DeviceID, "apps", saved.appNames())
+	a.log.Info("enrolled", "server", server, "device", saved.DeviceID, "apps", len(saved.Apps))
 	return saved, nil
 }
 
