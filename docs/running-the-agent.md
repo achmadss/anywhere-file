@@ -299,7 +299,7 @@ binary, runs `agent install` so the service starts at logon, and reverses both. 
 ```sh
 ./packaging/macos/build.sh    # a pkg, universal, for both kinds of Mac
 ./packaging/linux/build.sh    # a tarball and a deb, amd64 and arm64
-./packaging/windows/build.sh  # an MSI, from Git Bash on Windows
+./packaging/windows/build.sh  # an MSI for x64 and one for arm64, from Git Bash on Windows
 ```
 
 On macOS the pkg installs `anywhere-file.app` into `/Applications` and starts the service for

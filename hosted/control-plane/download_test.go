@@ -17,6 +17,7 @@ func fakeGitHub(t *testing.T) *httptest.Server {
 			{"name":"anywhere-file-0.1.0-linux-amd64.tar.gz","browser_download_url":"https://example.test/linux-amd64.tar.gz"},
 			{"name":"anywhere-file_0.1.0_amd64.deb","browser_download_url":"https://example.test/amd64.deb"},
 			{"name":"anywhere-file-0.1.0.pkg","browser_download_url":"https://example.test/mac.pkg"},
+			{"name":"anywhere-file-0.1.0-arm64.msi","browser_download_url":"https://example.test/win-arm64.msi"},
 			{"name":"anywhere-file-0.1.0.msi","browser_download_url":"https://example.test/win.msi"},
 			{"name":"SHA256SUMS","browser_download_url":"https://example.test/SHA256SUMS"}]}`))
 	}))
@@ -43,7 +44,8 @@ func downloadAs(t *testing.T, userAgent string) string {
 }
 
 // #138's acceptance: the page offers the right file to a visitor on each of the three
-// systems, and says what the warning looks like on the two that show one.
+// systems, and says what the warning looks like on the two that show one. Windows lists
+// the x64 MSI first and labels both (#227), since a browser on ARM says x64 as well.
 func TestTheDownloadPageOffersTheVisitorsSystemFirst(t *testing.T) {
 	fakeGitHub(t)
 	for ua, want := range map[string]string{
@@ -59,7 +61,8 @@ func TestTheDownloadPageOffersTheVisitorsSystemFirst(t *testing.T) {
 		if first != want {
 			t.Errorf("%s: first link is %s, want %s", ua, first, want)
 		}
-		for _, text := range []string{"Download anywhere-file 0.1.0", "Open Anyway", "Run anyway", "https://example.test/amd64.deb"} {
+		for _, text := range []string{"Download anywhere-file 0.1.0", "Open Anyway", "Run anyway", "https://example.test/amd64.deb",
+			"(Windows (x64))", "https://example.test/win-arm64.msi", "(Windows on ARM)"} {
 			if !strings.Contains(body, text) {
 				t.Errorf("%s: page lacks %q", ua, text)
 			}

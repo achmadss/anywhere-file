@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -28,8 +29,9 @@ const releasesPage = "https://github.com/achmadss/anywhere-file/releases"
 const releaseCacheFor = 10 * time.Minute
 
 type download struct {
-	Name string
-	URL  string
+	Name  string
+	URL   string
+	Label string // which PC the file is for, where the name alone does not say it plainly
 }
 
 // system is one operating system's part of the page: its files, the warning an unsigned
@@ -138,9 +140,14 @@ func (c *releaseCache) fetch(ctx context.Context) (*release, error) {
 		s.Files = nil
 		for _, a := range out.Assets {
 			if systemOf(a.Name) == s.Name {
-				s.Files = append(s.Files, download{Name: a.Name, URL: a.URL})
+				s.Files = append(s.Files, download{Name: a.Name, URL: a.URL, Label: labelOf(a.Name)})
 			}
 		}
+		// #227: the x64 MSI first. A browser on Windows on ARM says x64 too, so the page
+		// cannot pick, and most PCs are x64.
+		sort.SliceStable(s.Files, func(i, j int) bool {
+			return !isARMInstaller(s.Files[i].Name) && isARMInstaller(s.Files[j].Name)
+		})
 		rel.Systems = append(rel.Systems, s)
 	}
 	return rel, nil
@@ -156,6 +163,20 @@ func systemOf(name string) string {
 		return "Windows"
 	case strings.HasSuffix(name, ".deb"), strings.Contains(name, "-linux-"):
 		return "Linux"
+	}
+	return ""
+}
+
+func isARMInstaller(name string) bool { return strings.HasSuffix(name, "-arm64.msi") }
+
+// labelOf says which Windows PC an MSI is for. The other systems' names already say it:
+// the pkg is universal and the Linux files name their architecture.
+func labelOf(name string) string {
+	switch {
+	case isARMInstaller(name):
+		return "Windows on ARM"
+	case strings.HasSuffix(name, ".msi"):
+		return "Windows (x64)"
 	}
 	return ""
 }
