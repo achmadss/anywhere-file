@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"html"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -356,5 +358,39 @@ func TestThePageShowsTheVersionAndTheDevice(t *testing.T) {
 		if !strings.Contains(page, want) {
 			t.Errorf("the page has no %q", want)
 		}
+	}
+}
+
+// The page shows the code `agent key` prints (#176), so a person can compare a PC with
+// what the app shows for it without a terminal.
+func TestThePageShowsTheFingerprintAgentKeyPrints(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.keystore = "file"
+	var out bytes.Buffer
+	if err := printKey(t.Context(), cfg, discard, &out); err != nil {
+		t.Fatal(err)
+	}
+	_, printed, ok := strings.Cut(out.String(), "fingerprint: ")
+	if !ok {
+		t.Fatalf("agent key printed no fingerprint:\n%s", out.String())
+	}
+	printed = strings.TrimSpace(printed)
+
+	store, err := openSeedStore(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := loadOrCreateKey(store, discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ag := newAgent(cfg.dir, key, &state{Name: "pc1", Apps: []app{}}, discard)
+	srv := httptest.NewServer(newSettings(ag, "token"))
+	t.Cleanup(srv.Close)
+	_, page := ask(t, srv, http.MethodGet, "/", "token", "")
+	// The template writes a + in the code as &#43;, which a browser shows as +.
+	page = html.UnescapeString(page)
+	if want := `<p id="fingerprint">` + printed + `</p>`; !strings.Contains(page, want) {
+		t.Errorf("the page has no %q", want)
 	}
 }

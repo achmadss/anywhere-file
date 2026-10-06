@@ -50,6 +50,7 @@
   .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 
   .card { border: 1px solid var(--outline-variant); border-radius: 16px; display: flex; flex-direction: column; gap: 4px; padding: 16px; }
+  #fingerprint { font-family: ui-monospace, monospace; font-size: 16px; line-height: 24px; overflow-wrap: anywhere; }
   #here { font-size: 16px; font-weight: 500; letter-spacing: .15px; line-height: 24px; overflow-wrap: anywhere; }
   #dirs { gap: 0; }
   .walk { align-items: center; background: none; border: 0; border-radius: 8px; color: var(--on-surface); cursor: pointer;
@@ -115,6 +116,12 @@
       </div>
       <button id="share" class="filled">Share this folder</button>
     </div>
+  </section>
+
+  <section>
+    <h2>This device</h2>
+    <p id="fingerprint">{{.Fingerprint}}</p>
+    <p class="body-small variant">The app shows this code under "Show code". If the two are not the same, the app is not talking to this PC.</p>
   </section>
 
   <section id="account-section">
@@ -236,7 +243,7 @@ function drawAccount(acc) {
   const waiting = acc.login.waiting;
   const out = !acc.enrolled && !waiting;
   document.getElementById("account").textContent = acc.enrolled
-    ? "This PC belongs to the account at " + acc.server + ", as device " + acc.device_id + "."
+    ? "This PC belongs to the account at " + acc.server + "."
     : "This PC belongs to no account. Folders above are shared on the LAN either way.";
   document.getElementById("account").hidden = waiting;
   const approve = document.getElementById("approve");
