@@ -196,6 +196,23 @@ jobs:
       - name: upgrade from the last release, uninstall, install again
         run: .github/scripts/package-round-trip.sh
 
+  rpm:
+    # #226: the rpm, installed in a Fedora container, since no runner is Fedora.
+    needs: changes
+    if: needs.changes.outputs.package == 'true'
+    runs-on: ubuntu-latest
+    env:
+      RFM_AGENT_ADDR: 127.0.0.1:7433
+      RFM_AGENT_MDNS: "off"
+      RFM_AGENT_TUNNEL: "off"
+      RFM_AGENT_KEYSTORE: file
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-go
+      - run: sudo apt-get install -y rpm
+      - name: install the rpm, upgrade it, remove it
+        run: .github/scripts/rpm-round-trip.sh
+
   rules:
     # promtool is Prometheus's own rule checker: it parses every expression, which the Go
     # test cannot do. It runs only when the rules change, because it costs a release
@@ -338,7 +355,7 @@ jobs:
   ci-ok:
     # The one check branch protection requires. Green when every job that ran passed, and
     # when a job was skipped because nothing in its language changed.
-    needs: [changes, go, dufs, e2e, package, rules, client, blockers, prose]
+    needs: [changes, go, dufs, e2e, package, rpm, rules, client, blockers, prose]
     if: always()
     runs-on: ubuntu-latest
     steps:

@@ -39,7 +39,7 @@ jobs:
         run: |
           export VERSION="${VERSION#v}"
           case "$RUNNER_OS" in
-            Linux) packaging/linux/build.sh ;;
+            Linux) sudo apt-get install -y rpm && packaging/linux/build.sh ;;
             macOS) packaging/macos/build.sh ;;
             Windows) packaging/windows/build.sh ;;
           esac
