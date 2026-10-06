@@ -56,20 +56,20 @@ var systems = []system{
 			"developer. Open it, let the warning appear, then go to System Settings, " +
 			"Privacy and Security, scroll to Security and press Open Anyway. The same panel " +
 			"is where the agent's request to use the local network is granted, under Local Network.",
-		Then: "The agent starts on its own. Open its settings page from a terminal with " +
-			"/Applications/anywhere-file.app/Contents/MacOS/agent settings.",
+		Then: "The agent starts on its own and its settings page opens in your browser. " +
+			"Later, open it again from the laptop icon in the menu bar.",
 	},
 	{
 		Name: "Windows",
 		Warning: "The installer is not signed yet, so SmartScreen warns about an unknown " +
 			"publisher. Press More info, then Run anyway.",
-		Then: "The agent starts on its own. Open its settings page from a terminal with " +
-			"\"C:\\Program Files\\anywhere-file\\agent.exe\" settings.",
+		Then: "The agent starts on its own and its settings page opens in your browser. " +
+			"Later, open it again with \"C:\\Program Files\\anywhere-file\\agent.exe\" settings.",
 	},
 	{
 		Name:    "Linux",
 		Warning: "Nothing checks a signature on Linux, so nothing warns.",
-		Then: "The deb starts the agent at logon. The tarball installs under your home with " +
+		Then: "The deb starts the agent at logon and opens its settings page. The tarball installs under your home with " +
 			"its install.sh. Either way, anywhere-file settings is in the applications menu " +
 			"and opens the settings page, and anywhere-file-agent settings does the same from a terminal.",
 	},

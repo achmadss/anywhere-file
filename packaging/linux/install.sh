@@ -20,6 +20,12 @@ if [ -f "$dest/agent.env" ]; then
 	done <"$dest/agent.env"
 fi
 "$dest/agent" install "$@"
+# #185: the page opens by itself in a desktop session. Over ssh there is nothing to open it in.
+if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+	"$dest/agent" settings || true
+else
+	echo "open the settings page with: anywhere-file-agent settings"
+fi
 
 echo
 echo "dufs is in $dest, and the agent finds it there without it being on your PATH."

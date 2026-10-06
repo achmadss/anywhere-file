@@ -24,6 +24,18 @@ else
 	# environment does not have it.
 	runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$uid" "$dest/agent" install "$@" ||
 		echo "could not install the service for $user. Run: anywhere-file-agent install"
+
+	# #185: open the settings page in the user's desktop. Root's environment says nothing
+	# about that desktop, and the user's systemd manager has it once a session started.
+	# Nothing opens when there is no display, or for apt run with no questions asked.
+	display=$(runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$uid" systemctl --user show-environment 2>/dev/null |
+		grep -E '^(DISPLAY|WAYLAND_DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS)=' || true)
+	if [ "${DEBIAN_FRONTEND:-}" != noninteractive ] && echo "$display" | grep -qE '^(DISPLAY|WAYLAND_DISPLAY)='; then
+		# shellcheck disable=SC2086 # one VAR=value per word
+		runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$uid" $display "$dest/agent" settings >/dev/null 2>&1 || true
+	else
+		echo "open the settings page with: anywhere-file-agent settings"
+	fi
 fi
 
 # The service file is now on disk. firewalld only reads it after a reload, and opening the

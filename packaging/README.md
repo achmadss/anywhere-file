@@ -22,6 +22,10 @@ whatever the latest release carries. Nothing else publishes anything: the packag
 
 ## Opening the settings page
 
+Each installer opens the page once it is done, as the person who ran it. A silent install
+opens nothing: `installer` from a script on macOS, `msiexec /qn` on Windows, and a Linux
+install with no desktop session or with `DEBIAN_FRONTEND=noninteractive`.
+
 The Linux packages leave a `.desktop` entry behind, written by `agent install`, so "anywhere-file
 settings" is in the applications menu and opens the page in a browser.
 
