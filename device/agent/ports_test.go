@@ -72,19 +72,29 @@ func TestAShareWhosePortIsTakenMovesToANewOne(t *testing.T) {
 	a.Command = append(a.Command, "--", "--port", oldPort)
 	shortBackoff(t)
 
+	log, read := logToBuffer()
+	t.Cleanup(func() {
+		if t.Failed() {
+			t.Log(read())
+		}
+	})
 	dir := agentDir(t)
-	ag := newAgent(dir, testKey(t), &state{Name: "pc1", Apps: []app{a}}, discard)
+	st := &state{Name: "pc1", Apps: []app{a}}
+	if err := saveState(dir, st); err != nil {
+		t.Fatal(err)
+	}
+	ag := newAgent(dir, testKey(t), st, log)
 	ctx, cancel := context.WithCancel(t.Context())
-	apps := newSupervisor(ctx, discard, ag.moveApp)
+	apps := newSupervisor(ctx, log, ag.moveApp)
 	ag.onApps = apps.set
 	apps.set([]app{a})
 	defer func() { cancel(); apps.wait() }()
 
 	waitFor(t, 30*time.Second, func() bool {
 		st, err := loadState(dir)
-		return err == nil && len(st.Apps) == 1 && st.Apps[0].Address != a.Address
+		return err == nil && st.Apps[0].Address != a.Address
 	}, "the registry still has the taken port")
-	st, err := loadState(dir)
+	st, err = loadState(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
