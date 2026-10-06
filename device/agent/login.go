@@ -186,16 +186,26 @@ func (a *agent) logout(ctx context.Context) (*state, error) {
 	if err := a.post(ctx, st.Server, "/v1/devices/unenrol", []byte("{}"), nil); err != nil {
 		return nil, err
 	}
-	a.mu.Lock()
-	a.st.Server, a.st.DeviceID = "", ""
-	a.login = login{}
-	a.mu.Unlock()
-	after := a.snapshot()
-	if err := saveState(a.dir, after); err != nil {
+	after, err := a.forgetAccount(st.Server)
+	if err != nil {
 		return nil, err
 	}
 	a.log.Info("signed out", "server", st.Server, "device", st.DeviceID)
 	return after, nil
+}
+
+// forgetAccount leaves this PC on no account, as a sign out does, and writes that down. It
+// is also what the agent does when the server says an admin removed the PC (#189). A PC
+// signed in to another server in the meantime is left alone.
+func (a *agent) forgetAccount(server string) (*state, error) {
+	a.mu.Lock()
+	if a.st.Server == server {
+		a.st.Server, a.st.DeviceID = "", ""
+		a.login = login{}
+	}
+	a.mu.Unlock()
+	after := a.snapshot()
+	return after, saveState(a.dir, after)
 }
 
 // loginCheckEvery is how often the command asks the running agent how the approval went.

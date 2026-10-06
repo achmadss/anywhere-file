@@ -18,6 +18,7 @@ const (
 	listDevicesLimit = 60
 	listUsersLimit   = 60
 	revokeLimit      = 30
+	removeLimit      = 30
 )
 
 var errLastAdmin = errors.New("last admin")
@@ -29,6 +30,7 @@ func registerBindingRoutes(mux *http.ServeMux, db *pgxpool.Pool, log *slog.Logge
 	mux.Handle("GET /v1/devices", wrap(listDevicesLimit, requireSession(db, listDevices(db, reg))))
 	mux.Handle("GET /v1/devices/{id}/users", wrap(listUsersLimit, requireSession(db, listDeviceUsers(db))))
 	mux.Handle("POST /v1/devices/{id}/users/{user}/revoke", wrap(revokeLimit, requireSession(db, revokeBinding(db, log))))
+	mux.Handle("POST /v1/devices/{id}/remove", wrap(removeLimit, requireSession(db, removeDevice(db, log, reg))))
 }
 
 // isActiveAdmin reports whether the account holds an unrevoked admin binding on the device.
@@ -194,6 +196,58 @@ func revokeBinding(db *pgxpool.Pool, log *slog.Logger) http.HandlerFunc {
 			return
 		}
 		log.Info("binding revoked", "device", deviceID, "user", target, "by", a.id)
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	}
+}
+
+// removeDevice is an admin taking a PC off the account for everyone, for a PC that will
+// never sign itself out because it was sold, broke or lost its agent (#189). It ends where
+// the PC's own sign out ends: every binding revoked and the tunnel closed. The device row
+// stays active, so signing in again on the PC brings it back. A guest, a revoked admin and
+// a stranger all get the same 404.
+func removeDevice(db *pgxpool.Pool, log *slog.Logger, reg *tunnelRegistry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		a, _, ok := accountFromContext(r.Context())
+		if !ok {
+			writeAuthError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		ctx := r.Context()
+		deviceID := r.PathValue("id")
+		if validateToken("device_id", deviceID) != nil {
+			writeAuthError(w, http.StatusNotFound, "not found")
+			return
+		}
+		err := inTx(ctx, db, func(tx pgx.Tx) error {
+			// The lock is the one revoke takes, so a revoke and a removal on one PC run in turn.
+			var one int
+			if err := tx.QueryRow(ctx, `SELECT 1 FROM devices WHERE device_id = $1 FOR UPDATE`, deviceID).Scan(&one); err != nil {
+				return err
+			}
+			if admin, err := isActiveAdmin(ctx, tx, deviceID, a.id); err != nil || !admin {
+				return pgx.ErrNoRows
+			}
+			if _, err := tx.Exec(ctx,
+				`UPDATE device_users SET revoked_at = now()
+				 WHERE device_id = $1 AND revoked_at IS NULL`, deviceID); err != nil {
+				return err
+			}
+			return appendAudit(ctx, tx, deviceID, a.id, ActionDeviceRemoved, AuditDetails{AccountID: a.id})
+		})
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			writeAuthError(w, http.StatusNotFound, "not found")
+			return
+		case err != nil:
+			writeAuthError(w, http.StatusInternalServerError, "try again later")
+			return
+		}
+		// Closing the tunnel makes the agent dial again, and that handshake tells it it was
+		// removed. The tunnel's own goroutine records the disconnect.
+		if t := reg.get(deviceID); t != nil {
+			t.close()
+		}
+		log.Info("device removed", "device", deviceID, "by", a.id)
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	}
 }

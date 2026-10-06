@@ -200,6 +200,31 @@ func TestAnUnenrolledAgentHasNothingToDial(t *testing.T) {
 	}
 }
 
+// An admin removed this PC in the app (#189). The next handshake says so, and the agent
+// signs out the way "Sign out" does, so its settings page stops claiming the account.
+func TestARemovedPCSignsItselfOutWhenItDialsAgain(t *testing.T) {
+	ts, srv := newTunnelServer(t)
+	ts.refuse, ts.message = http.StatusGone, "device removed from its account"
+
+	dir := agentDir(t)
+	ag := newAgent(dir, testKey(t), &state{Name: "pc1"}, discard)
+	ag.st.Server, ag.st.DeviceID = srv.URL, ag.key.deviceID()
+
+	if connected, err := ag.tunnelOnce(t.Context(), http.NotFoundHandler()); connected || err == nil {
+		t.Fatalf("connected = %v, err = %v, want a refusal", connected, err)
+	}
+	if ag.snapshot().enrolled() {
+		t.Error("the agent still claims an account after the server said it was removed")
+	}
+	reloaded, err := loadState(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.enrolled() {
+		t.Errorf("saved state = %+v, want a PC on no account", reloaded)
+	}
+}
+
 func TestASilentConnectionEndsInsteadOfLookingOpen(t *testing.T) {
 	client, server := net.Pipe()
 	t.Cleanup(func() { _ = client.Close(); _ = server.Close() })

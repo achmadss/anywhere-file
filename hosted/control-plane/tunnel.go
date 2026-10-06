@@ -37,15 +37,27 @@ const (
 )
 
 // tunnel is one live agent connection. cc sends requests down it; closing conn ends both.
+// closed lets the heartbeat stop waiting as soon as somebody closes it, so a removed PC is
+// offline at once rather than at the next ping.
 type tunnel struct {
 	deviceID string
 	cc       *http2.ClientConn
 	conn     net.Conn
+
+	once   sync.Once
+	closed chan struct{}
+}
+
+func newTunnel(deviceID string, cc *http2.ClientConn, conn net.Conn) *tunnel {
+	return &tunnel{deviceID: deviceID, cc: cc, conn: conn, closed: make(chan struct{})}
 }
 
 func (t *tunnel) close() {
-	_ = t.cc.Close()
-	_ = t.conn.Close()
+	t.once.Do(func() {
+		close(t.closed)
+		_ = t.cc.Close()
+		_ = t.conn.Close()
+	})
 }
 
 // tunnelRegistry maps a device to its live connection. One device has at most one: a
@@ -123,7 +135,11 @@ func (reg *tunnelRegistry) watch(t *tunnel) string {
 		every, timeout := reg.pingEvery, reg.pingTimeout
 		reg.mu.Unlock()
 
-		time.Sleep(every)
+		select {
+		case <-t.closed:
+			return reasonClosed
+		case <-time.After(every):
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		err := t.cc.Ping(ctx)
 		cancel()
@@ -172,6 +188,20 @@ func openTunnel(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *tunnelRegis
 			writeAuthError(w, http.StatusForbidden, "device disabled")
 			return
 		}
+		// A PC that belongs to no account was removed by its admin while it was away, or
+		// lost its last binding some other way. Saying so is what lets the agent sign itself
+		// out, rather than dial a server that has nothing to send it (#189).
+		var bound bool
+		if err := db.QueryRow(r.Context(),
+			`SELECT EXISTS (SELECT 1 FROM device_users WHERE device_id = $1 AND revoked_at IS NULL)`,
+			deviceID).Scan(&bound); err != nil {
+			writeAuthError(w, http.StatusInternalServerError, "try again later")
+			return
+		}
+		if !bound {
+			writeAuthError(w, http.StatusGone, "device removed from its account")
+			return
+		}
 
 		conn, buf, err := http.NewResponseController(w).Hijack()
 		if err != nil {
@@ -196,7 +226,7 @@ func openTunnel(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *tunnelRegis
 
 		// The request context ends with this handler, and the audit rows below outlive it.
 		ctx := context.WithoutCancel(r.Context())
-		t := &tunnel{deviceID: deviceID, cc: cc, conn: conn}
+		t := newTunnel(deviceID, cc, conn)
 		if old := reg.put(t); old != nil {
 			old.close()
 			m.RecordTunnelDisconnect(reasonReplaced)
