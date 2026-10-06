@@ -21,16 +21,19 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/achmadss/anywhere-file/internal/appname"
 )
@@ -75,7 +78,12 @@ func settingsToken(dir string) (string, error) {
 // person does in a browser and what they do over ssh end in the same state.
 func newSettings(ag *agent, token string) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /", servePage(ag, token))
+	mux.HandleFunc("GET /", servePage(ag.log, token, func() map[string]any {
+		return map[string]any{"Device": ag.snapshot().Name, "Fingerprint": ag.key.fingerprint()}
+	}))
+	mux.HandleFunc("GET /v1/keystore", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{"locked": false})
+	})
 	mux.HandleFunc("GET /v1/apps", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"apps": shares(ag.snapshot().Apps)})
 	})
@@ -83,6 +91,7 @@ func newSettings(ag *agent, token string) http.Handler {
 	mux.HandleFunc("DELETE /v1/apps/{name}", removeShare(ag))
 	mux.HandleFunc("GET /v1/browse", browse)
 	mux.HandleFunc("GET /v1/network", networkStatus)
+	mux.HandleFunc("GET /v1/version", versionStatus(ag))
 	mux.HandleFunc("GET /v1/account", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, ag.account())
 	})
@@ -137,27 +146,120 @@ func loopbackHost(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-func servePage(ag *agent, token string) http.HandlerFunc {
+func servePage(log *slog.Logger, token string, data func() map[string]any) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
 		home, _ := os.UserHomeDir()
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		page := data()
 		// The token is rendered into the page, so its own requests carry it in a header.
 		// Another site cannot read it and cannot set that header, which is what keeps a
 		// page in the same browser from re-sharing this PC's disk.
-		err := settingsPage.Execute(w, map[string]any{
-			"Token":   token,
-			"Device":  ag.snapshot().Name,
-			"Home":    home,
-			"Version": version,
-		})
-		if err != nil {
-			ag.log.Error("the settings page did not render", "err", err)
+		page["Token"], page["Home"], page["Version"] = token, home, version
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if err := settingsPage.Execute(w, page); err != nil {
+			log.Error("the settings page did not render", "err", err)
 		}
 	}
+}
+
+// settingsSwitch is the endpoint from before the device key loads (#225). Until ready is
+// called it answers that the key store is locked, names the store and says what unlocks
+// it, and every route that needs the key answers an error. A locked store is a wait and
+// never a new key, so nothing here touches the store.
+func settingsSwitch(store seedStore, token string, log *slog.Logger) (h http.Handler, ready func(*agent)) {
+	name, unlock := keystoreHelp(store)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /{$}", servePage(log, token, func() map[string]any {
+		return map[string]any{"Device": defaultDeviceName(), "Locked": map[string]string{"Store": name, "Unlock": unlock}}
+	}))
+	mux.HandleFunc("GET /v1/keystore", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{"locked": true, "store": name, "unlock": unlock})
+	})
+	mux.HandleFunc("/v1/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+			"error": "this PC's key is in " + name + ", which is locked. " + unlock,
+		})
+	})
+	var current atomic.Pointer[http.Handler]
+	locked := settingsGuard(mux, token, log)
+	current.Store(&locked)
+	h = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { (*current.Load()).ServeHTTP(w, r) })
+	return h, func(ag *agent) {
+		open := newSettings(ag, token)
+		current.Store(&open)
+	}
+}
+
+// keystoreHelp names the store the device key is in and says what unlocks it, in the
+// words the settings page shows.
+func keystoreHelp(store seedStore) (name, unlock string) {
+	if f, ok := store.(fileStore); ok {
+		return "the file " + f.path, "Check that the agent's own account can read it, with mode 0600 in a folder with mode 0700."
+	}
+	switch runtime.GOOS {
+	case "darwin":
+		return "the macOS login keychain", "Unlock the login keychain in Keychain Access, or log out and in again."
+	case "windows":
+		return "Windows Credential Manager", "Sign in to Windows as the person this agent runs for."
+	}
+	return "the Secret Service keyring", "Unlock the login keyring in your desktop's passwords app, or log out and in again."
+}
+
+// versionStatus says which release this agent is, and which one is current when the server
+// this PC knows has a newer one (#190). The agent asks rather than the page, because the
+// page could only reach the server with CORS opened for it. A PC that knows no server, or
+// a server that does not answer, gets no warning.
+func versionStatus(ag *agent) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		out := map[string]string{"version": version}
+		server := ag.snapshot().Server
+		if server == "" {
+			writeJSON(w, http.StatusOK, out)
+			return
+		}
+		var latest struct {
+			Version string `json:"version"`
+		}
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, server+"/v1/version", nil)
+		if err == nil {
+			if resp, err := ag.hc.Do(req); err == nil {
+				if resp.StatusCode == http.StatusOK {
+					_ = json.NewDecoder(io.LimitReader(resp.Body, 1<<12)).Decode(&latest)
+				}
+				resp.Body.Close()
+			}
+		}
+		if newer(latest.Version, version) {
+			out["latest"] = latest.Version
+			out["download"] = server + "/download"
+		}
+		writeJSON(w, http.StatusOK, out)
+	}
+}
+
+// newer reports whether release a comes after release b, both as 1.4.0. Anything else,
+// such as a build by hand saying dev, is never older or newer than anything.
+func newer(a, b string) bool {
+	parse := func(v string) []int {
+		parts := strings.Split(v, ".")
+		if len(parts) != 3 {
+			return nil
+		}
+		out := make([]int, 3)
+		for i, p := range parts {
+			n, err := strconv.Atoi(p)
+			if err != nil || n < 0 {
+				return nil
+			}
+			out[i] = n
+		}
+		return out
+	}
+	x, y := parse(a), parse(b)
+	return x != nil && y != nil && slices.Compare(x, y) > 0
 }
 
 // share is one entry as the page and the CLI show it. The directory is what the person
@@ -390,11 +492,8 @@ func shareName(dir string, taken []app) string {
 }
 
 // freePort asks the OS for a port nobody is using and gives it straight back, because the
-// program that will hold it takes a number rather than an open socket.
-//
-// ponytail: something else can take the port in between. It would be caught as an
-// application that will not start, in the log, and the answer is to remove the share and
-// add it again. Hand the listener over if that ever happens to anybody.
+// program that will hold it takes a number rather than an open socket. Something else can
+// take it later, and the supervisor then moves the share to a new one (withFreePort).
 func freePort() (string, error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

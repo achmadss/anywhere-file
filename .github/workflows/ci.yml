@@ -183,6 +183,8 @@ jobs:
       RFM_AGENT_MDNS: "off"
       RFM_AGENT_TUNNEL: "off"
       RFM_AGENT_KEYSTORE: file
+      # #190: the script downloads the last release to upgrade from.
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-go
@@ -190,7 +192,7 @@ jobs:
       # desktop is already true.
       - if: runner.os == 'Linux'
         run: sudo loginctl enable-linger "$USER"
-      - name: install the package, uninstall it, install it again
+      - name: upgrade from the last release, uninstall, install again
         run: .github/scripts/package-round-trip.sh
 
   rules:

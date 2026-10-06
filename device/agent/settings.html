@@ -40,8 +40,8 @@
 
   #error, .line { align-items: center; display: flex; gap: 8px; }
   #error span, .line span { color: var(--error); overflow-wrap: anywhere; }
-  /* The network warning is the error line with the steps to fix it under its text. */
-  #network ol { list-style-position: inside; margin: 4px 0 0; padding: 0 0 0 32px; }
+  /* The network and key store warnings are the error line with the fix under its text. */
+  #network ol, #locked .fix { list-style-position: inside; margin: 4px 0 0; padding: 0 0 0 32px; }
 
   ul { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
   .share { align-items: center; display: flex; gap: 16px; padding: 8px 0; }
@@ -50,6 +50,7 @@
   .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 
   .card { border: 1px solid var(--outline-variant); border-radius: 16px; display: flex; flex-direction: column; gap: 4px; padding: 16px; }
+  #fingerprint { font-family: ui-monospace, monospace; font-size: 16px; line-height: 24px; overflow-wrap: anywhere; }
   #here { font-size: 16px; font-weight: 500; letter-spacing: .15px; line-height: 24px; overflow-wrap: anywhere; }
   #dirs { gap: 0; }
   .walk { align-items: center; background: none; border: 0; border-radius: 8px; color: var(--on-surface); cursor: pointer;
@@ -87,6 +88,19 @@
   <symbol id="i-error" viewBox="0 0 24 24"><path d="M12 17C12.2833 17 12.5208 16.9042 12.7125 16.7125C12.9042 16.5208 13 16.2833 13 16C13 15.7167 12.9042 15.4792 12.7125 15.2875C12.5208 15.0958 12.2833 15 12 15C11.7167 15 11.4792 15.0958 11.2875 15.2875C11.0958 15.4792 11 15.7167 11 16C11 16.2833 11.0958 16.5208 11.2875 16.7125C11.4792 16.9042 11.7167 17 12 17ZM11 13H13V7H11V13ZM12 22C10.6167 22 9.31667 21.7375 8.1 21.2125C6.88333 20.6875 5.825 19.975 4.925 19.075C4.025 18.175 3.3125 17.1167 2.7875 15.9C2.2625 14.6833 2 13.3833 2 12C2 10.6167 2.2625 9.31667 2.7875 8.1C3.3125 6.88333 4.025 5.825 4.925 4.925C5.825 4.025 6.88333 3.3125 8.1 2.7875C9.31667 2.2625 10.6167 2 12 2C13.3833 2 14.6833 2.2625 15.9 2.7875C17.1167 3.3125 18.175 4.025 19.075 4.925C19.975 5.825 20.6875 6.88333 21.2125 8.1C21.7375 9.31667 22 10.6167 22 12C22 13.3833 21.7375 14.6833 21.2125 15.9C20.6875 17.1167 19.975 18.175 19.075 19.075C18.175 19.975 17.1167 20.6875 15.9 21.2125C14.6833 21.7375 13.3833 22 12 22Z"/></symbol>
 </svg>
 
+{{if .Locked}}
+<main>
+  <section>
+    <h1>{{.Device}}</h1>
+    <div id="locked" class="body-medium">
+      <p class="line"><svg><use href="#i-error"/></svg><span>This PC's key is in {{.Locked.Store}}, which is locked. Nothing is shared until it is unlocked.</span></p>
+      <p class="fix">{{.Locked.Unlock}}</p>
+      <p class="fix variant">This page carries on by itself once it is unlocked.</p>
+    </div>
+  </section>
+  <p class="body-small variant">Version {{.Version}}</p>
+</main>
+{{else}}
 <main>
   <section>
     <h1>{{.Device}}</h1>
@@ -117,6 +131,12 @@
     </div>
   </section>
 
+  <section>
+    <h2>This device</h2>
+    <p id="fingerprint">{{.Fingerprint}}</p>
+    <p class="body-small variant">The app shows this code under "Show code". If the two are not the same, the app is not talking to this PC.</p>
+  </section>
+
   <section id="account-section">
     <h2>Account</h2>
     <p id="account" class="body-medium"></p>
@@ -135,8 +155,13 @@
     <button id="signout" class="outlined">Sign out</button>
   </section>
 
-  <p class="body-small variant">Version {{.Version}}</p>
+  <section>
+    <p class="body-small variant">Version {{.Version}}</p>
+    <p id="update" class="body-medium" hidden>Version <span id="latest"></span> is out.
+      <a id="download" target="_blank" rel="noreferrer">Download it</a> and install it over this one. What this PC shares and its account stay.</p>
+  </section>
 </main>
+{{end}}
 
 <script>
 const token = "{{.Token}}";
@@ -154,6 +179,10 @@ async function api(method, path, body) {
   return out;
 }
 
+{{if .Locked}}
+// The key loads in the agent, so the page asks until it has and then loads the full page.
+setInterval(() => api("GET", "/v1/keystore").then(out => { if (!out.locked) location.reload(); }).catch(() => {}), 2000);
+{{else}}
 function show(err) {
   const line = document.getElementById("error");
   line.hidden = !err;
@@ -236,7 +265,7 @@ function drawAccount(acc) {
   const waiting = acc.login.waiting;
   const out = !acc.enrolled && !waiting;
   document.getElementById("account").textContent = acc.enrolled
-    ? "This PC belongs to the account at " + acc.server + ", as device " + acc.device_id + "."
+    ? "This PC belongs to the account at " + acc.server + "."
     : "This PC belongs to no account. Folders above are shared on the LAN either way.";
   document.getElementById("account").hidden = waiting;
   const approve = document.getElementById("approve");
@@ -291,5 +320,13 @@ window.addEventListener("focus", checkNetwork);
 checkNetwork();
 api("GET", "/v1/apps").then(out => drawShares(out.apps)).catch(show);
 api("GET", "/v1/account").then(drawAccount).catch(show);
+// The agent asks the server, so a server that does not answer only means no line here.
+api("GET", "/v1/version").then(out => {
+  if (!out.latest) return;
+  document.getElementById("latest").textContent = out.latest;
+  document.getElementById("download").href = out.download;
+  document.getElementById("update").hidden = false;
+}).catch(() => {});
 go(home);
+{{end}}
 </script>
