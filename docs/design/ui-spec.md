@@ -911,17 +911,21 @@ The page:
      lowercase with hyphens. Names: lowercase letters, digits, hyphens, 32 characters at
      most, unique on this PC.
    - Button "Share this folder". Shares the folder currently open in the walker.
-6. **Account**
+6. **This device**: the PC's fingerprint, the same text `agent key` prints (#176). Under it:
+   "The app shows this code under "Show code". If the two are not the same, the app is not
+   talking to this PC."
+7. **Account**
    - Not on an account: "This PC belongs to no account. Folders above are shared on the LAN
      either way." A "Sign in" button. The "Server" field is shown today; `NEW`: it is
      hidden behind "Use a different server", because the hosted server is built in.
    - Waiting for approval: "Approve this PC at {link}, where the code is {CODE}." The page
      also opens that link in a new tab. It checks every 2 seconds and changes when the
      person approves or refuses on the website.
-   - On an account: "This PC belongs to the account at {server}, as device {device id}." A
-     "Sign out" button, which takes the PC off the account.
+   - On an account: "This PC belongs to the account at {server}." A "Sign out" button, which
+     takes the PC off the account. The device id is left out so the page has one code to
+     compare.
 
-7. `NEW` **Error reports**: a checkbox "Send error reports to ProductName", checked at first,
+8. `NEW` **Error reports**: a checkbox "Send error reports to ProductName", checked at first,
    with the line "When something fails, this PC sends what happened. Never your files or their
    names." (ADR 0007).
 
