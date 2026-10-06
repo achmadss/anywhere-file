@@ -65,6 +65,12 @@ class ServerSharingTest {
             assertTrue(guest.session.remote!!.isEmpty(), "the PC is still on the guest's list")
             assertEquals(1, owner.session.users(pc).size, "a removed guest is still listed")
             println("removed the guest")
+
+            // The admin removes the PC for everyone, and it is gone from their list too.
+            owner.session.remove(pc)
+            owner.session.refresh()
+            assertTrue(owner.session.remote!!.isEmpty(), "a removed PC is still on the admin's list")
+            println("removed the PC")
         }
     }
 

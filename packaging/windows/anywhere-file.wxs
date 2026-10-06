@@ -60,6 +60,10 @@
          installed rather than to the account the installer service happens to run as. -->
     <CustomAction Id="InstallAgentService" FileRef="agent.exe" ExeCommand="install [AGENTENV]"
                   Execute="deferred" Impersonate="yes" Return="ignore" />
+    <!-- #189: a removal signs the PC out first, so it leaves its account. An upgrade removes
+         the old product too, and keeps the account (#190), hence UPGRADINGPRODUCTCODE. -->
+    <CustomAction Id="SignOutAgent" FileRef="agent.exe" ExeCommand="logout"
+                  Execute="deferred" Impersonate="yes" Return="ignore" />
     <CustomAction Id="UninstallAgentService" FileRef="agent.exe" ExeCommand="uninstall"
                   Execute="deferred" Impersonate="yes" Return="ignore" />
     <!-- #185: the settings page opens when the install ends. Immediate, so it runs as the
@@ -71,6 +75,7 @@
     <InstallExecuteSequence>
       <Custom Action="InstallAgentService" After="InstallFiles" Condition="NOT REMOVE" />
       <!-- Before the files go, because the thing being run is one of them. -->
+      <Custom Action="SignOutAgent" Before="UninstallAgentService" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
       <Custom Action="UninstallAgentService" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot;" />
       <Custom Action="OpenSettings" After="InstallFinalize" Condition="NOT REMOVE AND UILevel &gt; 3" />
     </InstallExecuteSequence>

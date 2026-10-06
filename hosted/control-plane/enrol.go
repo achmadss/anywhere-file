@@ -150,11 +150,15 @@ func enrolDevice(db *pgxpool.Pool, log *slog.Logger) http.HandlerFunc {
 			if status != "active" {
 				return errDeviceDisabled
 			}
-			// A user already bound to this device keeps their row and role.
+			// A user already bound to this device keeps their row and role. One whose binding
+			// was revoked, by a sign out or a removal, is signing the PC back in, and comes back
+			// as its admin on the same row.
 			if _, err := tx.Exec(ctx,
 				`INSERT INTO device_users (device_id, user_id, role, created_by)
 				 VALUES ($1, $2::uuid, 'admin', $2::uuid)
-				 ON CONFLICT (device_id, user_id) DO NOTHING`, deviceID, accountID); err != nil {
+				 ON CONFLICT (device_id, user_id) DO UPDATE
+				   SET role = 'admin', revoked_at = NULL, created_by = EXCLUDED.created_by
+				   WHERE device_users.revoked_at IS NOT NULL`, deviceID, accountID); err != nil {
 				return err
 			}
 			return appendAudit(ctx, tx, deviceID, accountID, ActionDeviceEnrolled,

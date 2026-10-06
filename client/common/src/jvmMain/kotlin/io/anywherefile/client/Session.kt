@@ -148,6 +148,11 @@ class ControlPlane(private val base: String) {
         if (status != 200) throw refusal(status, answer)
     }
 
+    fun remove(token: String, device: String) {
+        val (status, answer) = call("POST", "/v1/devices/$device/remove", token = token)
+        if (status != 200) throw refusal(status, answer)
+    }
+
     // invite makes a single-use code. The expiry is a Go duration, such as "24h", which is
     // what the server parses.
     fun invite(token: String, device: String, role: String, expiresIn: String): Invitation {
@@ -322,6 +327,8 @@ class Session(private val store: SessionStore, private val address: ServerAddres
     override suspend fun users(device: String) = ControlPlane(server).users(held(), device)
 
     override suspend fun revoke(device: String, user: String) = ControlPlane(server).revoke(held(), device, user)
+
+    override suspend fun remove(device: String) = ControlPlane(server).remove(held(), device)
 
     override suspend fun invite(device: String, role: String, expiresIn: String) =
         ControlPlane(server).invite(held(), device, role, expiresIn)

@@ -12,6 +12,14 @@ One package per operating system. Each one places the agent and the dufs binary,
 Both write into `dist/`. `VERSION` sets the version and defaults to `0.0.0`. The dufs
 version is `dufs.version`, and the binary is downloaded from its release page at build time.
 
+## Removing
+
+Removing a package signs the PC out of its account first, so it leaves the lists of its
+admin and guests (#189). Upgrading keeps the account (#190). When the server can't be
+reached the removal goes ahead, and the admin removes the PC in the app. The deb signs out
+only when it is removed, the MSI only when it is not being replaced by a newer one, and
+`uninstall.sh` on Linux and `uninstall` on macOS every time.
+
 ## Publishing
 
 Pushing a tag such as `v0.1.0` runs `.github/workflows/release.yml`, which builds the three

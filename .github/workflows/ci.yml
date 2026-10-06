@@ -314,6 +314,7 @@ jobs:
           grep -q "signed in as" common/build/test-results/desktopTest/TEST-*ServerAccountTest.xml
           grep -q "noticed a session the server ended" common/build/test-results/desktopTest/TEST-*ServerAccountTest.xml
           grep -q "removed the guest" common/build/test-results/desktopTest/TEST-*ServerSharingTest.xml
+          grep -q "removed the PC" common/build/test-results/desktopTest/TEST-*ServerSharingTest.xml
       - if: failure()
         run: |
           cat "$RUNNER_TEMP/agent.log"
