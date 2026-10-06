@@ -1,0 +1,34 @@
+name: setup-go
+description: Go at the go.mod version, with its module and build caches.
+# setup-go's own cache is keyed on go.sum alone and has no fallback, so it saves one entry
+# per go.sum and the build cache in it never moves on. This one is saved after every run on
+# main, keyed by job and commit, and a run starts from the newest entry its job has. Pull
+# requests only read, so they cannot push main's entries out of the repository's cache space.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v6
+      with:
+        go-version-file: go.mod
+        cache: false
+    - id: paths
+      shell: bash
+      run: |
+        echo "mod=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+        echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+    - if: github.ref == 'refs/heads/main'
+      uses: actions/cache@v6
+      with:
+        path: |
+          ${{ steps.paths.outputs.mod }}
+          ${{ steps.paths.outputs.build }}
+        key: go-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+        restore-keys: go-${{ runner.os }}-${{ github.job }}-
+    - if: github.ref != 'refs/heads/main'
+      uses: actions/cache/restore@v6
+      with:
+        path: |
+          ${{ steps.paths.outputs.mod }}
+          ${{ steps.paths.outputs.build }}
+        key: go-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+        restore-keys: go-${{ runner.os }}-${{ github.job }}-
