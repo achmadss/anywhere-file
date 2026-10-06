@@ -38,8 +38,10 @@
   svg { fill: currentColor; flex: none; height: 24px; width: 24px; }
   [hidden] { display: none !important; }
 
-  #error { align-items: center; display: flex; gap: 8px; }
-  #error span { color: var(--error); overflow-wrap: anywhere; }
+  #error, .line { align-items: center; display: flex; gap: 8px; }
+  #error span, .line span { color: var(--error); overflow-wrap: anywhere; }
+  /* The network warning is the error line with the steps to fix it under its text. */
+  #network ol { list-style-position: inside; margin: 4px 0 0; padding: 0 0 0 32px; }
 
   ul { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
   .share { align-items: center; display: flex; gap: 16px; padding: 8px 0; }
@@ -89,6 +91,10 @@
   <section>
     <h1>{{.Device}}</h1>
     <p class="body-large variant">Folders on this PC that you can reach from anywhere.</p>
+    <div id="network" class="body-medium" hidden>
+      <p class="line"><svg><use href="#i-error"/></svg><span id="network-text"></span></p>
+      <ol></ol>
+    </div>
     <p id="error" class="body-medium" hidden><svg><use href="#i-error"/></svg><span></span></p>
   </section>
 
@@ -273,6 +279,16 @@ document.getElementById("signout").onclick = async () => {
   catch (e) { show(e); }
 };
 
+// Fixing the network happens in another window, so the page asks again when it is back.
+function checkNetwork() {
+  api("GET", "/v1/network").then(out => {
+    document.getElementById("network").hidden = !out.problem;
+    document.getElementById("network-text").textContent = out.message || "";
+    document.querySelector("#network ol").replaceChildren(...(out.steps || []).map(s => el("li", "", s)));
+  }).catch(show);
+}
+window.addEventListener("focus", checkNetwork);
+checkNetwork();
 api("GET", "/v1/apps").then(out => drawShares(out.apps)).catch(show);
 api("GET", "/v1/account").then(drawAccount).catch(show);
 go(home);

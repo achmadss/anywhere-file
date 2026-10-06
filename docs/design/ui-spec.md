@@ -888,10 +888,22 @@ Opened by:
 The page:
 
 1. Heading: the PC's name. Under it: "Folders on this PC that you can reach from anywhere."
-2. An error line, empty unless something failed.
-3. **Shared now**: one row per shared folder with its name and its path on disk, and a button
+2. A network warning, hidden unless devices on the Wi-Fi probably can't reach this PC (#219).
+   It looks like the error line, with numbered steps under it. The page checks again each
+   time its tab comes back into focus, so the warning goes away once fixed.
+   - Windows, on a network Windows calls public: "Devices on this Wi-Fi can't reach this
+     PC. Windows treats this network as public, and its firewall keeps them out." Steps:
+     "Open Settings, then Network and internet.", "Open Wi-Fi or Ethernet, whichever this
+     PC uses, then the properties of this network.", "Under Network profile type, choose
+     Private network."
+   - macOS, with the Local Network permission off: "Devices on this Wi-Fi can't find this
+     PC. macOS has not allowed anywhere-file to use the local network." Steps: "Open System
+     Settings, then Privacy and Security, then Local Network.", "Turn on anywhere-file."
+   - Linux: never shown. There is no one place to ask what the firewall lets in.
+3. An error line, empty unless something failed.
+4. **Shared now**: one row per shared folder with its name and its path on disk, and a button
    "Stop sharing". Empty: "Nothing yet. Pick a folder below."
-4. **Add a folder**: a folder walker.
+5. **Add a folder**: a folder walker.
    - The current path.
    - A row "↑ {parent}" to go up.
    - One row per subfolder. Tapping walks into it.
@@ -899,7 +911,7 @@ The page:
      lowercase with hyphens. Names: lowercase letters, digits, hyphens, 32 characters at
      most, unique on this PC.
    - Button "Share this folder". Shares the folder currently open in the walker.
-5. **Account**
+6. **Account**
    - Not on an account: "This PC belongs to no account. Folders above are shared on the LAN
      either way." A "Sign in" button. The "Server" field is shown today; `NEW`: it is
      hidden behind "Use a different server", because the hosted server is built in.
@@ -909,7 +921,7 @@ The page:
    - On an account: "This PC belongs to the account at {server}, as device {device id}." A
      "Sign out" button, which takes the PC off the account.
 
-6. `NEW` **Error reports**: a checkbox "Send error reports to ProductName", checked at first,
+7. `NEW` **Error reports**: a checkbox "Send error reports to ProductName", checked at first,
    with the line "When something fails, this PC sends what happened. Never your files or their
    names." (ADR 0007).
 
