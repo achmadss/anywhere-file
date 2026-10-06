@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
+	"html"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -356,5 +359,84 @@ func TestThePageShowsTheVersionAndTheDevice(t *testing.T) {
 		if !strings.Contains(page, want) {
 			t.Errorf("the page has no %q", want)
 		}
+	}
+}
+
+// The page shows the code `agent key` prints (#176), so a person can compare a PC with
+// what the app shows for it without a terminal.
+func TestThePageShowsTheFingerprintAgentKeyPrints(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.keystore = "file"
+	var out bytes.Buffer
+	if err := printKey(t.Context(), cfg, discard, &out); err != nil {
+		t.Fatal(err)
+	}
+	_, printed, ok := strings.Cut(out.String(), "fingerprint: ")
+	if !ok {
+		t.Fatalf("agent key printed no fingerprint:\n%s", out.String())
+	}
+	printed = strings.TrimSpace(printed)
+
+	store, err := openSeedStore(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := loadOrCreateKey(store, discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ag := newAgent(cfg.dir, key, &state{Name: "pc1", Apps: []app{}}, discard)
+	srv := httptest.NewServer(newSettings(ag, "token"))
+	t.Cleanup(srv.Close)
+	_, page := ask(t, srv, http.MethodGet, "/", "token", "")
+	// The template writes a + in the code as &#43;, which a browser shows as +.
+	page = html.UnescapeString(page)
+	if want := `<p id="fingerprint">` + printed + `</p>`; !strings.Contains(page, want) {
+		t.Errorf("the page has no %q", want)
+	}
+}
+
+// A locked key store is a normal state on a PC that just booted, and the page has to say
+// so rather than not load (#225). Once the key arrives the same endpoint is the full one.
+func TestTheSettingsEndpointSaysTheKeyStoreIsLocked(t *testing.T) {
+	dir := t.TempDir()
+	token, err := settingsToken(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &fakeStore{loadErr: errors.New("keychain is locked"), unlockAfter: 1 << 30}
+	h, ready := settingsSwitch(store, token, discard)
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
+
+	if _, err := loadOrCreateKey(store, discard); !errors.Is(err, errStoreLocked) {
+		t.Fatalf("the store answered %v, want locked", err)
+	}
+	status, body := ask(t, srv, http.MethodGet, "/v1/keystore", token, "")
+	if status != http.StatusOK || !strings.Contains(body, `"locked":true`) || !strings.Contains(body, `"unlock":`) {
+		t.Errorf("while locked, /v1/keystore answered %d %s", status, body)
+	}
+	if status, body := ask(t, srv, http.MethodGet, "/v1/apps", token, ""); status != http.StatusServiceUnavailable {
+		t.Errorf("while locked, /v1/apps answered %d %s, want 503", status, body)
+	}
+	if _, page := ask(t, srv, http.MethodGet, "/", token, ""); !strings.Contains(page, "which is locked") {
+		t.Errorf("while locked, the page does not say so:\n%s", page)
+	}
+	if store.saves != 0 {
+		t.Fatal("a key was written while the store was locked")
+	}
+
+	ready(newAgent(dir, testKey(t), &state{Name: "pc1", Apps: []app{}}, discard))
+	if status, body := ask(t, srv, http.MethodGet, "/v1/keystore", token, ""); status != http.StatusOK || !strings.Contains(body, `"locked":false`) {
+		t.Errorf("after the key loaded, /v1/keystore answered %d %s", status, body)
+	}
+	if status, body := ask(t, srv, http.MethodGet, "/v1/apps", token, ""); status != http.StatusOK {
+		t.Errorf("after the key loaded, /v1/apps answered %d %s, want 200", status, body)
+	}
+	if _, page := ask(t, srv, http.MethodGet, "/", token, ""); strings.Contains(page, "which is locked") || !strings.Contains(page, "Shared now") {
+		t.Errorf("after the key loaded, the page is not the full one:\n%s", page)
+	}
+	if status, _ := ask(t, srv, http.MethodGet, "/v1/keystore", "", ""); status != http.StatusUnauthorized {
+		t.Errorf("without the token answered %d, want 401", status)
 	}
 }

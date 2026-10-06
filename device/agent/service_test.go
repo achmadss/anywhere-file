@@ -263,6 +263,24 @@ func TestTheMacMenuBarItemStartsAtLogonAndIsNotKeptAlive(t *testing.T) {
 	}
 }
 
+// macOS gives a Background job less CPU and slower disk (#224). The agent serves
+// transfers someone is waiting on, so it must not be one.
+func TestTheMacAgentJobIsNotThrottledAsBackground(t *testing.T) {
+	p, err := servicePlanFor(testPlanInput("darwin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range p.files {
+		want := "<key>ProcessType</key>\n\t<string>Standard</string>"
+		if strings.HasSuffix(f.path, menubarLabel+".plist") {
+			want = "<key>ProcessType</key>\n\t<string>Interactive</string>"
+		}
+		if !strings.Contains(f.body, want) {
+			t.Errorf("%s has no %q:\n%s", f.path, want, f.body)
+		}
+	}
+}
+
 func windowsTaskBody(t *testing.T, p servicePlan, name string) string {
 	t.Helper()
 	for _, f := range p.files {
