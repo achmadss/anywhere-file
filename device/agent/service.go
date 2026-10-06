@@ -119,7 +119,7 @@ var darwinPlist = template.Must(template.New("plist").Funcs(template.FuncMap{"x"
 	<key>KeepAlive</key>
 	<true/>
 	<key>ProcessType</key>
-	<string>Background</string>
+	<string>Standard</string>
 {{- end}}
 	<!-- The agent writes and rotates its own log. What reaches stderr is what comes before
 	     the log is open, and a crash. -->
