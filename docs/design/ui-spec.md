@@ -928,6 +928,11 @@ The page:
 8. `NEW` **Error reports**: a checkbox "Send error reports to ProductName", checked at first,
    with the line "When something fails, this PC sends what happened. Never your files or their
    names." (ADR 0007).
+8. At the bottom, small: "Version {version}". When the server this PC knows has a newer
+   release (#190), under it: "Version {latest} is out. Download it and install it over this
+   one. What this PC shares and its account stay." "Download it" links to the server's
+   `/download` in a new tab. A PC that knows no server, or a server that does not answer,
+   shows only the version.
 
 While the PC's key store is locked (#225), the page shows only the heading, a notice and the
 version. The notice looks like the network warning: "This PC's key is in {store}, which is

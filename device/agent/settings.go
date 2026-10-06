@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -90,6 +91,7 @@ func newSettings(ag *agent, token string) http.Handler {
 	mux.HandleFunc("DELETE /v1/apps/{name}", removeShare(ag))
 	mux.HandleFunc("GET /v1/browse", browse)
 	mux.HandleFunc("GET /v1/network", networkStatus)
+	mux.HandleFunc("GET /v1/version", versionStatus(ag))
 	mux.HandleFunc("GET /v1/account", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, ag.account())
 	})
@@ -204,6 +206,60 @@ func keystoreHelp(store seedStore) (name, unlock string) {
 		return "Windows Credential Manager", "Sign in to Windows as the person this agent runs for."
 	}
 	return "the Secret Service keyring", "Unlock the login keyring in your desktop's passwords app, or log out and in again."
+}
+
+// versionStatus says which release this agent is, and which one is current when the server
+// this PC knows has a newer one (#190). The agent asks rather than the page, because the
+// page could only reach the server with CORS opened for it. A PC that knows no server, or
+// a server that does not answer, gets no warning.
+func versionStatus(ag *agent) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		out := map[string]string{"version": version}
+		server := ag.snapshot().Server
+		if server == "" {
+			writeJSON(w, http.StatusOK, out)
+			return
+		}
+		var latest struct {
+			Version string `json:"version"`
+		}
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, server+"/v1/version", nil)
+		if err == nil {
+			if resp, err := ag.hc.Do(req); err == nil {
+				if resp.StatusCode == http.StatusOK {
+					_ = json.NewDecoder(io.LimitReader(resp.Body, 1<<12)).Decode(&latest)
+				}
+				resp.Body.Close()
+			}
+		}
+		if newer(latest.Version, version) {
+			out["latest"] = latest.Version
+			out["download"] = server + "/download"
+		}
+		writeJSON(w, http.StatusOK, out)
+	}
+}
+
+// newer reports whether release a comes after release b, both as 1.4.0. Anything else,
+// such as a build by hand saying dev, is never older or newer than anything.
+func newer(a, b string) bool {
+	parse := func(v string) []int {
+		parts := strings.Split(v, ".")
+		if len(parts) != 3 {
+			return nil
+		}
+		out := make([]int, 3)
+		for i, p := range parts {
+			n, err := strconv.Atoi(p)
+			if err != nil || n < 0 {
+				return nil
+			}
+			out[i] = n
+		}
+		return out
+	}
+	x, y := parse(a), parse(b)
+	return x != nil && y != nil && slices.Compare(x, y) > 0
 }
 
 // share is one entry as the page and the CLI show it. The directory is what the person
