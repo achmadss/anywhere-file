@@ -929,6 +929,21 @@ The page:
    with the line "When something fails, this PC sends what happened. Never your files or their
    names." (ADR 0007).
 
+While the PC's key store is locked (#225), the page shows only the heading, a notice and the
+version. The notice looks like the network warning: "This PC's key is in {store}, which is
+locked. Nothing is shared until it is unlocked.", then what unlocks it, then "This page
+carries on by itself once it is unlocked." The page checks every 2 seconds and loads the
+full page once the key is readable, with no restart.
+
+- macOS: "the macOS login keychain". "Unlock the login keychain in Keychain Access, or log
+  out and in again."
+- Linux desktop: "the Secret Service keyring". "Unlock the login keyring in your desktop's
+  passwords app, or log out and in again."
+- Windows: "Windows Credential Manager". "Sign in to Windows as the person this agent runs
+  for."
+- The seed file: "the file {path}". "Check that the agent's own account can read it, with
+  mode 0600 in a folder with mode 0700."
+
 Sharing works on the LAN whether or not the PC is on an account.
 
 There is no file browsing, no list of connected people, no log viewer and no update button on
