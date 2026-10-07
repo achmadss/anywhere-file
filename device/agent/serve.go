@@ -14,6 +14,10 @@ import (
 // serve runs the gateway. The agent is a service with no window, so everything it has to
 // say goes to the log.
 func serve(ctx context.Context, cfg config, log *slog.Logger) error {
+	// What the log says when something fails also goes to the server, for a PC on an
+	// account that has not turned it off (ADR 0007).
+	reports := newReportQueue(cfg.dir)
+	log = slog.New(reportHandler{Handler: log.Handler(), q: reports})
 	store, err := openSeedStore(cfg)
 	if err != nil {
 		return err
@@ -28,6 +32,8 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	reports.setOn(ag.reporting)
+	go reports.run(ctx, ag)
 	settingsReady(ag)
 	key, st := ag.key, ag.snapshot()
 

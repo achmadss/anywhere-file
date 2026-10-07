@@ -80,6 +80,8 @@
   button.text:hover, button.outlined:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
   .card > button.filled, #account-section button { align-self: flex-start; }
   #account-section { gap: 12px; }
+  .check { align-items: center; cursor: pointer; display: flex; gap: 12px; }
+  .check input { accent-color: var(--primary); height: 18px; margin: 3px; width: 18px; }
 </style>
 
 <svg hidden xmlns="http://www.w3.org/2000/svg">
@@ -153,6 +155,12 @@
       <button id="other-server" class="text">Use a different server</button>
     </div>
     <button id="signout" class="outlined">Sign out</button>
+  </section>
+
+  <section>
+    <h2>Error reports</h2>
+    <label class="check body-large"><input type="checkbox" id="reports" checked>Send error reports to anywhere-file</label>
+    <p class="body-small variant">When something fails, this PC sends what happened. Never your files or their names.</p>
   </section>
 
   <section>
@@ -283,6 +291,7 @@ function drawAccount(acc) {
   document.getElementById("signin").hidden = !out;
   document.getElementById("other-server").hidden = !out || !acc.server || otherServer;
   document.getElementById("signout").hidden = !acc.enrolled;
+  document.getElementById("reports").checked = acc.error_reports;
   // Approving happens somewhere else, so the page asks how it went until it knows.
   if (waiting) setTimeout(() => api("GET", "/v1/account").then(drawAccount).catch(show), 2000);
 }
@@ -306,6 +315,12 @@ document.getElementById("signout").onclick = async () => {
   show(null);
   try { drawAccount(await api("POST", "/v1/account/logout", {})); }
   catch (e) { show(e); }
+};
+
+document.getElementById("reports").onchange = async e => {
+  show(null);
+  try { drawAccount(await api("POST", "/v1/error-reports", {on: e.target.checked})); }
+  catch (err) { e.target.checked = !e.target.checked; show(err); }
 };
 
 // Fixing the network happens in another window, so the page asks again when it is back.
