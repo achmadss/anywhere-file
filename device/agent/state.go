@@ -39,6 +39,9 @@ type state struct {
 	Server   string `json:"server,omitempty"`
 	DeviceID string `json:"device_id,omitempty"`
 	Apps     []app  `json:"apps"`
+	// ErrorReportsOff is the settings page's checkbox, kept the other way round so that a
+	// file written before it existed reads as on, which is how it starts (ADR 0007).
+	ErrorReportsOff bool `json:"error_reports_off,omitempty"`
 }
 
 func (s *state) enrolled() bool { return s.Server != "" && s.DeviceID != "" }

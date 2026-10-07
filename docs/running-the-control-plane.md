@@ -81,12 +81,20 @@ same link goes out as a message.
 | `RFM_SMTP_ADDR` | empty | `host:port` of the SMTP server, empty logs the message instead |
 | `RFM_SMTP_USER`, `RFM_SMTP_PASSWORD` | empty | credentials, when the server wants them |
 | `RFM_MAIL_FROM` | `no-reply@localhost` | the From address |
+| `RFM_OTLP_ENDPOINT` | empty | the OpenTelemetry collector that error reports go to, such as `http://collector:4318`; empty counts them in the log and drops them |
 | `RFM_INSECURE_COOKIES` | empty | drop the Secure flag from the session cookie, for plain HTTP locally |
 | `RFM_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
 | `RFM_SHUTDOWN_TIMEOUT` | `20s` | how long to drain in-flight requests |
 
 Set `RFM_BASE_URL` wherever a load balancer sits in front. Without it the link is built from
 the request, which carries the internal address in that setup and reaches nobody.
+
+## Error reports
+
+A PC on an account sends error reports to `POST /v1/devices/reports`, signed with its device
+key (ADR 0007). The server sets the device id and the account id from the key that signed,
+and posts the records to `$RFM_OTLP_ENDPOINT/v1/logs` as OTLP JSON. When the collector does
+not answer, the PC keeps the reports and sends them again later.
 
 The whole path, locally:
 

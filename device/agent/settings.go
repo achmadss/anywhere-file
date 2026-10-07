@@ -97,6 +97,20 @@ func newSettings(ag *agent, token string) http.Handler {
 	})
 	mux.HandleFunc("POST /v1/account/login", signIn(ag))
 	mux.HandleFunc("POST /v1/account/logout", signOut(ag))
+	mux.HandleFunc("POST /v1/error-reports", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			On bool `json:"on"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&in); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+			return
+		}
+		if err := ag.setErrorReports(in.On); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, ag.account())
+	})
 	return settingsGuard(mux, token, ag.log)
 }
 

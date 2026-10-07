@@ -98,8 +98,16 @@ func appProxy(a app, log *slog.Logger) http.Handler {
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			// No name and no path: both name folders and files (ADR 0007).
-			requestLog(r, log).Warn("application unreachable", "address", a.Address, "err", err)
+			requestLog(r, log).Warn("application unreachable", "address", a.Address, "err", err,
+				"error_code", "app_unreachable", "step", "proxy")
 			http.Error(w, "application unavailable", http.StatusBadGateway)
+		},
+		ModifyResponse: func(resp *http.Response) error {
+			if resp.StatusCode >= 500 {
+				requestLog(resp.Request, log).Warn("the application answered with a server error", "address", a.Address,
+					"status", resp.StatusCode, "error_code", "app_server_error", "step", "proxy")
+			}
+			return nil
 		},
 		ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelWarn),
 	}

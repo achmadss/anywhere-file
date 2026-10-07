@@ -113,6 +113,19 @@ func (a *agent) moveApp(moved app) {
 	}
 }
 
+// setErrorReports turns error reports on or off and writes that down.
+func (a *agent) setErrorReports(on bool) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	next := *a.st
+	next.ErrorReportsOff = !on
+	if err := saveState(a.dir, &next); err != nil {
+		return err
+	}
+	a.st.ErrorReportsOff = !on
+	return nil
+}
+
 // pushApps tells the server what this PC offers now. A failure is a log line: the next
 // change, the next start or the next tunnel sends it again.
 func (a *agent) pushApps(ctx context.Context) {

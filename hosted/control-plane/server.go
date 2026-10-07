@@ -27,6 +27,7 @@ func newHandlerWithTunnels(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *
 	registerDeviceRoutes(mux, db, log)
 	registerBindingRoutes(mux, db, log, reg)
 	registerAppRoutes(mux, db, log)
+	registerReportRoutes(mux, db, log)
 	registerInviteRoutes(mux, db, log)
 	registerSubscriptionRoutes(mux, db, log, m)
 	registerTunnelRoutes(mux, db, log, m, reg)

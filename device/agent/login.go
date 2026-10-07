@@ -44,13 +44,15 @@ type account struct {
 	DeviceID string `json:"device_id,omitempty"`
 	Enrolled bool   `json:"enrolled"`
 	Login    login  `json:"login"`
+	// ErrorReports is the checkbox on the settings page.
+	ErrorReports bool `json:"error_reports"`
 }
 
 func (a *agent) account() account {
 	st := a.snapshot()
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return account{Server: st.Server, DeviceID: st.DeviceID, Enrolled: st.enrolled(), Login: a.login}
+	return account{Server: st.Server, DeviceID: st.DeviceID, Enrolled: st.enrolled(), Login: a.login, ErrorReports: !st.ErrorReportsOff}
 }
 
 // startLogin asks the server for a code and leaves a goroutine waiting on the answer. It
