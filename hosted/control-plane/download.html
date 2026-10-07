@@ -15,10 +15,19 @@
 <p class="sub">Install it on each PC you want to reach. The one for this computer is first.</p>
 {{range .Systems}}
 <h2>{{.Name}}</h2>
-{{if .Files}}<ul>{{range .Files}}<li><a href="{{.URL}}">{{.Name}}</a></li>{{end}}</ul>
+{{if .Files}}<ul>{{range .Files}}<li><a href="{{.URL}}">{{.Name}}</a>{{with .Label}} ({{.}}){{end}}</li>{{end}}</ul>
 {{else}}<p class="small">No package for {{.Name}} in this release.</p>{{end}}
 <p class="small">{{.Warning}}</p>
 <p class="small">{{.Then}}</p>
+{{end}}
+{{if .Sums}}
+<h2>Checking a download</h2>
+<p class="small"><a href="{{.Sums}}">SHA256SUMS</a> lists a checksum for each file. Work out the checksum of the file you downloaded, with its name in place of FILE, and compare it with the line for that file. If they differ, delete the file and download it again.</p>
+<ul class="small">
+<li>macOS, in Terminal: <code>shasum -a 256 FILE</code></li>
+<li>Windows, in PowerShell: <code>Get-FileHash FILE</code>, or in a command prompt: <code>certutil -hashfile FILE SHA256</code>. PowerShell prints it in capitals, which makes no difference.</li>
+<li>Linux: <code>sha256sum -c SHA256SUMS --ignore-missing</code> in the folder holding SHA256SUMS and the download</li>
+</ul>
 {{end}}
 <p class="small">Everything in the release is at <a href="{{.Page}}">{{.Page}}</a>.</p>
 {{else}}

@@ -166,13 +166,14 @@ jobs:
     # runner cannot be rebooted, so what is proven here is the rest of the acceptance: the
     # package starts the service, the uninstall stops it, and a reinstall is the same device.
     # The installer runs `agent install`, so this is #33's acceptance too: the OS starts the
-    # agent, with nothing typed into a window.
+    # agent, with nothing typed into a window. The arm runner installs the arm64 deb.
     needs: changes
     if: needs.changes.outputs.package == 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # windows-11-arm installs the arm64 MSI (#227).
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -183,6 +184,8 @@ jobs:
       RFM_AGENT_MDNS: "off"
       RFM_AGENT_TUNNEL: "off"
       RFM_AGENT_KEYSTORE: file
+      # #190: the script downloads the last release to upgrade from.
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-go
@@ -190,8 +193,55 @@ jobs:
       # desktop is already true.
       - if: runner.os == 'Linux'
         run: sudo loginctl enable-linger "$USER"
-      - name: install the package, uninstall it, install it again
+      - name: upgrade from the last release, uninstall, install again
         run: .github/scripts/package-round-trip.sh
+
+  rpm:
+    # #226: the rpm, installed in a Fedora container, since no runner is Fedora.
+    needs: changes
+    if: needs.changes.outputs.package == 'true'
+    runs-on: ubuntu-latest
+    env:
+      RFM_AGENT_ADDR: 127.0.0.1:7433
+      RFM_AGENT_MDNS: "off"
+      RFM_AGENT_TUNNEL: "off"
+      RFM_AGENT_KEYSTORE: file
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-go
+      - run: sudo apt-get install -y rpm
+      - name: install the rpm, upgrade it, remove it
+        run: .github/scripts/rpm-round-trip.sh
+
+  reboot:
+    # #241: the reboot the package job cannot do, in an Ubuntu VM on the runner. Linux only,
+    # because only the Linux runner has KVM. Every push to main runs it, as the client job,
+    # so the image cache main saves stays fresh.
+    needs: changes
+    if: needs.changes.outputs.package == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_URL: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+      IMAGE: ${{ github.workspace }}/ubuntu.img
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-go
+      # GitHub's documented rule that lets the runner's user open /dev/kvm.
+      - run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -w /dev/kvm
+      - run: sudo apt-get update -q && sudo apt-get install -yq --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
+      - id: image
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.IMAGE }}
+          key: image-${{ env.IMAGE_URL }}
+      - if: steps.image.outputs.cache-hit != 'true'
+        run: curl -sSfLo "$IMAGE" "$IMAGE_URL"
+      - name: install the package, reboot, and the same device answers
+        run: .github/scripts/reboot.sh
 
   rules:
     # promtool is Prometheus's own rule checker: it parses every expression, which the Go
@@ -335,7 +385,7 @@ jobs:
   ci-ok:
     # The one check branch protection requires. Green when every job that ran passed, and
     # when a job was skipped because nothing in its language changed.
-    needs: [changes, go, dufs, e2e, package, rules, client, blockers, prose]
+    needs: [changes, go, dufs, e2e, package, rpm, reboot, rules, client, blockers, prose]
     if: always()
     runs-on: ubuntu-latest
     steps:

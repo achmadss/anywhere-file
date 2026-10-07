@@ -173,6 +173,11 @@ func openAgent(ctx context.Context, cfg config, log *slog.Logger) (*agent, error
 	if err != nil {
 		return nil, err
 	}
+	return loadAgent(ctx, cfg, store, log)
+}
+
+// loadAgent is openAgent with the store already chosen.
+func loadAgent(ctx context.Context, cfg config, store seedStore, log *slog.Logger) (*agent, error) {
 	key, err := waitForDeviceKey(ctx, store, log, cfg.storeRetry)
 	if err != nil {
 		return nil, err

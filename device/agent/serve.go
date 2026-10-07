@@ -14,16 +14,37 @@ import (
 // serve runs the gateway. The agent is a service with no window, so everything it has to
 // say goes to the log.
 func serve(ctx context.Context, cfg config, log *slog.Logger) error {
-	ag, err := openAgent(ctx, cfg, log)
+	store, err := openSeedStore(cfg)
 	if err != nil {
 		return err
 	}
+	// The settings page comes up before the key, so a locked key store is said there and
+	// not only in the log (#225). The gateway still waits for the key.
+	settingsReady, err := serveSettings(ctx, cfg, store, log)
+	if err != nil {
+		return err
+	}
+	ag, err := loadAgent(ctx, cfg, store, log)
+	if err != nil {
+		return err
+	}
+	settingsReady(ag)
 	key, st := ag.key, ag.snapshot()
 
 	// The applications the registry gives a command for are started here and stopped
 	// before the agent exits, after the gateway has stopped answering for them.
 	appCtx, stopApps := context.WithCancel(ctx)
-	apps := newSupervisor(appCtx, log)
+	apps := newSupervisor(appCtx, log, ag.moveApp)
+	handler := newGateway(ag)
+	// What happens when somebody changes what this PC shares. The applications come first,
+	// so an added one is more likely to be answering by the time its route appears. Set
+	// before anything starts, because a share that moves to a new port changes the list.
+	ag.onApps = func(list []app) {
+		apps.set(list)
+		handler.rebuild()
+		// A count, because the names are folder names (ADR 0007).
+		log.Info("the registry changed", "apps", len(list))
+	}
 	apps.set(st.Apps)
 	defer func() {
 		stopApps()
@@ -31,8 +52,11 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 	}()
 
 	// The listener comes first, because the port it lands on is what the LAN is told.
-	ln, err := net.Listen("tcp", cfg.addr)
+	ln, err := listenWhenFree(ctx, cfg.addr, cfg.addr, log)
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil // stopped while waiting for the port
+		}
 		return err
 	}
 	// The port, taken before the listener is wrapped, is what the LAN is told below.
@@ -45,19 +69,6 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 		return err
 	}
 	ln = tls.NewListener(ln, lanTLS(cert))
-	handler := newGateway(ag)
-	// What happens when somebody changes what this PC shares. The applications come first,
-	// so an added one is more likely to be answering by the time its route appears.
-	ag.onApps = func(list []app) {
-		apps.set(list)
-		handler.rebuild()
-		// A count, because the names are folder names (ADR 0007).
-		log.Info("the registry changed", "apps", len(list))
-	}
-	if err := serveSettings(ctx, cfg, ag); err != nil {
-		_ = ln.Close()
-		return err
-	}
 	srv := &http.Server{
 		Handler: handler,
 		// No write timeout: a download of a large file is the point of this service, and a
@@ -103,24 +114,26 @@ func serve(ctx context.Context, cfg config, log *slog.Logger) error {
 
 // serveSettings starts the loopback endpoint that `agent share` and the settings page both
 // use (#136). It is a second listener because the gateway is on the LAN, where access is
-// open by design, and choosing what the whole PC shares must not be.
-func serveSettings(ctx context.Context, cfg config, ag *agent) error {
+// open by design, and choosing what the whole PC shares must not be. The function it
+// returns hands the endpoint the agent once the device key has loaded.
+func serveSettings(ctx context.Context, cfg config, store seedStore, log *slog.Logger) (func(*agent), error) {
 	if cfg.settings == "" {
-		return nil
+		return func(*agent) {}, nil
 	}
 	token, err := settingsToken(cfg.dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ln, err := net.Listen("tcp", cfg.settings)
-	if err != nil {
+	if err != nil && !addrInUse(err) {
 		// Refused rather than carried on without. `agent share` writes the registry
 		// itself when nothing answers here, and doing that while this agent is serving
 		// would leave the two disagreeing until the next restart.
-		return fmt.Errorf("%w. Another agent may be running. Set RFM_AGENT_SETTINGS_ADDR to another loopback port, or to off", err)
+		return nil, fmt.Errorf("%w. Set RFM_AGENT_SETTINGS_ADDR to another loopback port, or to off", err)
 	}
+	handler, ready := settingsSwitch(store, token, log)
 	srv := &http.Server{
-		Handler:           newSettings(ag, token),
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
@@ -129,10 +142,16 @@ func serveSettings(ctx context.Context, cfg config, ag *agent) error {
 		_ = srv.Close()
 	}()
 	go func() {
+		// Another program has the port. Waited for here, so the gateway serves meanwhile.
+		if ln == nil {
+			if ln, err = listenWhenFree(ctx, cfg.settings, cfg.addr, log); err != nil {
+				return
+			}
+		}
+		log.Info("settings listening", "addr", "http://"+ln.Addr().String())
 		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			ag.log.Error("the settings endpoint stopped", "err", err)
+			log.Error("the settings endpoint stopped", "err", err)
 		}
 	}()
-	ag.log.Info("settings listening", "addr", "http://"+ln.Addr().String())
-	return nil
+	return ready, nil
 }

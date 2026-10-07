@@ -272,6 +272,24 @@ now and does not come back after a reboot. `sudo loginctl enable-linger $USER` f
 `agent uninstall` removes the manifest and stops the service. The device key, the registry
 and the log stay where they are, so reinstalling gets the same device back.
 
+## A second user on the same PC
+
+One agent serves a PC, and it is signed in to one account. The ports are the PC's, so a
+second agent could only wait for them (#222).
+
+- A second user whose agent finds the first user's on its port is told: "anywhere-file
+  already runs for another user on this PC. Sign out of the account there first, then quit
+  anywhere-file there or remove it." Their agent waits for the port and takes it once the
+  other one stops. It does not restart in a loop.
+- Signing out alone frees nothing. A signed out PC still serves the LAN, so the first user
+  also has to quit anywhere-file (Quit in the menu bar or tray), remove it, or log off.
+- The agent tells another user's agent apart by asking the port for the discovery
+  document, which any agent hands to anybody. The OS does not name another user's program.
+- Opening the app (`agent open`) checks the same thing first, and says the same.
+- The installer sets up the service for whoever ran it. Another user gets theirs the first
+  time they open the app, with no second run of the installer. On Windows each user's
+  scheduled tasks carry their user name, because task names are shared by the whole PC.
+
 ## Installing from a package
 
 `packaging/` builds one package per operating system. Each one places the agent and the dufs
@@ -281,7 +299,7 @@ binary, runs `agent install` so the service starts at logon, and reverses both. 
 ```sh
 ./packaging/macos/build.sh    # a pkg, universal, for both kinds of Mac
 ./packaging/linux/build.sh    # a tarball and a deb, amd64 and arm64
-./packaging/windows/build.sh  # an MSI, from Git Bash on Windows
+./packaging/windows/build.sh  # an MSI for x64 and one for arm64, from Git Bash on Windows
 ```
 
 On macOS the pkg installs `anywhere-file.app` into `/Applications` and starts the service for

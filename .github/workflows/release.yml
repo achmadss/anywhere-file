@@ -39,7 +39,7 @@ jobs:
         run: |
           export VERSION="${VERSION#v}"
           case "$RUNNER_OS" in
-            Linux) packaging/linux/build.sh ;;
+            Linux) sudo apt-get install -y rpm && packaging/linux/build.sh ;;
             macOS) packaging/macos/build.sh ;;
             Windows) packaging/windows/build.sh ;;
           esac
@@ -62,6 +62,14 @@ jobs:
           pattern: packages-*
           merge-multiple: true
           path: dist
+      - name: list a checksum for every package
+        # #228: SHA256SUMS lets a person check a download, since the Linux packages are not
+        # signed at all. It names files without a path, so it checks from the folder they
+        # were downloaded to, and the check below proves it matches before anything goes up.
+        working-directory: dist
+        run: |
+          sha256sum -- * > SHA256SUMS
+          sha256sum -c SHA256SUMS
       - name: attach the packages to a release under the tag
         env:
           GH_TOKEN: ${{ github.token }}

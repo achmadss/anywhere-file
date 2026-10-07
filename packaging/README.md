@@ -6,8 +6,8 @@ One package per operating system. Each one places the agent and the dufs binary,
 | Script | Makes | Needs |
 |---|---|---|
 | `macos/build.sh` | `anywhere-file-<version>.pkg`, universal | macOS, Go |
-| `linux/build.sh` | a tarball and a deb, amd64 and arm64 | Go, `dpkg-deb` for the deb |
-| `windows/build.sh` | `anywhere-file-<version>.msi`, x64 | Windows, Git Bash, Go, dotnet |
+| `linux/build.sh` | a tarball, a deb and an rpm, amd64 and arm64 | Go, `dpkg-deb` for the deb, `rpmbuild` for the rpm |
+| `windows/build.sh` | `anywhere-file-<version>.msi` for x64 and `anywhere-file-<version>-arm64.msi` for arm64 | Windows, Git Bash, Go, dotnet |
 
 Both write into `dist/`. `VERSION` sets the version and defaults to `0.0.0`. The dufs
 version is `dufs.version`, and the binary is downloaded from its release page at build time.
@@ -16,9 +16,13 @@ version is `dufs.version`, and the binary is downloaded from its release page at
 
 Removing a package signs the PC out of its account first, so it leaves the lists of its
 admin and guests (#189). Upgrading keeps the account (#190). When the server can't be
-reached the removal goes ahead, and the admin removes the PC in the app. The deb signs out
-only when it is removed, the MSI only when it is not being replaced by a newer one, and
-`uninstall.sh` on Linux and `uninstall` on macOS every time.
+reached the removal goes ahead, and the admin removes the PC in the app. The deb and the rpm
+sign out only when they are removed, the MSI only when it is not being replaced by a newer
+one, and `uninstall.sh` on Linux and `uninstall` on macOS every time.
+
+The rpm runs the deb's scripts. On an upgrade, rpm runs the new package's scripts before the
+old one's, so the service is stopped in `%pre`, before the new files land, and the old
+`%preun` does nothing. `%preun` signs the PC out only when no copy is left.
 
 ## Publishing
 
@@ -76,3 +80,16 @@ clients have to be given its address rather than finding it.
 On Windows SmartScreen warns about an unknown publisher. Press More info, then Run anyway.
 
 On Linux nothing checks a signature, so nothing warns.
+
+## Checking a download
+
+Each release carries a `SHA256SUMS` file with one line per file on the release: the
+checksum, then the file's name. The release job writes it and checks it before uploading.
+To check a download, work out its checksum and compare it with the line for that file:
+
+- macOS: `shasum -a 256 anywhere-file-0.1.0.pkg`
+- Windows, in PowerShell: `Get-FileHash anywhere-file-0.1.0.msi`. It prints capitals,
+  which make no difference. In a command prompt: `certutil -hashfile anywhere-file-0.1.0.msi SHA256`
+- Linux, in the folder holding the download and `SHA256SUMS`: `sha256sum -c SHA256SUMS --ignore-missing`
+
+If the checksums differ, delete the file and download it again.

@@ -17,7 +17,9 @@ func fakeGitHub(t *testing.T) *httptest.Server {
 			{"name":"anywhere-file-0.1.0-linux-amd64.tar.gz","browser_download_url":"https://example.test/linux-amd64.tar.gz"},
 			{"name":"anywhere-file_0.1.0_amd64.deb","browser_download_url":"https://example.test/amd64.deb"},
 			{"name":"anywhere-file-0.1.0.pkg","browser_download_url":"https://example.test/mac.pkg"},
-			{"name":"anywhere-file-0.1.0.msi","browser_download_url":"https://example.test/win.msi"}]}`))
+			{"name":"anywhere-file-0.1.0-arm64.msi","browser_download_url":"https://example.test/win-arm64.msi"},
+			{"name":"anywhere-file-0.1.0.msi","browser_download_url":"https://example.test/win.msi"},
+			{"name":"SHA256SUMS","browser_download_url":"https://example.test/SHA256SUMS"}]}`))
 	}))
 	t.Cleanup(srv.Close)
 	old := releasesAPI
@@ -42,7 +44,8 @@ func downloadAs(t *testing.T, userAgent string) string {
 }
 
 // #138's acceptance: the page offers the right file to a visitor on each of the three
-// systems, and says what the warning looks like on the two that show one.
+// systems, and says what the warning looks like on the two that show one. Windows lists
+// the x64 MSI first and labels both (#227), since a browser on ARM says x64 as well.
 func TestTheDownloadPageOffersTheVisitorsSystemFirst(t *testing.T) {
 	fakeGitHub(t)
 	for ua, want := range map[string]string{
@@ -58,7 +61,8 @@ func TestTheDownloadPageOffersTheVisitorsSystemFirst(t *testing.T) {
 		if first != want {
 			t.Errorf("%s: first link is %s, want %s", ua, first, want)
 		}
-		for _, text := range []string{"Download anywhere-file 0.1.0", "Open Anyway", "Run anyway", "https://example.test/amd64.deb"} {
+		for _, text := range []string{"Download anywhere-file 0.1.0", "Open Anyway", "Run anyway", "https://example.test/amd64.deb",
+			"(Windows (x64))", "https://example.test/win-arm64.msi", "(Windows on ARM)"} {
 			if !strings.Contains(body, text) {
 				t.Errorf("%s: page lacks %q", ua, text)
 			}
@@ -77,6 +81,18 @@ func TestTheDownloadPageKeepsTheLastAnswer(t *testing.T) {
 	}
 }
 
+// #228: the page links the release's checksums and says how to check a download on each
+// system.
+func TestTheDownloadPageSaysHowToCheckADownload(t *testing.T) {
+	fakeGitHub(t)
+	body := downloadAs(t, "curl/8.0")
+	for _, text := range []string{"https://example.test/SHA256SUMS", "shasum -a 256", "Get-FileHash", "certutil -hashfile", "sha256sum -c SHA256SUMS"} {
+		if !strings.Contains(body, text) {
+			t.Errorf("page lacks %q", text)
+		}
+	}
+}
+
 // With nothing remembered and GitHub unreachable, the visitor is sent to the releases page
 // rather than shown an empty list.
 func TestTheDownloadPageFallsBackToTheReleasesPage(t *testing.T) {
@@ -84,5 +100,27 @@ func TestTheDownloadPageFallsBackToTheReleasesPage(t *testing.T) {
 	srv.Close()
 	if body := downloadAs(t, "curl/8.0"); !strings.Contains(body, releasesPage) || strings.Contains(body, "example.test") {
 		t.Errorf("page = %s", body)
+	}
+}
+
+// #177: the app and the agent ask which release is current, with no session, and get the
+// version the download page shows. With GitHub never reached, there is nothing to answer.
+func TestTheLatestVersionIsAnsweredWithoutASession(t *testing.T) {
+	srv := fakeGitHub(t)
+	ask := func() *httptest.ResponseRecorder {
+		mux := http.NewServeMux()
+		registerWebRoutes(mux, nil)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/version", nil))
+		return rec
+	}
+	if rec := ask(); rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"version":"0.1.0"}` {
+		t.Errorf("answered %d %s, want 200 {\"version\":\"0.1.0\"}", rec.Code, rec.Body)
+	}
+
+	srv.Close()
+	latestRelease = &releaseCache{client: srv.Client()}
+	if rec := ask(); rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("with GitHub unreachable answered %d, want 503", rec.Code)
 	}
 }

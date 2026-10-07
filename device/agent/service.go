@@ -96,8 +96,15 @@ var darwinPlist = template.Must(template.New("plist").Funcs(template.FuncMap{"x"
 <dict>
 	<key>Label</key>
 	<string>{{.Label}}</string>
+	<!-- #223: an app dragged to the Trash takes the binary and leaves this file. The job
+	     then deletes this file and itself, so launchd stops starting a missing program and
+	     the next login loads nothing. exec keeps the agent as the process launchd watches. -->
 	<key>ProgramArguments</key>
 	<array>
+		<string>/bin/sh</string>
+		<string>-c</string>
+		<string>[ -x "$1" ] || { rm -f "$0"; exec launchctl remove {{.Label}}; }; exec "$@"</string>
+		<string>{{x .Path}}</string>
 		<string>{{x .Exe}}</string>
 		<string>{{.Command}}</string>
 {{- range .Args}}
@@ -119,7 +126,7 @@ var darwinPlist = template.Must(template.New("plist").Funcs(template.FuncMap{"x"
 	<key>KeepAlive</key>
 	<true/>
 	<key>ProcessType</key>
-	<string>Background</string>
+	<string>Standard</string>
 {{- end}}
 	<!-- The agent writes and rotates its own log. What reaches stderr is what comes before
 	     the log is open, and a crash. -->
@@ -139,6 +146,7 @@ func darwinPlan(in planInput) servicePlan {
 	plist := func(label, command string) string {
 		return render(darwinPlist, map[string]any{
 			"Label":   label,
+			"Path":    filepath.Join(agents, label+".plist"),
 			"Bundle":  serviceLabel, // the app's CFBundleIdentifier, which is the same string
 			"Command": command,
 			"Menu":    command == "menubar",
@@ -297,35 +305,42 @@ func windowsPlan(in planInput) servicePlan {
 	schtasks := func(optional bool, args ...string) planCmd {
 		return planCmd{argv: append([]string{"schtasks"}, args...), optional: optional}
 	}
+	// Task names are one list for the whole PC, so each user's carries their name, and a
+	// second user on this PC can have tasks of their own (#222).
+	agentTask, trayTask := serviceName, trayName
+	if i := strings.LastIndex(in.user, `\`); in.user != "" {
+		agentTask += "-" + in.user[i+1:]
+		trayTask += "-" + in.user[i+1:]
+	}
 	return servicePlan{
 		files: []planFile{file(task, "run"), file(tray, "menubar")},
 		install: []planCmd{
-			schtasks(false, "/Create", "/TN", serviceName, "/XML", task, "/F"),
-			schtasks(false, "/Create", "/TN", trayName, "/XML", tray, "/F"),
+			schtasks(false, "/Create", "/TN", agentTask, "/XML", task, "/F"),
+			schtasks(false, "/Create", "/TN", trayTask, "/XML", tray, "/F"),
 			// The trigger is a logon that has already happened, so the first start is ours.
-			schtasks(false, "/Run", "/TN", serviceName),
+			schtasks(false, "/Run", "/TN", agentTask),
 			// A PC reached over ssh has no desktop, so the icon waits for the next logon.
-			schtasks(true, "/Run", "/TN", trayName),
+			schtasks(true, "/Run", "/TN", trayTask),
 		},
 		// The tray goes last, because when it is the one asking it stops here.
 		uninstall: []planCmd{
-			schtasks(true, "/End", "/TN", serviceName),
-			schtasks(true, "/Delete", "/TN", serviceName, "/F"),
-			schtasks(true, "/End", "/TN", trayName),
-			schtasks(true, "/Delete", "/TN", trayName, "/F"),
+			schtasks(true, "/End", "/TN", agentTask),
+			schtasks(true, "/Delete", "/TN", agentTask, "/F"),
+			schtasks(true, "/End", "/TN", trayTask),
+			schtasks(true, "/Delete", "/TN", trayTask, "/F"),
 		},
 		// The tray's own task is only switched off, since the tray is the one asking and
 		// exits by itself.
 		quit: []planCmd{
-			schtasks(true, "/End", "/TN", serviceName),
-			schtasks(true, "/Change", "/TN", serviceName, "/DISABLE"),
-			schtasks(true, "/Change", "/TN", trayName, "/DISABLE"),
+			schtasks(true, "/End", "/TN", agentTask),
+			schtasks(true, "/Change", "/TN", agentTask, "/DISABLE"),
+			schtasks(true, "/Change", "/TN", trayTask, "/DISABLE"),
 		},
 		reopen: []planCmd{
-			schtasks(false, "/Change", "/TN", serviceName, "/ENABLE"),
-			schtasks(true, "/Change", "/TN", trayName, "/ENABLE"),
-			schtasks(false, "/Run", "/TN", serviceName),
-			schtasks(true, "/Run", "/TN", trayName),
+			schtasks(false, "/Change", "/TN", agentTask, "/ENABLE"),
+			schtasks(true, "/Change", "/TN", trayTask, "/ENABLE"),
+			schtasks(false, "/Run", "/TN", agentTask),
+			schtasks(true, "/Run", "/TN", trayTask),
 		},
 	}
 }
