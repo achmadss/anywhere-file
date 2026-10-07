@@ -13,19 +13,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/achmadss/anywhere-file/internal/traceparent"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // echoApp answers as the agent's gateway would and reports what it was handed, so a test
 // can see exactly what crossed the tunnel.
 type seenRequest struct {
-	Path      string `json:"path"`
-	Query     string `json:"query"`
-	Method    string `json:"method"`
-	Body      string `json:"body"`
-	RequestID string `json:"request_id"`
-	Cookie    string `json:"cookie"`
-	Auth      string `json:"auth"`
+	Path   string `json:"path"`
+	Query  string `json:"query"`
+	Method string `json:"method"`
+	Body   string `json:"body"`
+	Trace  string `json:"traceparent"`
+	Cookie string `json:"cookie"`
+	Auth   string `json:"auth"`
 }
 
 func echoApp() http.Handler {
@@ -33,13 +34,13 @@ func echoApp() http.Handler {
 		body, _ := io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(seenRequest{
-			Path:      r.URL.Path,
-			Query:     r.URL.RawQuery,
-			Method:    r.Method,
-			Body:      string(body),
-			RequestID: r.Header.Get(headerRequestID),
-			Cookie:    r.Header.Get("Cookie"),
-			Auth:      r.Header.Get("Authorization"),
+			Path:   r.URL.Path,
+			Query:  r.URL.RawQuery,
+			Method: r.Method,
+			Body:   string(body),
+			Trace:  r.Header.Get(traceparent.Header),
+			Cookie: r.Header.Get("Cookie"),
+			Auth:   r.Header.Get("Authorization"),
 		})
 	})
 }
@@ -110,6 +111,8 @@ func TestRemoteRequestReachesTheApplication(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/d/"+s.deviceID+"/dufs/files/holiday?sort=name", strings.NewReader("hello"))
 	req.Header.Set("Cookie", sessionCookie+"="+s.session+"; app_pref=dark")
 	req.Header.Set("Authorization", "Bearer "+s.session)
+	const sent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+	req.Header.Set(traceparent.Header, sent)
 	rec := httptest.NewRecorder()
 	s.h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -126,14 +129,29 @@ func TestRemoteRequestReachesTheApplication(t *testing.T) {
 	if got.Query != "sort=name" || got.Method != http.MethodPost || got.Body != "hello" {
 		t.Errorf("agent saw %+v, want the method, query and body the user sent", got)
 	}
-	if got.RequestID == "" {
-		t.Errorf("agent saw no %s header", headerRequestID)
+	// The app's trace goes on to the agent, under the server's own span.
+	if traceparent.TraceID(got.Trace) != traceparent.TraceID(sent) || got.Trace == sent {
+		t.Errorf("agent saw traceparent %q, want trace %s under a new span", got.Trace, traceparent.TraceID(sent))
 	}
 	if strings.Contains(got.Cookie, s.session) || strings.Contains(got.Auth, s.session) {
 		t.Errorf("session token reached the agent: cookie %q auth %q", got.Cookie, got.Auth)
 	}
 	if got.Cookie != "app_pref=dark" {
 		t.Errorf("agent saw cookies %q, want only the application's own", got.Cookie)
+	}
+}
+
+// A request from something that starts no trace still reaches the agent with one, so the
+// two logs can be matched.
+func TestRemoteRequestStartsATraceWhenNoneCameIn(t *testing.T) {
+	s := remoteScenario(t, echoApp())
+	rec := s.get(t, "/d/"+s.deviceID+"/dufs/", s.cookies())
+	var got seenRequest
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode %q: %v", rec.Body, err)
+	}
+	if traceparent.TraceID(got.Trace) == "" {
+		t.Errorf("agent saw traceparent %q, want a valid one", got.Trace)
 	}
 }
 

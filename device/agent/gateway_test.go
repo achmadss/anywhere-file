@@ -17,6 +17,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/achmadss/anywhere-file/internal/traceparent"
 )
 
 // seenRequest is what the application behind the gateway was actually asked for.
@@ -310,4 +312,57 @@ func readStatusLine(conn net.Conn) (string, error) {
 	}
 	line, _, _ := strings.Cut(string(buf[:n]), "\r\n")
 	return line, nil
+}
+
+// ADR 0007: a request's log lines carry the trace it came with, so they can be found next
+// to the server's, and they name the device. They still name no folder or file.
+func TestARequestLogsItsTraceAndNoNames(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dead := ln.Addr().String()
+	_ = ln.Close()
+
+	log, read := logToBuffer()
+	key := testKey(t)
+	st := &state{Name: "pc1", Apps: []app{{Name: "secret-share", Type: "http", Address: dead}}}
+	gw := httptest.NewServer(newGateway(newAgent(t.TempDir(), key, st, log)))
+	t.Cleanup(gw.Close)
+
+	const trace = "4bf92f3577b34da6a3ce929d0e0e4736"
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, gw.URL+"/secret-share/secret-folder/secret-file.txt", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set(traceparent.Header, "00-"+trace+"-00f067aa0ba902b7-01")
+	resp, err := gw.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502 from an application that is not answering", resp.StatusCode)
+	}
+
+	var line struct {
+		Msg     string `json:"msg"`
+		TraceID string `json:"trace_id"`
+		Device  string `json:"device"`
+	}
+	logged := read()
+	for raw := range strings.Lines(logged) {
+		if err := json.Unmarshal([]byte(raw), &line); err == nil && line.Msg == "application unreachable" {
+			break
+		}
+	}
+	if line.Msg != "application unreachable" {
+		t.Fatalf("the log has no line for the failed request:\n%s", logged)
+	}
+	if line.TraceID != trace || line.Device != key.deviceID() {
+		t.Errorf("line has trace %q device %q, want %q and %q", line.TraceID, line.Device, trace, key.deviceID())
+	}
+	if strings.Contains(logged, "secret") {
+		t.Errorf("the log names a file or folder:\n%s", logged)
+	}
 }

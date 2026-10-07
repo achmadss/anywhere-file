@@ -6,20 +6,15 @@ package main
 // application's own response, streamed, so a large file never sits in this process.
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"time"
 
 	"github.com/achmadss/anywhere-file/internal/appname"
+	"github.com/achmadss/anywhere-file/internal/traceparent"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-// headerRequestID correlates one remote request across this log, the agent's log and the
-// audit row #89 adds.
-const headerRequestID = "X-Request-Id"
 
 // Why a remote request was refused. The client only sees the status; the reason is for the
 // operator, in the log and on the counter.
@@ -43,7 +38,10 @@ func registerRoutingRoutes(mux *http.ServeMux, db *pgxpool.Pool, log *slog.Logge
 func remoteRequest(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *tunnelRegistry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
-		requestID := newRequestID()
+		// The trace the app started for this action, or a new one, with this hop's span. It
+		// goes down the tunnel, so this log and the agent's share the trace id (ADR 0007).
+		trace := traceparent.Next(r.Header.Get(traceparent.Header))
+		traceID := traceparent.TraceID(trace)
 		deviceID, app := r.PathValue("device"), r.PathValue("app")
 
 		// Every request leaves one counter sample, refusals included, and the histogram
@@ -64,12 +62,12 @@ func remoteRequest(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *tunnelRe
 		deny := func(status int, reason, message string) {
 			m.RecordRemoteDenial(reason)
 			log.Info("remote request denied",
-				"request_id", requestID, "reason", reason, "status", status,
+				"trace_id", traceID, "reason", reason, "status", status,
 				"device", deviceID, "app", app, "account", actor)
 			if auditable {
 				if err := appendAudit(r.Context(), db, deviceID, actor, ActionRemoteDenied,
 					AuditDetails{AccountID: actor, Reason: reason}); err != nil {
-					log.Error("remote denial audit", "request_id", requestID, "err", err)
+					log.Error("remote denial audit", "trace_id", traceID, "err", err)
 				}
 			}
 			finish(status)
@@ -145,7 +143,7 @@ func remoteRequest(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *tunnelRe
 			path += "/" + rest
 		}
 		log.Info("remote request",
-			"request_id", requestID, "device", deviceID, "app", app,
+			"trace_id", traceID, "device", deviceID, "app", app,
 			"method", r.Method, "account", a.id)
 
 		proxy := &httputil.ReverseProxy{
@@ -163,11 +161,11 @@ func remoteRequest(db *pgxpool.Pool, log *slog.Logger, m *Metrics, reg *tunnelRe
 				// reaches it. Our own credentials must not be part of what reaches it.
 				pr.Out.Header.Del("Authorization")
 				stripSessionCookie(pr.Out)
-				pr.Out.Header.Set(headerRequestID, requestID)
+				pr.Out.Header.Set(traceparent.Header, trace)
 			},
 			ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 				// The tunnel died between the lookup above and the request going down it.
-				log.Warn("remote request failed", "request_id", requestID, "device", deviceID, "err", err)
+				log.Warn("remote request failed", "trace_id", traceID, "device", deviceID, "err", err)
 				deny(http.StatusServiceUnavailable, denyOffline, "device offline")
 			},
 			ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelWarn),
@@ -189,12 +187,4 @@ func stripSessionCookie(r *http.Request) {
 			r.AddCookie(c)
 		}
 	}
-}
-
-func newRequestID() string {
-	var b [8]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "unknown"
-	}
-	return hex.EncodeToString(b[:])
 }

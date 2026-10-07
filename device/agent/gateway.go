@@ -10,11 +10,14 @@ package main
 // remote path from being an SSRF primitive.
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"sync/atomic"
+
+	"github.com/achmadss/anywhere-file/internal/traceparent"
 )
 
 // discoveryPath is what a client reads after it finds the agent, to learn which device
@@ -76,7 +79,7 @@ func buildGateway(ag *agent) http.Handler {
 		mux.Handle("/"+a.Name, h)
 		mux.Handle("/"+a.Name+"/", h)
 	}
-	return gatewayGuard(mux, ag.log)
+	return gatewayGuard(mux, ag.log.With("device", ag.key.deviceID()))
 }
 
 // appProxy forwards to one application. The inbound URL decides the path and the query
@@ -95,7 +98,7 @@ func appProxy(a app, log *slog.Logger) http.Handler {
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			// No name and no path: both name folders and files (ADR 0007).
-			log.Warn("application unreachable", "address", a.Address, "err", err)
+			requestLog(r, log).Warn("application unreachable", "address", a.Address, "err", err)
 			http.Error(w, "application unavailable", http.StatusBadGateway)
 		},
 		ErrorLog: slog.NewLogLogger(log.Handler(), slog.LevelWarn),
@@ -106,7 +109,7 @@ func appProxy(a app, log *slog.Logger) http.Handler {
 	// the request down to nothing.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && r.URL.Query().Has(compressQuery) {
-			compress(w, r, a, log)
+			compress(w, r, a, requestLog(r, log))
 			return
 		}
 		if r.URL.Path == prefix {
@@ -122,6 +125,10 @@ func appProxy(a app, log *slog.Logger) http.Handler {
 // not exist, which is all a caller needs to learn.
 func gatewayGuard(mux *http.ServeMux, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Every line a request logs carries its trace (ADR 0007): the one the app started,
+		// sent on by the server or straight over the LAN, or a new one.
+		log := log.With("trace_id", traceparent.TraceID(traceparent.Next(r.Header.Get(traceparent.Header))))
+		r = r.WithContext(context.WithValue(r.Context(), logKey{}, log))
 		// An absolute request URI names a host of the caller's choosing. Proxies accept
 		// one; we are not a proxy, so it is refused before anything looks at the path.
 		// The Host header is not refused, because it decides nothing here: the tunnel
@@ -133,6 +140,16 @@ func gatewayGuard(mux *http.ServeMux, log *slog.Logger) http.Handler {
 		}
 		mux.ServeHTTP(w, r)
 	})
+}
+
+type logKey struct{}
+
+// requestLog is the log for one request, with its trace, or def outside a request.
+func requestLog(r *http.Request, def *slog.Logger) *slog.Logger {
+	if l, ok := r.Context().Value(logKey{}).(*slog.Logger); ok {
+		return l
+	}
+	return def
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
