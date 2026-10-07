@@ -231,6 +231,8 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+          # trigger returns before the rule has run, so the check below could beat it.
+          sudo udevadm settle
           test -w /dev/kvm
       - run: sudo apt-get update -q && sudo apt-get install -yq --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
       - id: image
