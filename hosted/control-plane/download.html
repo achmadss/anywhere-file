@@ -15,7 +15,7 @@
 <p class="sub">Install it on each PC you want to reach. The one for this computer is first.</p>
 {{range .Systems}}
 <h2>{{.Name}}</h2>
-{{if .Files}}<ul>{{range .Files}}<li><a href="{{.URL}}">{{.Name}}</a></li>{{end}}</ul>
+{{if .Files}}<ul>{{range .Files}}<li><a href="{{.URL}}">{{.Name}}</a>{{with .Label}} ({{.}}){{end}}</li>{{end}}</ul>
 {{else}}<p class="small">No package for {{.Name}} in this release.</p>{{end}}
 <p class="small">{{.Warning}}</p>
 <p class="small">{{.Then}}</p>

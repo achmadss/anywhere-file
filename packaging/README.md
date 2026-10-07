@@ -7,7 +7,7 @@ One package per operating system. Each one places the agent and the dufs binary,
 |---|---|---|
 | `macos/build.sh` | `anywhere-file-<version>.pkg`, universal | macOS, Go |
 | `linux/build.sh` | a tarball and a deb, amd64 and arm64 | Go, `dpkg-deb` for the deb |
-| `windows/build.sh` | `anywhere-file-<version>.msi`, x64 | Windows, Git Bash, Go, dotnet |
+| `windows/build.sh` | `anywhere-file-<version>.msi` for x64 and `anywhere-file-<version>-arm64.msi` for arm64 | Windows, Git Bash, Go, dotnet |
 
 Both write into `dist/`. `VERSION` sets the version and defaults to `0.0.0`. The dufs
 version is `dufs.version`, and the binary is downloaded from its release page at build time.

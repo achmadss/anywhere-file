@@ -53,7 +53,12 @@ Linux)
 	remove_last() { sudo env -u SUDO_USER PKEXEC_UID="$(id -u)" dpkg -r anywhere-file; }
 	;;
 MINGW* | MSYS* | CYGWIN*)
-	msi=$("$root/packaging/windows/build.sh" | tail -1)
+	# The MSI for the runner's own CPU, x64 or arm64 (#227).
+	case ${RUNNER_ARCH:-X64} in
+	ARM64) arch=arm64 ;;
+	*) arch=amd64 ;;
+	esac
+	msi=$(ARCHES=$arch "$root/packaging/windows/build.sh" | tail -1)
 	agent="/c/Program Files/anywhere-file/agent.exe"
 	dufs="/c/Program Files/anywhere-file/dufs.exe"
 	# #160: where a person starts sharing again after Quit in the tray menu.
