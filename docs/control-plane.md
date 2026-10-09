@@ -1,4 +1,6 @@
-# Running the control plane locally
+# The control plane
+
+How to run and test the server while developing it. To host one, see the [README](../README.md#host-the-server).
 
 `hosted/control-plane/` needs PostgreSQL. `hosted/control-plane/docker-compose.yml` brings one up on host
 port 5433.
@@ -25,7 +27,7 @@ on the ubuntu runner and fails if the invite race test did not actually run.
 
 ## The account pages
 
-The service answers JSON under `/v1` and HTML on six paths. They are the pages a browser
+The service answers JSON under `/v1` and HTML on six paths. `GET /v1/version` returns the latest release for the agent and the app to compare against. They are the pages a browser
 needs, and nothing more: account, billing and device management are client screens.
 
 | Path | What |
@@ -69,22 +71,18 @@ the same JSON body to `/v1/auth/signup` that the client posts to `/v1/auth/signi
 ## Sending mail
 
 Signup and password reset mint a link each. With `RFM_SMTP_ADDR` unset the link goes to the
-log rather than to the person, which is what a local run and the tests use. Set it and the
-same link goes out as a message.
+log rather than to the person, which is what a local run and the tests use. The settings are
+in the README.
 
-| Variable | Default | What |
-|---|---|---|
-| `RFM_ADDR` | `:8443` | the address to listen on |
-| `RFM_DATABASE_URL` | none, required | PostgreSQL |
-| `RFM_TLS_CERT`, `RFM_TLS_KEY` | empty | serve HTTPS directly, instead of terminating TLS in front |
-| `RFM_BASE_URL` | taken from the request | the address the links in a message point at |
-| `RFM_SMTP_ADDR` | empty | `host:port` of the SMTP server, empty logs the message instead |
-| `RFM_SMTP_USER`, `RFM_SMTP_PASSWORD` | empty | credentials, when the server wants them |
-| `RFM_MAIL_FROM` | `no-reply@localhost` | the From address |
-| `RFM_OTLP_ENDPOINT` | empty | the OpenTelemetry collector that error reports go to, such as `http://collector:4318`; empty counts them in the log and drops them |
-| `RFM_INSECURE_COOKIES` | empty | drop the Secure flag from the session cookie, for plain HTTP locally |
-| `RFM_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
-| `RFM_SHUTDOWN_TIMEOUT` | `20s` | how long to drain in-flight requests |
+Signup, locally:
+
+```sh
+export RFM_BASE_URL=http://127.0.0.1:8443
+go run . serve
+curl -s -X POST localhost:8443/v1/auth/signup -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.test","password":"correct-horse-123"}'
+# the log carries the link; open it in a browser
+```
 
 Set `RFM_BASE_URL` wherever a load balancer sits in front. Without it the link is built from
 the request, which carries the internal address in that setup and reaches nobody.
@@ -96,12 +94,8 @@ key (ADR 0007). The server sets the device id and the account id from the key th
 and posts the records to `$RFM_OTLP_ENDPOINT/v1/logs` as OTLP JSON. When the collector does
 not answer, the PC keeps the reports and sends them again later.
 
-The whole path, locally:
+## Tracing
 
-```sh
-export RFM_BASE_URL=http://127.0.0.1:8443
-go run . serve
-curl -s -X POST localhost:8443/v1/auth/signup -H 'Content-Type: application/json' \
-  -d '{"email":"you@example.test","password":"correct-horse-123"}'
-# the log carries the link; open it in a browser
-```
+`routing.go` reads the W3C `traceparent` header on a remote request, starts one if it is
+missing, forwards it down the tunnel to the agent and logs its trace id. It replaced
+`X-Request-Id` (ADR 0007, #209).

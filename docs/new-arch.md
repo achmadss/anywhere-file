@@ -2,16 +2,23 @@
 
 ## Status
 
-Rewritten 2026-09-18 to describe the system as built. It previously described a design still
-being chosen, with an amendments block on top listing where
-[ADR 0005](adr/0005-go-agent-native-tunnel-opaque-sessions.md) had overruled it. The body now
-matches the record, so that block is gone.
+Describes the system as built. Where a section describes something not yet written, it names
+the open issue.
 
-Built: the agent, its settings UI (#136), signing a PC in and out of an account (#139, #141),
-the control plane, the website's account pages (#137), the downloads (#138), the client's
-build for Android and the desktop (#97), its LAN discovery (#98), its file browser (#155) and
-its sign-in (#100). Not built: the rest of what the client does (#102, #103).
-Where a section describes something not yet written, it names the issue.
+Built:
+
+- The agent: device identity, LAN discovery and TLS, the gateway, the settings page and
+  command line (#136), the menu bar item and tray icon (#142, #160), the tunnel, zip on the
+  device (#199), error reports (#209), and packages for Windows, macOS and Linux.
+- The control plane: accounts, devices, bindings, invitations, the tunnel, remote routing,
+  the subscription gate, and removing a device for everyone (#189).
+- The website's account pages (#137), PC approval (#139) and downloads (#138).
+- The client for Android and the desktop (#97): LAN discovery (#98), the file browser (#155),
+  sign-in (#100), and the device list with access management and invite codes (#102).
+
+Not built: opening a PC's applications from outside the house (#103). The rest of the product
+the open issues describe, such as stay-signed-in (#195), invite links (#193) and the
+operator tools (#208), is marked where it touches a section below.
 
 ## Overview
 
@@ -38,6 +45,7 @@ PC1 / PC2 / PC3
     ├── Local access gateway
     ├── Application registry
     ├── Settings UI and command line   (#136)
+    ├── Error reports                  (#209)
     └── Remote tunnel client
 
 Central server
@@ -81,6 +89,8 @@ that never leaves it, and the system keychain on the desktop, falling back to a 
 where a system has none and saying so on the screen (#100). It sends the token as a bearer
 header and asks `GET /v1/me` once at each start, so a session that ended somewhere else is
 noticed at the next start rather than at the next sign in.
+
+A session that does not run out, renewed by a refresh token, is planned (#195).
 
 There is no JWT anywhere. An earlier draft of this document described one; ADR 0005 chose
 opaque tokens so that revocation does not wait for an expiry.
@@ -159,8 +169,8 @@ The address stays on the PC. Only the name and the type are ever sent to the ser
 ### Choosing what to share
 
 The agent serves a settings page on `127.0.0.1` and takes the same commands from a terminal
-(#136). `agent settings` opens the page, and a `.desktop` entry on Linux runs that. The macOS
-menu bar item and the Windows tray icon are #142. Both front ends go through one endpoint on
+(#136). `agent settings` opens the page, and a `.desktop` entry on Linux runs that. On macOS
+and Windows a menu bar item or tray icon opens it (#142, #160). Both front ends go through one endpoint on
 the running agent, so the agent stays the only writer of `agent.json` and picks up a change
 without being restarted.
 
@@ -356,6 +366,9 @@ PC1 ← Susi   role = admin
 PC1 ← Ewax   role = guest
 ```
 
+A PC has one admin, the account signed in on its settings page, and everyone else is a guest.
+The invite endpoint still accepts `role=admin`. Making invites guest-only is #191.
+
 The first admin a device ever had is its owner, revoked or not, because that is the account
 the subscription belongs to. Enrolment always leaves an admin row, so a device with no owner
 is a device nobody pays for.
@@ -365,7 +378,9 @@ sees the device and its applications and none of the management.
 
 ## Invitations
 
-An admin creates an invitation for another account, with a role and an expiry. The code is a
+An admin creates an invitation for another account, with a role and an expiry. Invite links
+that a guest opens on the website with no end date, a note and a list the admin can cancel
+from are planned (#193, #194). The code is a
 bearer credential, so it is high entropy, single use, short lived, stored only as a hash and
 kept out of logs and URLs.
 
@@ -403,7 +418,10 @@ When it closes, the mapping goes, the device is offline, and a request needing i
 with "device offline" rather than a wait. Why a tunnel ended is recorded on the audit row:
 replaced, heartbeat timeout, or closed.
 
-A request id correlates a remote request with its response through the logs.
+Each remote request carries a W3C `traceparent` header from the server down the tunnel, and
+both ends log its trace id, so one request can be followed through the logs (#209). The agent
+also sends its list of shared applications to `POST /v1/devices/apps` each time the tunnel
+comes up (#218).
 
 ## The website
 
@@ -420,6 +438,8 @@ second deployment and no build step.
 - The downloads for each operating system (#138). Built: a version tag makes a GitHub
   release with the three packages on it, and `/download` lists them with the visitor's
   system first.
+- Planned: a landing page (#179), help (#181), privacy and terms (#182), deleting an account
+  (#183) and the `/join` page for guests (#194).
 
 ## Database model
 
@@ -430,6 +450,7 @@ sessions                    token_hash, expires_at, revoked_at
 email_verification_tokens   single use
 password_reset_tokens       single use
 enrolment_tokens            single use, minted by a signed-in account
+device_enrolments           a PC's request to join, the code's hash, pending or answered
 
 devices                     public_key, device_id (generated), name, status
 device_users                device_id, user_id, role, created_by, revoked_at
@@ -456,7 +477,7 @@ A compromise of one layer does not grant authority at another:
 
 ## Pentest cases
 
-The adversarial review is #48, run against these once the client exists.
+The adversarial review is #48, run against these.
 
 ### Sessions
 
@@ -500,8 +521,8 @@ application the device does not have.
 
 ## What is in the MVP
 
-Local mode is the agent through #93 plus the client through #155: two PCs and a phone on
-one network, no account, no Internet.
+Local mode is the agent plus the client's discovery and file browser (#98, #155): two PCs and
+a phone on one network, no account, no Internet.
 
 Remote mode is everything else, which is accounts, enrolment, bindings, invitations, the
 tunnel and remote routing. An earlier draft of this document put all of that in a version 2.

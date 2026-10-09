@@ -89,7 +89,7 @@ interface SessionStore {
 
 // Where a client looks for a server before anyone has typed one. There is no hosted
 // deployment yet, and this is the address the control plane runs on locally
-// (docs/running-the-control-plane.md). On a phone this has to be typed, because the loopback
+// (docs/control-plane.md). On a phone this has to be typed, because the loopback
 // address is the phone itself.
 const val DEFAULT_SERVER = "http://127.0.0.1:8443"
 

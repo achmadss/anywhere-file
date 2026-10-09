@@ -67,5 +67,5 @@ A tool that silently matches nothing reports success.
 
 ## Commands
 
-Build, test and lint commands are in the README. The Go version is pinned by the `go`
+Build, test and lint commands are in `CONTRIBUTING.md`. The Go version is pinned by the `go`
 directive in `go.mod` at the repository root.

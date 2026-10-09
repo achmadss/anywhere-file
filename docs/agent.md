@@ -1,32 +1,13 @@
-# Running the agent
+# The agent
+
+How the agent works. To install and use it, see the [README](../README.md).
 
 The agent generates one Ed25519 key per PC on first run and keeps it for the life of the
 machine. The server derives `device_id` from the public key, so a replaced key is a new
 device and drops the PC out of every binding it had.
 
-```sh
-go run ./device/agent key        # print the identity
-go run ./device/agent run       # serve the applications and announce this PC on the LAN
-go run ./device/agent discover  # list the agents this machine can see on the LAN
-go run ./device/agent login https://cloud.example.com  # approve this PC in a browser
-go run ./device/agent logout
-go run ./device/agent enrol https://cloud.example.com <token>
-go run ./device/agent settings  # open the settings page in a browser
-go run ./device/agent share add ~/Shared --name files
-go run ./device/agent share list
-go run ./device/agent share rm files
-```
-
-| Variable | Default | What |
-|---|---|---|
-| `RFM_AGENT_DIR` | the OS config directory, `%LocalAppData%` on Windows | where the agent keeps its own state |
-| `RFM_AGENT_ADDR` | `:7433` | the address the LAN gateway listens on, HTTPS |
-| `RFM_AGENT_SETTINGS_ADDR` | `127.0.0.1:7434` | the settings endpoint, loopback only, `off` to turn it off |
-| `RFM_AGENT_KEYSTORE` | `auto` | `keyring` for the OS keystore, `file` for a seed file |
-| `RFM_AGENT_MDNS` | `on` | `off` on a machine with no multicast, such as some containers |
-| `RFM_AGENT_TUNNEL` | `on` | `off` to keep the PC on the LAN only, with no outbound connection |
-| `RFM_AGENT_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
-| `RFM_AGENT_LOG_FILE` | empty | a file to append the log to, instead of standard error |
+Run it from source with `go run ./device/agent <command>`. The commands and the `RFM_AGENT_*`
+settings are in the README.
 
 `auto` uses the OS keystore: Keychain on macOS, Credential Manager on Windows, the Secret
 Service on a Linux desktop. A Linux machine with no Secret Service, such as a NAS, a server
@@ -111,7 +92,7 @@ file. `agent settings` puts the token in the address it opens, and the page send
 header from then on.
 
 `agent install` writes a `.desktop` entry on Linux, so the page is in the applications menu.
-The macOS menu bar item and the Windows tray icon are #142.
+`agent menubar` shows a menu bar item on macOS and a tray icon on Windows with Open settings and Quit (#142, #160). `agent open` starts them again and opens the page.
 
 ## Running an application
 
@@ -290,53 +271,41 @@ second agent could only wait for them (#222).
   time they open the app, with no second run of the installer. On Windows each user's
   scheduled tasks carry their user name, because task names are shared by the whole PC.
 
-## Installing from a package
+## The log
 
-`packaging/` builds one package per operating system. Each one places the agent and the dufs
-binary, runs `agent install` so the service starts at logon, and reverses both. They land in
-`dist/`.
+The agent writes `agent.log` itself on macOS and Windows and rotates it at 5 MiB, keeping
+three old files (#220). launchd would hold a file open under its old name forever, so the
+agent does the rotating. File and folder names stay out of the log.
 
-```sh
-./packaging/macos/build.sh    # a pkg, universal, for both kinds of Mac
-./packaging/linux/build.sh    # a tarball and a deb, amd64 and arm64
-./packaging/windows/build.sh  # an MSI for x64 and one for arm64, from Git Bash on Windows
-```
+## A port someone else has
 
-On macOS the pkg installs `anywhere-file.app` into `/Applications` and starts the service for
-whoever is logged in. Nothing is signed yet, so macOS calls it an unidentified developer and
-refuses to open it on the first try. Open it anyway: System Settings, Privacy and Security,
-scroll down to Security, press Open Anyway, then open the pkg again. The first run also asks
-whether the agent may use the local network, and the answer is kept in the same panel under
-Privacy, Local Network. Saying no leaves the Mac serving and unannounced, so a client has to
-be given its address rather than finding it by itself.
-`/Applications/anywhere-file.app/Contents/MacOS/uninstall` takes it all away again.
+The gateway and the settings page listen on fixed ports, and each share's dufs on the port it
+was given. After a reboot any other program can be holding one. The agent says so, waits 30
+seconds and tries again, so it takes the port once the other program lets go (#221).
 
-On Linux the deb puts both binaries in `/usr/lib/anywhere-file`, links the agent into
-`/usr/bin` as `anywhere-file-agent`, and ships a firewalld service file. Opening the ports is
-left to whoever runs the machine:
+## Error reports
 
-```sh
-sudo firewall-cmd --permanent --add-service=anywhere-file && sudo firewall-cmd --reload
-sudo ufw allow proto tcp to any port 7433   # ufw instead, plus 5353/udp for discovery
-```
+When something fails, a PC signed in to an account tells the server (ADR 0007, #209). A report
+is a log line turned into an OpenTelemetry log record: the message, the trace id and three
+attributes, `error.code`, `step` and `http.status_code`. Nothing else on the line goes, so an
+error that quotes a path stays in the local log.
 
-The tarball is the same thing under `~/.local` with no root anywhere: `./install.sh` to put
-it there, `./uninstall.sh` to take it away.
+- Reports wait in `reports.jsonl` while the server is out of reach. The file is capped at
+  2 MiB and the oldest go first.
+- They go up every 30 seconds, signed with the device key like the share list.
+- The settings page has a checkbox that turns them off.
 
-On Windows the MSI puts both binaries in `Program Files\anywhere-file` and asks for an
-administrator, because it also adds the firewall rules: inbound TCP 7433 and UDP 5353, for
-the agent alone, from the local subnet, on the Private and Domain profiles. A laptop on a
-public network answers nobody. Uninstalling from Settings, Apps removes the rules with it.
-Nothing is signed yet, so SmartScreen warns: press More info and then Run anyway.
+The gateway reads the W3C `traceparent` header on each request and logs its trace id, so a
+failure on the PC lines up with the one the server saw (#209).
 
-A service starts with no shell, so settings go into the package when it is built rather than
-when it is installed. This is also the only way a package installed by double-clicking can
-carry any:
+## The settings page also shows
 
-```sh
-AGENT_ENV="RFM_AGENT_MDNS=off RFM_AGENT_KEYSTORE=file" ./packaging/linux/build.sh
-msiexec /i anywhere-file-0.0.0.msi AGENTENV="RFM_AGENT_MDNS=off"   # or at install time
-```
+- The device key's fingerprint, so a person can compare it with the one the app shows when it
+  first meets this PC (#176).
+- A notice when a newer release exists. The page asks the server's `GET /v1/version` and links
+  to its `/download` page (#190).
+- A warning when the Wi-Fi cannot reach this PC (#219).
 
-Uninstalling leaves the device key and the agent's directory alone, so a PC that is
-reinstalled is the same PC to the server and keeps every binding it had.
+## Packages
+
+`packaging/` builds one package per operating system. See [`packaging/README.md`](../packaging/README.md).

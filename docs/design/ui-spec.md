@@ -1,7 +1,7 @@
 # anywhere-file: UI specification for design
 
 Source of truth for designing every screen of anywhere-file. Written from the code on `main`
-(commit 7343b60), the open and closed GitHub issues, `docs/new-arch.md` and the ADRs.
+(commit 7343b60, with the tags updated for #159, #160 and #189), the open and closed GitHub issues, `docs/new-arch.md` and the ADRs.
 
 Every screen, field, state and action below exists in the system, or is in an open issue with
 a fixed scope. Each item carries a tag:
@@ -882,8 +882,8 @@ Opened by:
 
 - `agent settings` in a terminal (all systems)
 - the applications menu on Linux
-- `PLANNED #159`: a macOS menu bar item with "Open settings" and "Quit"
-- `PLANNED #160`: a Windows notification area icon with "Open settings" and "Quit"
+- `BUILT` (#159): a macOS menu bar item with "Open settings" and "Quit"
+- `BUILT` (#160): a Windows notification area icon with "Open settings" and "Quit"
 
 The page:
 

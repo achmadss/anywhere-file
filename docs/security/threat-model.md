@@ -1,8 +1,12 @@
 # Threat model
 
 **Status:** written 2026-09-17 against `docs/new-arch.md` and ADR 0005, reviewed 2026-09-18.
-The agent and the control plane are built. The client is not, so the claims that depend on it
-are still ahead of the code. Each claim is marked `verified` (someone read the code that makes
+Updated 2026-10-09: the agent, the control plane and the client's LAN and account screens are
+built. Opening a PC remotely from the client (#103) is not, so the claims that depend on it
+are still ahead of the code. Error reports from the PC (#209) are signed with the device key
+like every other agent call, and the server sets the device and account ids itself.
+
+Each claim is marked `verified` (someone read the code that makes
 it true), `by design` (an issue says it, no code yet) or `accepted` (a risk we are choosing to
 carry, on purpose, for the MVP).
 
@@ -155,5 +159,5 @@ under a key in the Keystore, so reading the app's data on a rooted phone yields 
 
 ## Gaps
 
-None filed yet. The adversarial review (#48) runs once the agent, the routing and invitations
-exist, against the pentest cases in `docs/new-arch.md`, and files what it finds here.
+None filed yet. The adversarial review (#48) runs against the pentest cases in
+`docs/new-arch.md`, and files what it finds here.
