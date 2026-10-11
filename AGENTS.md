@@ -45,8 +45,12 @@ Go long only when I ask for detail.
 
 Applies to PR descriptions, commit messages, ADRs, issue bodies, READMEs and comments.
 
-Run the `humanizer` skill over anything you write here before you commit or post it. The
-rules below add to that skill's.
+Before you commit or post anything you write here, run a skill over it:
+
+- READMEs: use the `readme-writer` skill.
+- Everything else: use the `humanizer` skill.
+
+The rules below add to those skills' rules.
 
 Keep it short and plain. Say what changed and why in as few words as do the job. A reader
 should get it on one pass without a glossary.
