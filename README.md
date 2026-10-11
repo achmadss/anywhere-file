@@ -2,13 +2,13 @@
 
 Open the files on your PC from your phone or laptop, at home or away.
 
-## Parts
+[![CI](https://github.com/achmadss/anywhere-file/actions/workflows/ci.yml/badge.svg)](https://github.com/achmadss/anywhere-file/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/achmadss/anywhere-file)](https://github.com/achmadss/anywhere-file/releases)
+[![License](https://img.shields.io/badge/license-All%20rights%20reserved-lightgrey)](LICENSE)
 
-| Part | Runs on | What it does |
-|---|---|---|
-| Agent | the PC that holds the files | shares your folders |
-| App | your phone or laptop | browses and moves the files |
-| Server | any machine you host | signs you in and lets the app reach the PC from away |
+## Why anywhere-file?
+
+Getting a file off your own PC from another room should not mean an account, a USB stick or a cloud upload. On the same Wi-Fi the phone finds the PC by itself and needs no Internet. Away from home it goes through a small server you host, and the PC never opens a port or holds a fixed address.
 
 ## Features
 
@@ -20,7 +20,33 @@ Open the files on your PC from your phone or laptop, at home or away.
 - Agent packages for Windows, macOS and Linux
 - Apps for Android, Windows, macOS and Linux
 
-## Windows
+## Parts
+
+| Part | Runs on | What it does |
+|---|---|---|
+| Agent | the PC that holds the files | shares your folders |
+| App | your phone or laptop | browses and moves the files |
+| Server | any machine you host | signs you in and lets the app reach the PC from away |
+
+## Quickstart
+
+Put the agent on the PC and the app on the phone or laptop, on the same Wi-Fi.
+
+1. Download `anywhere-file-<version>.msi`, `.pkg`, `.deb`, `.rpm` or tarball for the PC, and the app for your phone or laptop, from the latest [release](https://github.com/achmadss/anywhere-file/releases) or your server's `/download` page.
+2. Install the agent. It starts at logon and opens its settings page.
+3. Share a folder:
+
+   ```sh
+   agent share add ~/Shared --name files
+   ```
+
+4. Open the app. Your PC appears on its own. Open it and browse `files`.
+
+The PC and the app never touch the Internet for this. If the PC does not show up, run `agent discover` on it (see [Use the agent](#use-the-agent)).
+
+## Installation
+
+### Windows
 
 Get both from the latest [release](https://github.com/achmadss/anywhere-file/releases) or your server's `/download` page.
 
@@ -31,7 +57,7 @@ The MSI asks for an administrator because it adds firewall rules (TCP 7433 and U
 
 The agent is `agent.exe` in `Program Files\anywhere-file`. The tray icon may sit under the ^ arrow beside the clock. The log is a file in the agent's directory.
 
-## macOS
+### macOS
 
 - Agent: `anywhere-file-<version>.pkg`, for Intel and Apple silicon. It installs `anywhere-file.app` in Applications, starts the agent for whoever is logged in, opens its settings page and adds a menu bar icon.
 - App: the desktop app.
@@ -40,7 +66,7 @@ Allow Local Network when asked. If you refuse, the Mac serves but does not annou
 
 The agent is `/Applications/anywhere-file.app/Contents/MacOS/agent`. To remove everything, run `/Applications/anywhere-file.app/Contents/MacOS/uninstall`. The log is a file in the agent's directory.
 
-## Linux
+### Linux
 
 - Agent: `.deb`, `.rpm` or a tarball, for amd64 and arm64.
 - App: the desktop app.
@@ -68,14 +94,14 @@ journalctl --user -u anywhere-file-agent
 
 A machine with no Secret Service, such as a NAS or a server, keeps the device key in a file with mode 0600. Only file permissions and disk encryption protect it.
 
-## Android
+### Android
 
 Install the app: `anywhere-file-<version>.apk` from the latest [release](https://github.com/achmadss/anywhere-file/releases) or your server's `/download` page. There is no agent for Android.
 
 - On the same Wi-Fi the app finds your PCs by itself. On Android 17 and later it asks first to look around the local network. If you say no, it offers Android's own picker.
 - For remote access, sign in with your server's address.
 
-## All systems
+### All systems
 
 Each package has a `SHA256SUMS` file on the release to check downloads against. Removing the agent signs the PC out of its account first. The device key stays, so a reinstall is the same PC. One agent serves a PC: a second user on the same PC is asked to sign the first account out and quit anywhere-file there first.
 
@@ -143,7 +169,7 @@ File and folder names are never written to the log.
 
 ## Host the server
 
-The server needs PostgreSQL and runs from one binary.
+Away from the LAN, the app reaches the PC through a server you run. It needs PostgreSQL and runs from one binary.
 
 ```sh
 go build -o control-plane ./hosted/control-plane
@@ -195,9 +221,28 @@ curl -X POST localhost:8443/v1/admin/subscriptions/<account-id> \
 
 Use `"active"` to restore it.
 
+## Build from source
+
+The Go version is pinned by the `go` directive in `go.mod`.
+
+```sh
+git clone https://github.com/achmadss/anywhere-file.git
+cd anywhere-file
+go build -o agent ./device/agent
+./agent share add ~/Shared --name files
+./agent run
+```
+
+The app is Kotlin and Compose Multiplatform under `client/`, and needs JDK 17 or later. It builds with Gradle:
+
+```sh
+cd client
+./gradlew :desktopApp:run
+```
+
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). The design notes are in [`docs/`](docs/).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the layout, the build and test commands, and the failure suite. The design notes are in [`docs/`](docs/).
 
 ## License
 
