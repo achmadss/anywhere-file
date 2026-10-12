@@ -1,0 +1,21 @@
+{{define "legal"}}<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>{{.Title}} · ProductName</title>
+{{template "site-style"}}
+<style>
+  main { box-sizing: border-box; margin: 0 auto; max-width: 46rem; padding: 48px 24px 80px; }
+  h1 { font-size: 28px; font-weight: 400; line-height: 36px; margin: 0 0 24px; }
+  p { color: #49454F; margin: 0; }
+</style>
+
+{{template "header"}}
+
+<main>
+<h1>{{.Title}}</h1>
+<p>{{.Body}}</p>
+</main>
+
+{{template "footer"}}
+{{end}}

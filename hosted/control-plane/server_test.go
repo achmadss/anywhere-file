@@ -47,7 +47,7 @@ func TestUnknownPathIs404(t *testing.T) {
 	pool := connect(t, 2)
 
 	rec := httptest.NewRecorder()
-	newHandler(pool, discard, NewMetrics()).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	newHandler(pool, discard, NewMetrics()).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/nothing", nil))
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
