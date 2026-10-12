@@ -149,3 +149,13 @@ Authorization: Bearer {{token}}
 # 200 {"ok": true}
 #
 # The last admin cannot be removed: 409 {"error": "a device keeps at least one admin"}
+
+### Leave a PC (#188). A guest ends their own access; the admin does not leave, they sign
+### out on the PC.
+POST http://{{base}}/v1/devices/{{device}}/leave
+Authorization: Bearer {{token}}
+
+# 200 {"ok": true}
+#
+# The admin: 403 {"error": "the admin of a device does not leave it, they sign out on it"}
+# A caller with no access to the PC: 404 {"error": "not found"}

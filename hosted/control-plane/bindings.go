@@ -22,6 +22,7 @@ const (
 )
 
 var errLastAdmin = errors.New("last admin")
+var errAdminLeave = errors.New("admin leave")
 
 func registerBindingRoutes(mux *http.ServeMux, db *pgxpool.Pool, log *slog.Logger, reg *tunnelRegistry) {
 	wrap := func(limit int, h http.HandlerFunc) http.Handler {
@@ -30,6 +31,7 @@ func registerBindingRoutes(mux *http.ServeMux, db *pgxpool.Pool, log *slog.Logge
 	mux.Handle("GET /v1/devices", wrap(listDevicesLimit, requireSession(db, listDevices(db, reg))))
 	mux.Handle("GET /v1/devices/{id}/users", wrap(listUsersLimit, requireSession(db, listDeviceUsers(db))))
 	mux.Handle("POST /v1/devices/{id}/users/{user}/revoke", wrap(revokeLimit, requireSession(db, revokeBinding(db, log))))
+	mux.Handle("POST /v1/devices/{id}/leave", wrap(revokeLimit, requireSession(db, leaveDevice(db, log))))
 	mux.Handle("POST /v1/devices/{id}/remove", wrap(removeLimit, requireSession(db, removeDevice(db, log, reg))))
 }
 
@@ -196,6 +198,71 @@ func revokeBinding(db *pgxpool.Pool, log *slog.Logger) http.HandlerFunc {
 			return
 		}
 		log.Info("binding revoked", "device", deviceID, "user", target, "by", a.id)
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	}
+}
+
+// leaveDevice ends the caller's own access to a PC (#188), for a guest who was invited by
+// mistake or no longer wants it. The admin does not leave: they sign out on the PC (#191),
+// so their call is refused. A caller with no active binding on the device gets the 404 an
+// unknown device gets. Like revokeBinding it takes the device row's lock, so a leave and a
+// revoke on one PC run in turn.
+func leaveDevice(db *pgxpool.Pool, log *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		a, _, ok := accountFromContext(r.Context())
+		if !ok {
+			writeAuthError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		ctx := r.Context()
+		deviceID := r.PathValue("id")
+		if validateToken("device_id", deviceID) != nil {
+			writeAuthError(w, http.StatusNotFound, "not found")
+			return
+		}
+		var role string
+		err := inTx(ctx, db, func(tx pgx.Tx) error {
+			var one int
+			if err := tx.QueryRow(ctx, `SELECT 1 FROM devices WHERE device_id = $1 FOR UPDATE`, deviceID).Scan(&one); err != nil {
+				return err
+			}
+			err := tx.QueryRow(ctx,
+				`UPDATE device_users SET revoked_at = now()
+				 WHERE device_id = $1 AND user_id = $2::uuid AND revoked_at IS NULL AND role <> 'admin'
+				 RETURNING role`, deviceID, a.id).Scan(&role)
+			if errors.Is(err, pgx.ErrNoRows) {
+				// Either there is no active binding, or the caller is the admin, who is not
+				// allowed to leave: they sign out on the PC (#191).
+				var admin bool
+				if err := tx.QueryRow(ctx,
+					`SELECT EXISTS (SELECT 1 FROM device_users
+					 WHERE device_id = $1 AND user_id = $2::uuid AND role = 'admin' AND revoked_at IS NULL)`,
+					deviceID, a.id).Scan(&admin); err != nil {
+					return err
+				}
+				if admin {
+					return errAdminLeave
+				}
+				return pgx.ErrNoRows
+			}
+			if err != nil {
+				return err
+			}
+			return appendAudit(ctx, tx, deviceID, a.id, ActionBindingRevoked,
+				AuditDetails{AccountID: a.id, Role: role})
+		})
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			writeAuthError(w, http.StatusNotFound, "not found")
+			return
+		case errors.Is(err, errAdminLeave):
+			writeAuthError(w, http.StatusForbidden, "the admin of a device does not leave it, they sign out on it")
+			return
+		case err != nil:
+			writeAuthError(w, http.StatusInternalServerError, "try again later")
+			return
+		}
+		log.Info("binding left", "device", deviceID, "by", a.id)
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	}
 }
