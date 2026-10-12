@@ -73,20 +73,23 @@ fun readDiscoveryDocument(address: String, deviceId: String): Contact {
 fun confirm(device: Device, devices: Devices, known: KnownDevices) {
     thread(isDaemon = true, name = "discovery-document ${device.id.take(8)}") {
         val doc = try {
-            readDiscoveryDocument(device.address, device.id).doc
+            readDocument(device.address, device.id).doc
         } catch (e: WrongDevice) {
             devices.seen(device.copy(refused = e.message))
             return@thread
         } catch (e: Exception) {
             return@thread
         }
+        // knew goes before remember: remember has already recorded the PC, and a knew
+        // asked after it would call the first meeting an old one.
+        val firstContact = !known.knew(device.id)
         known.remember(device.id, device.address)
         devices.seen(
             device.copy(
                 name = doc.name,
                 apps = doc.apps,
                 confirmed = true,
-                firstContact = !known.knew(device.id),
+                firstContact = firstContact,
             ),
         )
     }
