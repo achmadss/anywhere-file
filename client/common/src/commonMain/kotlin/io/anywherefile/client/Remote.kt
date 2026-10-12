@@ -16,11 +16,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -61,9 +64,23 @@ fun RemoteDevices(session: Account, onManage: (RemoteDevice) -> Unit) {
     if (!session.signedIn) return
     val scope = rememberCoroutineScope()
     var trouble by remember { mutableStateOf<String?>(null) }
+    var leaving by remember { mutableStateOf<RemoteDevice?>(null) }
     fun refresh() = scope.launch {
         trouble = try {
             withContext(Dispatchers.Default) { session.refresh() }
+            null
+        } catch (e: Exception) {
+            e.message ?: "The server did not answer."
+        }
+    }
+    // A guest leaves their PC after asking: with the binding gone, the PC is off their list
+    // at the refresh that follows (#188). It comes back only with a new code.
+    fun leave(device: RemoteDevice) = scope.launch {
+        trouble = try {
+            withContext(Dispatchers.Default) {
+                session.leave(device.id)
+                session.refresh()
+            }
             null
         } catch (e: Exception) {
             e.message ?: "The server did not answer."
@@ -80,18 +97,37 @@ fun RemoteDevices(session: Account, onManage: (RemoteDevice) -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        listed?.forEach { RemoteCard(it, onManage) }
+        listed?.forEach { RemoteCard(it, onManage, onRemove = { leaving = it }) }
         trouble?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
         TextButton(onClick = { refresh() }) { Text("Refresh") }
         Redeem(session) { refresh() }
     }
+    leaving?.let { device ->
+        AlertDialog(
+            onDismissRequest = { leaving = null },
+            title = { Text("Remove ${device.name}?") },
+            text = { Text("You won't be able to open its folders. To come back, you need a new link from the person who shared it.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        leaving = null
+                        leave(device)
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Remove") }
+            },
+            dismissButton = { TextButton(onClick = { leaving = null }) { Text("Cancel") } },
+        )
+    }
 }
 
-// One PC as the server lists it. Only an admin's card opens anything, because the screen
-// behind it is management and a guest has none.
+// One PC as the server lists it. An admin's card opens management; a guest's card has a
+// three-dot menu whose only entry is leaving it (#188), since the screen behind it is
+// management and a guest has none.
 @Composable
-private fun RemoteCard(device: RemoteDevice, onManage: (RemoteDevice) -> Unit) {
+private fun RemoteCard(device: RemoteDevice, onManage: (RemoteDevice) -> Unit, onRemove: () -> Unit) {
     val admin = device.role == "admin"
+    var menu by remember { mutableStateOf(false) }
     Card(
         Modifier.fillMaxWidth().then(if (admin) Modifier.clickable { onManage(device) } else Modifier),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
@@ -111,7 +147,14 @@ private fun RemoteCard(device: RemoteDevice, onManage: (RemoteDevice) -> Unit) {
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (admin) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Manage ${device.name}")
+            if (admin) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Manage ${device.name}")
+            } else {
+                IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Menu for ${device.name}") }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text("Remove") }, onClick = { menu = false; onRemove() })
+                }
+            }
         }
     }
 }

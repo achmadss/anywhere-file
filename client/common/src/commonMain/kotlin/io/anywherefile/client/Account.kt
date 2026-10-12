@@ -55,6 +55,11 @@ interface Account {
     // sign itself out because it was sold, broke or lost its agent.
     suspend fun remove(device: String)
 
+    // leave ends the signed-in guest's own access to a PC (#188). The server refuses the
+    // admin with its answer for refusals, because the admin signs out on the PC instead of
+    // leaving it.
+    suspend fun leave(device: String)
+
     // redeem turns a code somebody shared into access to their PC.
     suspend fun redeem(code: String)
 }

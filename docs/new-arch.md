@@ -374,7 +374,8 @@ the subscription belongs to. Enrolment always leaves an admin row, so a device w
 is a device nobody pays for.
 
 An admin sees the users on a device, can revoke one, and can invite another account. A guest
-sees the device and its applications and none of the management.
+sees the device and its applications and none of the management, and may leave the device,
+ending their own access (#188).
 
 ## Invitations
 
