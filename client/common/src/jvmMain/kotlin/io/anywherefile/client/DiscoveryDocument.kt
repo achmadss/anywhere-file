@@ -80,6 +80,7 @@ fun confirm(device: Device, devices: Devices, known: KnownDevices) {
         } catch (e: Exception) {
             return@thread
         }
+        known.remember(device.id, device.address)
         devices.seen(
             device.copy(
                 name = doc.name,
@@ -88,6 +89,77 @@ fun confirm(device: Device, devices: Devices, known: KnownDevices) {
                 firstContact = !known.knew(device.id),
             ),
         )
+    }
+}
+
+// readDocument stands where the network is, so tests can hand back an answer without
+// opening a connection. Everything that trusts the PC does it through here.
+internal var readDocument: (address: String, deviceId: String) -> Contact = ::readDiscoveryDocument
+
+// Remembered keeps the PCs met before reachable when the browse cannot ask the network
+// anything (#254). Multicast is refused (macOS's local network permission), or the access
+// point isolates its clients, and the PC met yesterday is still there. Its address comes
+// from the last confirmed read of its document, and probing is that same read: the
+// document is what says the PC at the address is still the one met before. mDNS results
+// keep the add, update and lost flow of a working network untouched.
+class Remembered(
+    private val known: KnownDevices,
+    private val devices: Devices,
+    private val everyMs: Long = REMEMBERED_INTERVAL_MS,
+) {
+    // Missed probes in a row per device id. Three: about 45 s of a PC being gone, not one
+    // lost Wi-Fi packet being read as a machine that went away.
+    private val misses = HashMap<String, Int>()
+
+    fun start() {
+        thread(isDaemon = true, name = "remembered") {
+            while (true) {
+                round()
+                Thread.sleep(everyMs)
+            }
+        }
+    }
+
+    // round probes every remembered PC once, in its own thread each, because a PC that is
+    // gone keeps a read busy for its whole timeout and one by one would be that much per
+    // PC added together. Forget a PC and its misses go with it.
+    internal fun round() {
+        val pcs = known.remembered()
+        synchronized(misses) { misses.keys.retainAll(pcs.keys) }
+        val probes = pcs.map { (id, address) ->
+            thread(isDaemon = true, name = "remembered ${id.take(8)}") { probe(id, address) }
+        }
+        probes.forEach { it.join() }
+    }
+
+    private fun probe(id: String, address: String) {
+        // A PC that has already missed its three probes stays off the list, but keeps
+        // being probed: when it answers again the card comes straight back.
+        val dropped = synchronized(misses) { (misses[id] ?: 0) >= DROPPED_AFTER_MISSES }
+        if (!dropped) devices.seen(Device(id, id.take(8), emptyList(), address))
+        val doc = try {
+            readDocument(address, id).doc
+        } catch (e: Exception) {
+            val count = synchronized(misses) {
+                misses[id] = (misses[id] ?: 0) + 1
+                misses[id]!!
+            }
+            if (count >= DROPPED_AFTER_MISSES) devices.lost(id)
+            return
+        }
+        synchronized(misses) { misses.remove(id) }
+        known.remember(id, address)
+        // The card keeps whatever firstContact the screen already shows it: the PC was
+        // met before, and the document read here is not the moment to call it new.
+        val current = devices.found.firstOrNull { it.id == id }
+        devices.seen(
+            Device(id, doc.name, doc.apps, address, confirmed = true, firstContact = current?.firstContact ?: false),
+        )
+    }
+
+    companion object {
+        private const val REMEMBERED_INTERVAL_MS = 15_000L
+        private const val DROPPED_AFTER_MISSES = 3
     }
 }
 

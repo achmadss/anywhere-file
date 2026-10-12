@@ -3,8 +3,11 @@ package io.anywherefile.client
 import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.MulticastSocket
+import java.net.NetworkInterface
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.nio.ByteBuffer
@@ -15,57 +18,88 @@ import kotlin.concurrent.thread
 // unicast to the port it came from. Port 5353 on a desktop already belongs to Bonjour,
 // Avahi or the Windows resolver, and the agent answers every query by unicast to its
 // source port, so an answer to a query sent from 5353 lands on whichever of the sockets
-// bound there the kernel picks. A port nobody else holds gets every answer.
-//
-// ponytail: one socket, sending on the interface the kernel routes multicast to. A PC with
-// a VPN or a second LAN needs one query per interface.
+// bound there the kernel picks. A port nobody else holds gets every answer. A query goes
+// out on every interface that can carry it (#254): a laptop on Wi-Fi with a VPN has PCs
+// reachable only through one of the two, and the kernel's multicast route picks just one.
 class LanDiscovery(private val devices: Devices, private val known: KnownDevices) : Discovery {
-    @Volatile private var socket: DatagramSocket? = null
+    private val sockets = ArrayList<DatagramSocket>()
+    // Answers can name a PC through any interface, so what has been seen is shared, and
+    // the query threads read and clear it together.
+    private val lastSeen = HashMap<String, Long>()
 
     override fun start() {
-        thread(isDaemon = true, name = "discovery") {
-            val s = DatagramSocket()
-            socket = s
-            s.soTimeout = 250
-            val group = InetSocketAddress(InetAddress.getByName(MDNS_GROUP), MDNS_PORT)
-            val buf = ByteArray(9000)
-            val lastSeen = HashMap<String, Long>()
-            var nextQuery = 0L
+        synchronized(sockets) { sockets.clear() }
+        for (iface in capableInterfaces()) {
+            val socket = MulticastSocket(null as InetSocketAddress?)
             try {
-                while (!s.isClosed) {
-                    val now = System.currentTimeMillis()
-                    if (now >= nextQuery) {
-                        nextQuery = now + QUERY_INTERVAL_MS
-                        try {
-                            s.send(DatagramPacket(QUERY, QUERY.size, group))
-                        } catch (e: IOException) {
-                            // No route to the group, or the OS refused. Ask again next time.
-                        }
-                        val gone = lastSeen.filterValues { now - it > LOST_AFTER_MS }.keys
-                        gone.forEach { lastSeen.remove(it); devices.lost(it) }
-                    }
-                    val p = DatagramPacket(buf, buf.size)
-                    try {
-                        s.receive(p)
-                    } catch (e: SocketTimeoutException) {
-                        continue
-                    }
-                    val from = p.address?.hostAddress ?: continue
-                    for (d in devicesIn(buf.copyOf(p.length), from)) {
-                        if (lastSeen.put(d.id, now) == null) confirm(d, devices, known)
-                        devices.seen(d)
-                    }
-                }
-            } catch (e: SocketException) {
-                // stop() closed the socket.
+                socket.networkInterface = iface
+                socket.joinGroup(InetSocketAddress(InetAddress.getByName(MDNS_GROUP), 0), iface)
+            } catch (e: IOException) {
+                // Multicast on this interface refused, which some VPNs and half asleep
+                // Wi-Fi drivers do. The other interfaces still ask.
+                socket.close()
+                continue
+            }
+            synchronized(sockets) { sockets.add(socket) }
+            thread(isDaemon = true, name = "discovery ${iface.name}") {
+                browse(socket)
             }
         }
     }
 
     override fun stop() {
-        socket?.close()
-        socket = null
+        synchronized(sockets) {
+            sockets.forEach { it.close() }
+            sockets.clear()
+        }
     }
+
+    // browse is one interface's query loop: send the query, parse the answers, and take
+    // PCs that have gone quiet off the list. The books are shared with the other
+    // interfaces' loops, so a PC is added and dropped once, not once per socket.
+    private fun browse(socket: DatagramSocket) {
+        val group = InetSocketAddress(InetAddress.getByName(MDNS_GROUP), MDNS_PORT)
+        val buf = ByteArray(9000)
+        var nextQuery = 0L
+        try {
+            while (!socket.isClosed) {
+                val now = System.currentTimeMillis()
+                if (now >= nextQuery) {
+                    nextQuery = now + QUERY_INTERVAL_MS
+                    try {
+                        socket.send(DatagramPacket(QUERY, QUERY.size, group))
+                    } catch (e: IOException) {
+                        // No route to the group, or the OS refused. Ask again next time.
+                    }
+                    synchronized(lastSeen) {
+                        val gone = lastSeen.filterValues { now - it > LOST_AFTER_MS }.keys
+                        gone.forEach { lastSeen.remove(it); devices.lost(it) }
+                    }
+                }
+                val p = DatagramPacket(buf, buf.size)
+                try {
+                    socket.receive(p)
+                } catch (e: SocketTimeoutException) {
+                    continue
+                }
+                val from = p.address?.hostAddress ?: continue
+                for (d in devicesIn(buf.copyOf(p.length), from)) {
+                    val arrived = synchronized(lastSeen) { lastSeen.put(d.id, now) == null }
+                    if (arrived) confirm(d, devices, known)
+                    devices.seen(d)
+                }
+            }
+        } catch (e: SocketException) {
+            // stop() closed the socket.
+        }
+    }
+
+    // capableInterfaces is what can carry a query: up, not loopback, IPv4, multicast.
+    private fun capableInterfaces(): List<NetworkInterface> =
+        NetworkInterface.getNetworkInterfaces().asSequence()
+            .filter { it.isUp && !it.isLoopback && it.supportsMulticast() }
+            .filter { iface -> iface.interfaceAddresses.any { it.address is Inet4Address } }
+            .toList()
 }
 
 const val MDNS_GROUP = "224.0.0.251"

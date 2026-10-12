@@ -8,6 +8,7 @@ import kotlin.test.assertTrue
 
 class KnownDevicesTest {
     private val id = "c".repeat(64)
+    private val other = "d".repeat(64)
 
     private fun file(): File = File.createTempFile("known-devices", "").apply { delete() }
 
@@ -57,12 +58,48 @@ class KnownDevicesTest {
         assertEquals(listOf(id), f.readLines().filter { it.isNotEmpty() })
     }
 
+    // The address a PC answered at is kept beside its id (#254), so the browse can try it
+    // again when the network cannot be asked. Forgetting the PC takes the address with it.
+    @Test
+    fun theAddressIsRememberedWithThePC() {
+        val f = file()
+        KnownDevices(f).remember(id, "192.168.1.20:7433")
+        assertEquals(mapOf(id to "192.168.1.20:7433"), KnownDevices(f).remembered())
+        assertEquals(listOf("$id 192.168.1.20:7433"), f.readLines().filter { it.isNotEmpty() })
+
+        KnownDevices(f).forget(id)
+        assertEquals(emptyMap(), KnownDevices(f).remembered())
+    }
+
+    // Lines written before the address was kept, with only an id on them, still say the PC
+    // is known; they just carry no address to fall back on.
+    @Test
+    fun anOldLineWithOnlyAnIdIsStillKnown() {
+        val f = file()
+        f.writeText("$id\n$other old-address:1\n")
+        val known = KnownDevices(f)
+        assertTrue(known.knew(id), "an id-only line should count as known")
+        assertTrue(known.knew(other), "a line with an address should count as known")
+        assertEquals(mapOf(other to "old-address:1"), known.remembered())
+    }
+
+    // A line is an id, a space and an address. In the unlikely case of two PCs turning
+    // up on one line, the first token is the id and the second is whatever is left,
+    // which keeps the file one line per PC.
+    @Test
+    fun aLineIsTheIdThenTheAddress() {
+        val f = file()
+        f.writeText("$id 192.168.1.20:7433 extra\n")
+        assertEquals(mapOf(id to "192.168.1.20:7433 extra"), KnownDevices(f).remembered())
+    }
+
     // A directory nobody may write is a reason to show a PC as new, never a reason to crash
     // on a screen that is otherwise working.
     @Test
     fun aFileThatCannotBeWrittenIsNotACrash() {
         val known = KnownDevices(File("/proc/nowhere/known-devices"))
         assertFalse(known.knew(id))
+        known.remember(id, "h:1")
         known.forget(id)
     }
 }

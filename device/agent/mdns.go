@@ -234,17 +234,24 @@ func multicastInterface() *net.Interface {
 // localAddrs is the addresses that go out in the answer: the ones belonging to the
 // interface the answer leaves on, and nothing else. A PC running docker holds an address
 // on every bridge it has created, and a client on the LAN cannot reach any of them, so
-// putting them in the answer only gives the client somewhere wrong to go (#152). Loopback
-// is the fallback, so a machine with nothing else still advertises a usable record.
+// putting them in the answer only gives the client somewhere wrong to go (#152). What is
+// left is filtered further, because everything in the record is for the machines on the
+// other side of this one network: non-private IPv4 goes, a PC with a bridged VM network
+// carrying a public address would otherwise tell the whole LAN where it sits on the
+// Internet (t3code refuses such addresses for the same reason), and so does IPv6, whose
+// temporary addresses churn faster than a record's TTL says anything. Loopback is the
+// fallback, so a machine with nothing else still advertises a usable record.
 func localAddrs(iface *net.Interface) []net.IP {
 	var ips []net.IP
 	if iface != nil {
 		addrs, _ := interfaceAddrs(iface)
 		for _, addr := range addrs {
-			// A link-local address needs the interface it was learned on, and a DNS
-			// record does not carry that.
-			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLinkLocalUnicast() {
-				ips = append(ips, ipnet.IP)
+			ipnet, ok := addr.(*net.IPNet)
+			if !ok {
+				continue
+			}
+			if ip := ipnet.IP.To4(); ip != nil && ip.IsPrivate() {
+				ips = append(ips, ip)
 			}
 		}
 	}
