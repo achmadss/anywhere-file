@@ -74,6 +74,47 @@ class ServerSharingTest {
         }
     }
 
+    // The guest sharing test above leaves by the owner's hand. This one is a guest leaving
+    // on their own (#188): after their leave the PC is gone from their list at the refresh,
+    // the owner still has it and them in their list, and the admin cannot leave their own PC.
+    @Test
+    fun aGuestLeavesTheirPc() {
+        val base = System.getenv("RFM_TEST_SERVER")
+        if (base.isNullOrEmpty()) {
+            println("skipped: RFM_TEST_SERVER is not set")
+            return
+        }
+        val run = System.nanoTime()
+        val owner = session(base, "owner-$run@example.test")
+        val guest = session(base, "leaver-$run@example.test")
+        val pc = enrolPc(base, owner.token, "desk-$run")
+
+        runBlocking {
+            val code = owner.session.invite(pc, "guest", "1h")
+            guest.session.redeem(code.code)
+
+            guest.session.refresh()
+            val theirs = guest.session.remote!!.single()
+            assertEquals(pc, theirs.id)
+            assertEquals("guest", theirs.role)
+
+            guest.session.leave(pc)
+            println("the guest left")
+
+            guest.session.refresh()
+            assertTrue(guest.session.remote!!.isEmpty(), "the PC is still on the guest's list after leaving")
+
+            owner.session.refresh()
+            assertEquals(1, owner.session.remote!!.size, "the owner's PC is gone after the guest left")
+            assertEquals("admin", owner.session.remote!!.single().role)
+            assertEquals(1, owner.session.users(pc).size, "the guest who left is still listed")
+
+            // The admin does not leave, they sign out on the PC (#191).
+            assertFailsWith<Refused> { owner.session.leave(pc) }
+            println("the admin cannot leave")
+        }
+    }
+
     private class Signed(val session: Session, val token: String)
 
     // session makes an account and signs a client in to it.

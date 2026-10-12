@@ -1,0 +1,38 @@
+{{define "site-style"}}<style>
+  body { font: 16px/1.5 Roboto, system-ui, sans-serif; margin: 0; background: #FEF7FF; color: #1D1B20; }
+  .site-header { align-items: center; background: #FEF7FF; border-bottom: 1px solid #CAC4D0;
+                 box-sizing: border-box; display: flex; flex-wrap: wrap; gap: 8px 24px;
+                 justify-content: space-between; padding: 16px 24px; }
+  .logo { align-items: center; color: #1D1B20; display: flex; font-size: 22px; gap: 12px;
+          line-height: 28px; text-decoration: none; }
+  .logo span { background: #EADDFF; border-radius: 10px; color: #4F378A; display: inline-grid;
+               height: 36px; place-items: center; width: 36px; }
+  .site-nav { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
+  .nav-link { border-radius: 100px; color: #6750A4; font-size: 14px; font-weight: 500;
+              line-height: 20px; padding: 10px 16px; text-decoration: none; }
+  .nav-link.outline { border: 1px solid #CAC4D0; color: #49454F; }
+  .nav-link.plain { color: #49454F; }
+  .site-footer { background: #F7F2FA; box-sizing: border-box; display: flex; flex-wrap: wrap;
+                 gap: 24px; justify-content: space-between; padding: 32px 24px; }
+  .site-footer .copy { color: #49454F; font-size: 14px; line-height: 40px; }
+  .site-footer .nav-link { padding: 10px 0; }
+</style>{{end}}
+
+{{define "header"}}<header class="site-header">
+  <a class="logo" href="/"><span aria-hidden="true"><svg height="24" viewBox="0 0 24 24" width="24"><rect fill="none" height="11" rx="1" stroke="currentColor" stroke-width="2" width="16" x="4" y="5"/><path d="M2 19h20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2"/></svg></span>ProductName</a>
+  <nav class="site-nav">
+    <a class="nav-link" href="/download">Download</a>
+    <a class="nav-link" href="/help">Help</a>
+    <a class="nav-link outline" href="/signin">Sign in</a>
+  </nav>
+</header>
+{{end}}
+
+{{define "footer"}}<footer class="site-footer">
+  <span class="copy">© 2026 ProductName</span>
+  <nav class="site-nav">
+    <a class="nav-link" href="/privacy">Privacy</a>
+    <a class="nav-link" href="/terms">Terms</a>
+  </nav>
+</footer>
+{{end}}

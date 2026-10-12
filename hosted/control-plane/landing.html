@@ -1,0 +1,95 @@
+{{define "landing"}}<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>ProductName</title>
+{{template "site-style"}}
+<style>
+  h1 { font-size: 36px; font-weight: 400; line-height: 44px; margin: 0; }
+  h2 { font-size: 28px; font-weight: 400; line-height: 36px; margin: 0; }
+  h3 { font-size: 22px; font-weight: 400; line-height: 28px; margin: 0; }
+  p { color: #49454F; margin: 0; }
+  .wrap { display: grid; gap: 24px; margin: 0 auto; max-width: 1200px; }
+  .hero { padding: 80px 24px; }
+  .hero-text { display: grid; gap: 24px; }
+  .section { padding: 72px 24px; }
+  .low { background: #F7F2FA; }
+  .cards { display: flex; flex-wrap: wrap; gap: 24px; }
+  .card { background: #FEF7FF; border: 1px solid #CAC4D0; border-radius: 16px; box-sizing: border-box;
+          display: grid; flex: 1 1 280px; gap: 12px; padding: 24px; }
+  .num { align-items: center; background: #EADDFF; border-radius: 20px; color: #4F378A;
+         display: inline-grid; font-weight: 500; height: 40px; place-items: center; width: 40px; }
+  .btn { background: #6750A4; border-radius: 100px; color: #FFFFFF; display: inline-block;
+         font-size: 14px; font-weight: 500; line-height: 20px; padding: 14px 24px; text-decoration: none; }
+  .cta { padding: 80px 24px; text-align: center; }
+</style>
+
+{{template "header"}}
+
+<main>
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-text">
+      <h1>Reach the files on your home PCs from your phone or laptop.</h1>
+      <p>Open, save and send files on your PCs from anywhere. On your Wi-Fi it works with no account and no Internet.</p>
+      <p><a class="btn" href="/download">Download</a></p>
+    </div>
+  </div>
+</section>
+
+<section class="section low">
+  <div class="wrap">
+    <h2>How it works</h2>
+    <div class="cards">
+      <div class="card"><span class="num">1</span><h3>Share your PC</h3><p>Install ProductName on each PC you want to reach, and pick the folders to share.</p></div>
+      <div class="card"><span class="num">2</span><h3>Get the app</h3><p>Install the app on your phone or laptop.</p></div>
+      <div class="card"><span class="num">3</span><h3>Open your files</h3><p>On the same Wi-Fi the app finds your PCs by itself. Anywhere else, sign in and they are still there.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <h2>On your Wi-Fi, or over the internet</h2>
+    <p>The app shows the same two labels on each PC, so you always know how it is reached.</p>
+    <div class="cards">
+      <div class="card"><h3>On your Wi-Fi</h3><p>No account and no Internet needed. The app talks to the PC directly.</p></div>
+      <div class="card"><h3>Over the internet</h3><p>Needs an account. No router setup. Add the PC to your account from the PC, then reach it from anywhere.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section low">
+  <div class="wrap">
+    <h2>Share a PC with someone</h2>
+    <p>Make a one-time invite link in the app and send it. They get access as a guest, and you can remove them again at any time.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <h2>Your files stay on your PCs</h2>
+    <p>Files move only when someone opens, saves or sends one.</p>
+  </div>
+</section>
+
+<section class="section low">
+  <div class="wrap">
+    <h2>Works on</h2>
+    <div class="cards">
+      <div class="card"><h3>The PC with the files</h3><p>Windows, macOS, Linux</p></div>
+      <div class="card"><h3>The app</h3><p>Android, Windows, macOS, Linux</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="wrap">
+    <h2>Get ProductName</h2>
+    <p><a class="btn" href="/download">Download</a></p>
+  </div>
+</section>
+</main>
+
+{{template "footer"}}
+{{end}}

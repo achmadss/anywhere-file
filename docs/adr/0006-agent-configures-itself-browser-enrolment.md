@@ -1,6 +1,8 @@
 # 0006: The agent configures itself, and a PC is enrolled by approving it in a browser
 
-**Status:** accepted, 2026-09-18. Supersedes the last consequence of
+**Status:** accepted, 2026-09-18. Amended, 2026-10-12: the website carries one page of
+account management, for deleting an account (#183), because that should not need the app
+installed. Supersedes the last consequence of
 [0005](0005-go-agent-native-tunnel-opaque-sessions.md), which said the client is the only UI,
 including for enrolling a PC.
 
@@ -11,7 +13,7 @@ including for enrolling a PC.
 | Settings on a PC | The agent serves a settings page on `127.0.0.1` and takes the same commands from a terminal (#136). A menu bar item on macOS, a tray icon on Windows and a `.desktop` entry on Linux open the page. |
 | Who writes `agent.json` | The running agent, always. Both front ends post to one loopback endpoint. |
 | Enrolment | The agent asks the server to start an enrolment, signed with its device key, then opens the browser. The person signs in on the website and approves that PC by name. The agent polls, gets a token and enrols (#139). |
-| The website | Signup, email verification, password reset, the approval page and the downloads (#137, #138, #139). No account, billing or device management. |
+| The website | Signup, email verification, password reset, the approval page and the downloads (#137, #138, #139). Since the amendment of 2026-10-12 it also carries one account page, `/account/delete` (#183). No billing or device management. |
 | `/enrol` on the LAN gateway | Removed (#140). It existed for the client to call, and the client no longer enrols anything. |
 
 ## Why the agent and not the client
@@ -69,8 +71,9 @@ device authorization grant.
 ## Consequences
 
 - There is a website. #41 previously said there is no web surface and the client is the only
-  UI. That is now wrong in one direction only: the web does signup, verification, reset,
-  approval and downloads, and nothing else.
+  UI. That is wrong in two directions now: the web does signup, verification, reset,
+  approval and downloads, and since the amendment of 2026-10-12 one page that deletes an
+  account, and nothing else.
 - #101, the client's enrolment screen, is closed. Enrolment lives in #139.
 - Accepted risk A1 in the threat model loses its enrolment half once #140 lands. What remains
   of A1 is the use of the applications, which V2 addresses.

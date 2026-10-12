@@ -56,7 +56,10 @@ func TestTheDownloadPageOffersTheVisitorsSystemFirst(t *testing.T) {
 		"curl/8.0":                                     "https://example.test/mac.pkg",
 	} {
 		body := downloadAs(t, ua)
-		first := body[strings.Index(body, `<a href="`)+len(`<a href="`):]
+		// The shared header and footer link around the site first, so the search
+		// starts at the page's own content.
+		content := body[strings.Index(body, "<main>"):]
+		first := content[strings.Index(content, `<a href="`)+len(`<a href="`):]
 		first = first[:strings.Index(first, `"`)]
 		if first != want {
 			t.Errorf("%s: first link is %s, want %s", ua, first, want)

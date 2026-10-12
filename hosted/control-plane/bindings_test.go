@@ -39,6 +39,11 @@ func revoke(t *testing.T, h http.Handler, session, deviceID, userID string) int 
 	return doJSON(t, h, http.MethodPost, "/v1/devices/"+deviceID+"/users/"+userID+"/revoke", nil, bearer(session)).Code
 }
 
+func leave(t *testing.T, h http.Handler, session, deviceID string) int {
+	t.Helper()
+	return doJSON(t, h, http.MethodPost, "/v1/devices/"+deviceID+"/leave", nil, bearer(session)).Code
+}
+
 func activeAdmins(t *testing.T, pool *pgxpool.Pool, deviceID string) int {
 	t.Helper()
 	return countRows(t, pool,
@@ -160,6 +165,97 @@ func TestLastAdminCannotBeRevoked(t *testing.T) {
 	}
 	if n := activeAdmins(t, pool, pc1); n != 1 {
 		t.Errorf("active admins = %d, want 1", n)
+	}
+}
+
+// A guest leaves their own PC (#188): the row stays, the audit records it, the PC goes
+// from the list at the next refresh, and a second leave finds nothing left.
+func TestAGuestLeavesTheirDevice(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	pc1 := enrolDeviceFor(t, h, "owner@example.com", "pc1")
+	guest := bind(t, h, pool, pc1, "guest@example.com", "guest")
+	guestID := accountIDByEmail(t, pool, "guest@example.com")
+
+	if code := leave(t, h, guest, pc1); code != http.StatusOK {
+		t.Fatalf("guest leave: status = %d, want 200", code)
+	}
+	if n := countRows(t, pool, `SELECT count(*) FROM device_users WHERE device_id = $1 AND user_id = $2::uuid AND revoked_at IS NOT NULL`, pc1, guestID); n != 1 {
+		t.Errorf("revoked rows = %d, want 1 (row must stay)", n)
+	}
+	var actor string
+	if err := pool.QueryRow(t.Context(),
+		`SELECT actor FROM audit_events WHERE action = $1 AND device_id = $2`, ActionBindingRevoked, pc1).Scan(&actor); err != nil {
+		t.Fatalf("audit row: %v", err)
+	}
+	if actor != guestID {
+		t.Errorf("audit actor = %s, want the guest who left (%s)", actor, guestID)
+	}
+
+	// The PC is still listed to the guest, with revoked_at set, so the app can say
+	// access was removed; a second leave finds no active binding.
+	rec := doJSON(t, h, http.MethodGet, "/v1/devices", nil, bearer(guest))
+	var list struct {
+		Devices []struct {
+			RevokedAt *string `json:"revoked_at"`
+		} `json:"devices"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil || len(list.Devices) != 1 || list.Devices[0].RevokedAt == nil {
+		t.Errorf("guest list after leaving = %s, want one device with revoked_at set", rec.Body)
+	}
+	if code := leave(t, h, guest, pc1); code != http.StatusNotFound {
+		t.Errorf("second leave: status = %d, want 404", code)
+	}
+}
+
+// Nobody else may leave a PC: the admin signs out on it instead (#191), and someone with no
+// access gets the same answer an unknown device gets.
+func TestWhoCannotLeave(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	pc1 := enrolDeviceFor(t, h, "owner@example.com", "pc1")
+	owner := signinToken(t, h, "owner@example.com", "correct horse battery")
+	guest := bind(t, h, pool, pc1, "guest@example.com", "guest")
+	signupReq(t, h, "stranger@example.com", "correct horse battery")
+	stranger := signinToken(t, h, "stranger@example.com", "correct horse battery")
+	revokedGuest := bind(t, h, pool, pc1, "gone@example.com", "guest")
+	goneID := accountIDByEmail(t, pool, "gone@example.com")
+	if _, err := pool.Exec(t.Context(), `UPDATE device_users SET revoked_at = now() WHERE device_id = $1 AND user_id = $2::uuid`, pc1, goneID); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name    string
+		session string
+		want    int
+	}{
+		{"admin does not leave, they sign out on the PC", owner, http.StatusForbidden},
+		{"stranger", stranger, http.StatusNotFound},
+		{"guest whose access was already removed", revokedGuest, http.StatusNotFound},
+	}
+	for _, c := range cases {
+		if code := leave(t, h, c.session, pc1); code != c.want {
+			t.Errorf("%s: leave status = %d, want %d", c.name, code, c.want)
+		}
+	}
+	if n := countRows(t, pool, `SELECT count(*) FROM audit_events WHERE device_id = $1 AND action = $2`, pc1, ActionBindingRevoked); n != 0 {
+		t.Errorf("audit rows = %d, want 0 (nothing was done)", n)
+	}
+
+	// A guest leaving does not touch anyone else's access, and a guest cannot remove
+	// someone else through the revoke endpoint.
+	other := bind(t, h, pool, pc1, "other@example.com", "guest")
+	if _, err := pool.Exec(t.Context(), `UPDATE device_users SET revoked_at = NULL WHERE device_id = $1 AND user_id = $2::uuid`, pc1, accountIDByEmail(t, pool, "gone@example.com")); err != nil {
+		t.Fatal(err)
+	}
+	if code := leave(t, h, guest, pc1); code != http.StatusOK {
+		t.Fatalf("guest leave: status = %d, want 200", code)
+	}
+	if n := countRows(t, pool, `SELECT count(*) FROM device_users WHERE device_id = $1 AND user_id = $2::uuid AND revoked_at IS NULL`, pc1, accountIDByEmail(t, pool, "other@example.com")); n != 1 {
+		t.Errorf("other guest's binding revoked by the leaving guest")
+	}
+	if code := revoke(t, h, guest, pc1, other); code != http.StatusNotFound {
+		t.Errorf("guest revoke of another guest: status = %d, want 404", code)
 	}
 }
 

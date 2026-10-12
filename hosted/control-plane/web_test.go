@@ -391,3 +391,241 @@ func TestAPCNameIsEscapedOnTheApprovePage(t *testing.T) {
 		t.Fatalf("the PC's name is not on the page at all: %s", body)
 	}
 }
+
+// #186. A person starting from the PC and landing on /approve while signed out gets told
+// where an account can be made and where a password can be reset, and both offers carry
+// the code so the person finds the way back to it.
+func TestTheApproveSignInPageOffersSignupAndReset(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	priv := newDeviceKey(t)
+	code := startEnrolmentFor(t, h, priv, "the study PC")
+
+	rec := getPage(t, h, "/approve?code="+code)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := strings.ReplaceAll(rec.Body.String(), `\/`, "/")
+	if !strings.Contains(body, `href="/signup?code=`+code+`"`) ||
+		!strings.Contains(body, "Create an account") {
+		t.Errorf("page does not offer to create an account with the code: %s", body)
+	}
+	if !strings.Contains(body, `href="/reset?code=`+code+`"`) ||
+		!strings.Contains(body, "Forgot your password") {
+		t.Errorf("page does not offer to reset the password with the code: %s", body)
+	}
+}
+
+// #186. Signing up from the carried code ends on the verify page, which offers the way
+// back to the approval the PC is waiting on.
+func TestSignupWithAnApprovalCodeLeadsBackToApproving(t *testing.T) {
+	pool := freshDB(t, 4)
+	m := newMailLog()
+	h := newHandler(pool, m.log, NewMetrics())
+	priv := newDeviceKey(t)
+	code := startEnrolmentFor(t, h, priv, "the study PC")
+
+	if rec := getPage(t, h, "/signup?code="+code); rec.Code != http.StatusOK {
+		t.Fatalf("signup page: status = %d", rec.Code)
+	}
+	rec := doJSON(t, h, http.MethodPost, "/v1/auth/signup",
+		map[string]string{"email": "jane@example.test", "password": "correct-horse-123", "code": code}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("signup: status = %d (body %s)", rec.Code, rec.Body)
+	}
+
+	link, err := url.Parse(m.link(t, "jane@example.test"))
+	if err != nil {
+		t.Fatalf("parse link: %v", err)
+	}
+	if link.Path != "/verify" {
+		t.Fatalf("link path = %q, want /verify", link.Path)
+	}
+	if got := link.Query().Get("code"); got != code {
+		t.Errorf("the confirm link carries code %q, want %q", got, code)
+	}
+
+	rec = getPage(t, h, link.RequestURI())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("the verify page: status = %d", rec.Code)
+	}
+	body := strings.ReplaceAll(rec.Body.String(), `\/`, "/")
+	for _, want := range []string{"Back to approving", "the study PC", `href="/approve?code=` + code + `"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("verify page does not offer %q: %s", want, body)
+		}
+	}
+
+	// The same page without the code offers no way back. The link in the mail decides.
+	rec = getPage(t, h, link.Path+"?token="+link.Query().Get("token"))
+	if strings.Contains(rec.Body.String(), "Back to approving") {
+		t.Errorf("verify page links back with no code in its query string: %s", rec.Body)
+	}
+
+	// The flow the link belongs to still works out to a usable address.
+	rec = doJSON(t, h, http.MethodPost, "/v1/auth/verify",
+		map[string]string{"token": link.Query().Get("token")}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("verify: status = %d (body %s)", rec.Code, rec.Body)
+	}
+	if rec := signinReq(t, h, "jane@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
+		t.Errorf("signin after verify: status = %d (body %s)", rec.Code, rec.Body)
+	}
+}
+
+// #186. Resetting the password from the carried code ends on the confirm page, which
+// offers the way back to the approval.
+func TestResetWithAnApprovalCodeLeadsBackToApproving(t *testing.T) {
+	pool := freshDB(t, 4)
+	m := newMailLog()
+	h := newHandler(pool, m.log, NewMetrics())
+	priv := newDeviceKey(t)
+	code := startEnrolmentFor(t, h, priv, "the study PC")
+	if rec := signupReq(t, h, "kim@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
+		t.Fatalf("signup: status = %d (body %s)", rec.Code, rec.Body)
+	}
+
+	if rec := getPage(t, h, "/reset?code="+code); rec.Code != http.StatusOK {
+		t.Fatalf("reset page: status = %d", rec.Code)
+	}
+	rec := doJSON(t, h, http.MethodPost, "/v1/auth/password-reset/request",
+		map[string]string{"email": "kim@example.test", "code": code}, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reset request: status = %d (body %s)", rec.Code, rec.Body)
+	}
+
+	link, err := url.Parse(m.link(t, "kim@example.test"))
+	if err != nil {
+		t.Fatalf("parse link: %v", err)
+	}
+	if link.Path != "/reset/confirm" {
+		t.Fatalf("link path = %q, want /reset/confirm", link.Path)
+	}
+	if got := link.Query().Get("code"); got != code {
+		t.Errorf("the reset link carries code %q, want %q", got, code)
+	}
+	rec = getPage(t, h, link.RequestURI())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("the confirm page: status = %d", rec.Code)
+	}
+	body := strings.ReplaceAll(rec.Body.String(), `\/`, "/")
+	for _, want := range []string{"Back to approving", "the study PC", `href="/approve?code=` + code + `"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("confirm page does not offer %q: %s", want, body)
+		}
+	}
+}
+
+// #186. The approval code expires on its own schedule and a page cannot name a PC behind
+// a code nothing answers to, so it offers no way back.
+func TestAStaleApprovalCodeEarnsNoWayBack(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	priv := newDeviceKey(t)
+	code := startEnrolmentFor(t, h, priv, "the study PC")
+	if _, err := pool.Exec(t.Context(),
+		`UPDATE device_enrolments SET expires_at = now() - interval '1 second'`); err != nil {
+		t.Fatalf("expire the enrolment: %v", err)
+	}
+
+	for _, target := range []string{
+		"/verify?token=x&code=" + code,
+		"/reset/confirm?token=x&code=" + code,
+	} {
+		if strings.Contains(getPage(t, h, target).Body.String(), "Back to approving") {
+			t.Errorf("%s links back to a code nothing answers to", target)
+		}
+	}
+}
+
+// #183. Signed out the page shows the sign-in form the approve page uses, which reloads
+// signed in.
+func TestTheDeletePageAsksForSignInFirst(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+
+	rec := getPage(t, h, "/account/delete")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := strings.ReplaceAll(rec.Body.String(), `\/`, "/")
+	if !strings.Contains(body, "/v1/auth/signin") {
+		t.Fatalf("page does not offer to sign in: %s", body)
+	}
+	for _, name := range []string{"email", "password"} {
+		if !strings.Contains(body, `name="`+name+`"`) {
+			t.Errorf("no input named %s: %s", name, body)
+		}
+	}
+	// The template pads the boolean with spaces, so compare with the spaces gone.
+	if !strings.Contains(strings.ReplaceAll(body, " ", ""), "constreload=true") {
+		t.Errorf("a signed-out visit must reload after a sign-in: %s", body)
+	}
+}
+
+// #183. Signed in the page says what deleting takes away and sends DELETE to the endpoint
+// the app would call.
+func TestTheSignedInDeletePageSendsDelete(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	if rec := signupReq(t, h, "bye@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
+		t.Fatalf("signup: status = %d (body %s)", rec.Code, rec.Body)
+	}
+	session := signinToken(t, h, "bye@example.test", "correct-horse-123")
+
+	rec := getPageAs(t, h, "/account/delete", session)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := strings.ReplaceAll(rec.Body.String(), `\/`, "/")
+	for _, want := range []string{
+		"Delete your account",
+		"You lose access to every PC on the account",
+		`name="password"`,
+		`const action = "/v1/account"`,
+		`const method = "DELETE"`,
+		"Delete my account",
+		`class="danger"`,
+		"Your account is deleted.",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("page does not say %q: %s", want, body)
+		}
+	}
+}
+
+// #183. The page surfaces what the endpoint answers: a wrong password says so and keeps
+// the account, a right one deletes it and the visit falls back to the sign-in form.
+func TestDeletingThroughThePage(t *testing.T) {
+	pool := freshDB(t, 4)
+	h := newHandler(pool, discard, NewMetrics())
+	if rec := signupReq(t, h, "fade@example.test", "correct-horse-123"); rec.Code != http.StatusOK {
+		t.Fatalf("signup: status = %d (body %s)", rec.Code, rec.Body)
+	}
+	session := signinToken(t, h, "fade@example.test", "correct-horse-123")
+
+	rec := doJSON(t, h, http.MethodDelete, "/v1/account",
+		map[string]string{"password": "wrong-password-1"}, bearer(session))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("delete: status = %d, want 401 (body %s)", rec.Code, rec.Body)
+	}
+	var out struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out.Error != "invalid password" {
+		t.Errorf("the page would say %q, want invalid password", rec.Body)
+	}
+	var n int
+	if err := pool.QueryRow(t.Context(),
+		`SELECT count(*) FROM accounts WHERE email = 'fade@example.test'`).Scan(&n); err != nil || n != 1 {
+		t.Errorf("account count = %d, err = %v, want 1", n, err)
+	}
+
+	if rec := doJSON(t, h, http.MethodDelete, "/v1/account",
+		map[string]string{"password": "correct-horse-123"}, bearer(session)); rec.Code != http.StatusOK {
+		t.Fatalf("delete: status = %d, want 200 (body %s)", rec.Code, rec.Body)
+	}
+	if body := getPageAs(t, h, "/account/delete", session).Body.String(); !strings.Contains(body, "Sign in to delete") {
+		t.Errorf("after deleting, the page still treats the session as signed in: %s", body)
+	}
+}

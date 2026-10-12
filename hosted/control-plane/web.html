@@ -1,6 +1,7 @@
 {{define "style"}}<style>
   :root { color-scheme: light dark; }
-  body { font: 16px/1.5 system-ui, sans-serif; margin: 0 auto; max-width: 26rem; padding: 3rem 1rem; }
+  body { font: 16px/1.5 system-ui, sans-serif; margin: 0; }
+  .col { box-sizing: border-box; margin: 0 auto; max-width: 26rem; padding: 3rem 1rem; }
   h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
   p.sub { color: GrayText; margin: 0 0 1.5rem; }
   label { display: block; margin: 0 0 1rem; }
@@ -9,6 +10,7 @@
   button { border: 1px solid ButtonBorder; border-radius: .35rem; background: ButtonFace; color: ButtonText;
            cursor: pointer; font: inherit; margin: 0 .5rem 0 0; padding: .4rem 1rem; }
   button.deny { color: GrayText; }
+  button.danger { color: #b00; }
   #message { min-height: 1.5rem; }
   #message.bad { color: #b00; }
 </style>{{end}}
@@ -17,8 +19,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <title>{{.Title}}</title>
+{{template "site-style"}}
 {{template "style"}}
 
+{{template "header"}}
+
+<main class="col">
 <h1>{{.Title}}</h1>
 {{if .Intro}}<p class="sub">{{.Intro}}</p>{{end}}
 
@@ -28,13 +34,19 @@
     <input name="{{.Name}}" type="{{.Type}}" autocomplete="{{.Auto}}">
   </label>
   {{end}}
-  {{if .Submit}}<button {{if .Deny}}value="approve"{{end}}>{{.Submit}}</button>{{end}}
+  {{if .Submit}}<button{{if .Danger}} class="danger"{{end}} {{if .Deny}}value="approve"{{end}}>{{.Submit}}</button>{{end}}
   {{if .Deny}}<button class="deny" value="refuse">{{.Deny}}</button>{{end}}
 </form>
 <p id="message"></p>
+{{if .Links}}<p>{{range .Links}}<a href="{{.Href}}">{{.Text}}</a> {{end}}</p>{{end}}
+{{if .BackTo}}<p><a href="{{.BackTo}}">Back to approving {{.BackPC}}</a></p>{{end}}
+</main>
+
+{{template "footer"}}
 
 <script>
 const action = "{{.Action}}";
+const method = "{{.Method}}" || "POST";
 const done = "{{.Done}}";
 const onLoad = {{.OnLoad}};
 const reload = {{.Reload}};
@@ -62,7 +74,7 @@ async function submit(pressed) {
   let res, out;
   try {
     res = await fetch(action, {
-      method: "POST",
+      method: method,
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify(body),
     });

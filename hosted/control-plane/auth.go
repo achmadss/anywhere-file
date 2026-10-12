@@ -321,6 +321,7 @@ func signup(db *pgxpool.Pool, mail *mailer) http.HandlerFunc {
 		var in struct {
 			Email    string `json:"email"`
 			Password string `json:"password"`
+			Code     string `json:"code"` // the approval a page carried, for the way back (#186)
 		}
 		if !decodeBody(w, r, &in) {
 			return
@@ -376,7 +377,7 @@ func signup(db *pgxpool.Pool, mail *mailer) http.HandlerFunc {
 		}
 		mail.send(email, "Confirm your address",
 			"Someone signed up for anywhere-file with this address. Confirm it here:\n\n"+
-				linkBase(r)+"/verify?token="+url.QueryEscape(raw)+
+				linkBase(r)+"/verify?token="+url.QueryEscape(raw)+approvalCode(in.Code)+
 				"\n\nThe link works once and stops working after a day. If this was not you, ignore it.")
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	}
@@ -478,6 +479,7 @@ func resetRequest(db *pgxpool.Pool, mail *mailer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			Email string `json:"email"`
+			Code  string `json:"code"` // the approval a page carried, for the way back (#186)
 		}
 		if !decodeBody(w, r, &in) {
 			return
@@ -496,7 +498,7 @@ func resetRequest(db *pgxpool.Pool, mail *mailer) http.HandlerFunc {
 					if err == nil {
 						mail.send(email, "Reset your password",
 							"Someone asked to reset the anywhere-file password for this address. Set a new one here:\n\n"+
-								linkBase(r)+"/reset/confirm?token="+url.QueryEscape(raw)+
+								linkBase(r)+"/reset/confirm?token="+url.QueryEscape(raw)+approvalCode(in.Code)+
 								"\n\nThe link works once and stops working after an hour. If this was not you, ignore it.")
 					}
 				}
