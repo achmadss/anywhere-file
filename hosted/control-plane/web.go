@@ -15,10 +15,11 @@ import (
 // This process serves them with html/template and embed, so there is nothing else to
 // deploy and no build step.
 
-//go:embed web.html download.html
+//go:embed web.html download.html landing.html legal.html site.html
 var webFiles embed.FS
 
-var webTemplate = template.Must(template.ParseFS(webFiles, "web.html", "download.html"))
+var webTemplate = template.Must(template.ParseFS(webFiles,
+	"web.html", "download.html", "landing.html", "legal.html", "site.html"))
 
 // field is one input. Its name is the JSON key the endpoint under /v1 already reads, so a
 // page posts the body the client posts and nothing under /v1 changes shape. Auto is what
@@ -51,9 +52,9 @@ type page struct {
 	Danger bool   // the button reads in the error colour, for the one action that destroys
 	Deny   string // a second button, which posts approve=false
 	Done   string
+	Links  []link
 	OnLoad bool // post as soon as the page opens, with no button to press
 	Reload bool // on success, load the page again rather than say Done
-	Links  []link
 
 	// Back names the pages a person can arrive at with an approval code they still have
 	// to answer follow-up mail for, like a confirmation or a reset link (#186). When such
@@ -73,6 +74,16 @@ var pages = map[string]page{
 		Action: "/v1/auth/signup",
 		Submit: "Sign up",
 		Done:   "Check your email for a link that confirms the address, then sign in from the app.",
+		Links:  []link{{Href: "/signin", Text: "Sign in"}},
+	},
+	"/signin": {
+		Title:  "Sign in",
+		Intro:  "One account reaches every PC you set up.",
+		Fields: []field{{"email", "Email", "email", "username"}, {"password", "Password", "password", "current-password"}},
+		Action: "/v1/auth/signin",
+		Submit: "Sign in",
+		Done:   "You are signed in. Go back to the app to use your account.",
+		Links:  []link{{Href: "/signup", Text: "Create an account"}},
 	},
 	"/verify": {
 		Title:  "Confirm your address",
@@ -104,6 +115,9 @@ func registerWebRoutes(mux *http.ServeMux, db *pgxpool.Pool) {
 	for path, p := range pages {
 		mux.Handle("GET "+path, servePage(db, p))
 	}
+	mux.HandleFunc("GET /{$}", landingPage)
+	mux.Handle("GET /privacy", legalPage("Privacy", "The privacy policy text is being written."))
+	mux.Handle("GET /terms", legalPage("Terms", "The terms text is being written."))
 	// The approval page tells a visitor whether a code is live, which is the one thing
 	// worth guessing here, so it is rate limited the way the endpoints are.
 	mux.Handle("GET /approve", newRateLimiter(approvePageLimit, rateWindow).middleware(approvePage(db)))
@@ -126,6 +140,23 @@ func signInPage(title, intro string) page {
 		Action: "/v1/auth/signin",
 		Submit: "Sign in",
 		Reload: true,
+	}
+}
+
+// landingPage is the website's first page (#179). Everything it says is fixed in the
+// template, so it has no data of its own.
+func landingPage(w http.ResponseWriter, r *http.Request) { renderTemplate(w, "landing", nil) }
+
+// legal is one of the legal pages (#182). The body is a placeholder until the owner
+// pastes the real text in.
+type legal struct {
+	Title string
+	Body  string
+}
+
+func legalPage(title, body string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		renderTemplate(w, "legal", legal{Title: title, Body: body})
 	}
 }
 

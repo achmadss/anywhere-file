@@ -5,11 +5,15 @@
 <title>Download anywhere-file{{if .Version}} {{.Version}}{{end}}</title>
 {{template "style"}}
 <style>
+  main { box-sizing: border-box; margin: 0 auto; max-width: 46rem; padding: 3rem 1rem; }
   h2 { font-size: 1.1rem; margin: 1.5rem 0 .25rem; }
   ul { margin: 0 0 .5rem; padding-left: 1.2rem; }
   p.small { color: GrayText; font-size: .9rem; margin: .25rem 0; }
 </style>
 
+{{template "header"}}
+
+<main>
 <h1>Download anywhere-file{{if .Version}} {{.Version}}{{end}}</h1>
 {{if .Systems}}
 <p class="sub">Install it on each PC you want to reach. The one for this computer is first.</p>
@@ -33,4 +37,7 @@
 {{else}}
 <p class="sub">The list of files could not be fetched just now. They are all at <a href="{{.Page}}">{{.Page}}</a>.</p>
 {{end}}
+</main>
+
+{{template "footer"}}
 {{end}}
