@@ -9,6 +9,7 @@
   button { border: 1px solid ButtonBorder; border-radius: .35rem; background: ButtonFace; color: ButtonText;
            cursor: pointer; font: inherit; margin: 0 .5rem 0 0; padding: .4rem 1rem; }
   button.deny { color: GrayText; }
+  button.danger { color: #b00; }
   #message { min-height: 1.5rem; }
   #message.bad { color: #b00; }
 </style>{{end}}
@@ -28,13 +29,16 @@
     <input name="{{.Name}}" type="{{.Type}}" autocomplete="{{.Auto}}">
   </label>
   {{end}}
-  {{if .Submit}}<button {{if .Deny}}value="approve"{{end}}>{{.Submit}}</button>{{end}}
+  {{if .Submit}}<button{{if .Danger}} class="danger"{{end}} {{if .Deny}}value="approve"{{end}}>{{.Submit}}</button>{{end}}
   {{if .Deny}}<button class="deny" value="refuse">{{.Deny}}</button>{{end}}
 </form>
 <p id="message"></p>
+{{if .Links}}<p>{{range .Links}}<a href="{{.Href}}">{{.Text}}</a> {{end}}</p>{{end}}
+{{if .BackTo}}<p><a href="{{.BackTo}}">Back to approving {{.BackPC}}</a></p>{{end}}
 
 <script>
 const action = "{{.Action}}";
+const method = "{{.Method}}" || "POST";
 const done = "{{.Done}}";
 const onLoad = {{.OnLoad}};
 const reload = {{.Reload}};
@@ -62,7 +66,7 @@ async function submit(pressed) {
   let res, out;
   try {
     res = await fetch(action, {
-      method: "POST",
+      method: method,
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify(body),
     });
