@@ -20,6 +20,7 @@ fun main() {
     val known = KnownDevices(File(state, "known-devices"))
     val discovery = LanDiscovery(devices, known)
     discovery.start()
+    Remembered(known, devices).start()
     val transfers = DesktopTransfers()
     // The account and where its token is kept (#100): the login keychain where this system
     // has one, and a file only this account can read where it does not.

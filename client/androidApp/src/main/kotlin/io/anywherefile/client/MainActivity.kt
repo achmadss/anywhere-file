@@ -42,6 +42,9 @@ class MainActivity : ComponentActivity() {
         val devices = Devices()
         val known = KnownDevices(File(filesDir, "known-devices"))
         val discovery = NsdDiscovery(this, devices, known)
+        // PCs met before, probed by document even when the network answers nothing (#254).
+        // It runs for the life of the process, so the gate screen shows them too.
+        Remembered(known, devices).start()
         val transfers = AndroidTransfers(applicationContext)
         // The account and where its token is kept (#100). Android keeps it encrypted under a
         // Keystore key; the server address is a plain file beside it, because an address is

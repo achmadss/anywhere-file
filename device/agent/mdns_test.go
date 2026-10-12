@@ -225,7 +225,7 @@ func TestANewAddressOrShareIsAdvertisedAgain(t *testing.T) {
 		t.Skip("no interface here can carry multicast")
 	}
 	var addr atomic.Value
-	addr.Store(net.ParseIP("192.0.2.10"))
+	addr.Store(net.ParseIP("192.168.57.10"))
 	machine := interfaceAddrs
 	// Only the answering interface moves. Another one gaining an address would change
 	// which interface answers, and it may be one that cannot join the group.
@@ -271,10 +271,10 @@ func TestANewAddressOrShareIsAdvertisedAgain(t *testing.T) {
 	names := func(ip string) func(*mdns.MDNSService) bool {
 		return func(s *mdns.MDNSService) bool { return len(s.IPs) == 1 && s.IPs[0].String() == ip }
 	}
-	advertised(names("192.0.2.10"))
+	advertised(names("192.168.57.10"))
 
-	addr.Store(net.ParseIP("192.0.2.20"))
-	advertised(names("192.0.2.20"))
+	addr.Store(net.ParseIP("192.168.57.20"))
+	advertised(names("192.168.57.20"))
 	renewed, err := cert.get(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -282,7 +282,7 @@ func TestANewAddressOrShareIsAdvertisedAgain(t *testing.T) {
 	if renewed == first {
 		t.Fatal("the gateway still serves the certificate for the old address")
 	}
-	if !slices.ContainsFunc(renewed.Leaf.IPAddresses, net.ParseIP("192.0.2.20").Equal) {
+	if !slices.ContainsFunc(renewed.Leaf.IPAddresses, net.ParseIP("192.168.57.20").Equal) {
 		t.Errorf("the new certificate names %v, not the new address", renewed.Leaf.IPAddresses)
 	}
 
@@ -290,4 +290,40 @@ func TestANewAddressOrShareIsAdvertisedAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	advertised(func(s *mdns.MDNSService) bool { return slices.Contains(s.TXT, "apps=dufs,jellyfin") })
+}
+
+// Everything in the record is for the machines on the other side of the LAN (#254): a
+// public IPv4, from a bridged VM network say, tells the whole network where the PC sits
+// on the Internet, and IPv6 churns temporary addresses faster than a TTL is worth
+// anything. Only private IPv4 goes out, with loopback kept as the fallback.
+func TestOnlyPrivateIPv4IsAdvertised(t *testing.T) {
+	iface := &net.Interface{Name: "bridge9", Index: 1, Flags: net.FlagUp | net.FlagMulticast}
+	machine := interfaceAddrs
+	interfaceAddrs = func(i *net.Interface) ([]net.Addr, error) {
+		if i != iface {
+			return machine(i)
+		}
+		return []net.Addr{
+			&net.IPNet{IP: net.ParseIP("192.168.1.10"), Mask: net.CIDRMask(24, 32)}, // private, kept
+			&net.IPNet{IP: net.ParseIP("10.0.0.7"), Mask: net.CIDRMask(8, 32)},      // private, kept
+			&net.IPNet{IP: net.ParseIP("203.0.113.5"), Mask: net.CIDRMask(24, 32)},  // public, dropped
+			&net.IPNet{IP: net.ParseIP("fe80::1"), Mask: net.CIDRMask(64, 128)},     // IPv6, dropped
+			&net.IPNet{IP: net.ParseIP("2001:db8::1"), Mask: net.CIDRMask(64, 128)}, // IPv6, dropped
+		}, nil
+	}
+	t.Cleanup(func() { interfaceAddrs = machine })
+
+	got := localAddrs(iface)
+	want := []string{"192.168.1.10", "10.0.0.7"}
+	if len(got) != len(want) {
+		t.Fatalf("localAddrs = %v, want %v", got, want)
+	}
+	for i, ip := range got {
+		if ip.String() != want[i] {
+			t.Errorf("localAddrs[%d] = %s, want %s", i, ip, want[i])
+		}
+	}
+	if l := localAddrs(nil); len(l) != 1 || !l[0].IsLoopback() {
+		t.Errorf("with nothing usable localAddrs = %v, want loopback", l)
+	}
 }
